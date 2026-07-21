@@ -9,7 +9,9 @@ enum Type {
 	ATTACK,
 	SPEED,
 	DAMAGE,
-	COOLDOWN
+	COOLDOWN,
+	ACCELERATION,
+	FRICTION,
 }
 
 @export var type: Type = Type.MAX_HEALTH
@@ -29,7 +31,7 @@ var modifiers: Array[StatModifier] = []
 
 func add_modifier(modifier: StatModifier) -> void:
 	remove_modifier(modifier.id)
-	modifier.append(modifier)
+	modifiers.append(modifier)
 	update_value()
 
 

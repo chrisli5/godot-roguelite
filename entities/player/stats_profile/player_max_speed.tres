@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="Stat" load_steps=2 format=3 uid="uid://c0s0q48600j1d"]
+
+[ext_resource type="Script" uid="uid://b36aaylcjqa7p" path="res://components/stat_system/resources/stat.gd" id="1_rxcqy"]
+
+[resource]
+script = ExtResource("1_rxcqy")
+type = 3
+base_value = 400.0
+metadata/_custom_type_script = "uid://b36aaylcjqa7p"
