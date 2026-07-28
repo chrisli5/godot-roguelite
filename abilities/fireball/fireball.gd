@@ -1,10 +1,12 @@
+class_name Fireball
 extends Ability
 
 @export var default_speed: float = 400.0
 @export var default_lifetime: float = 3.0
 
 ## Node path hook to our blackboxed child scene component
-@onready var projectile_spawner: ProjectileSpawnerComponent = $ProjectileSpawnerComponent
+@export_group("Components")
+@export var projectile_spawner: ProjectileSpawnerComponent
 
 func _ready() -> void:
 	if projectile_spawner:

@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3 uid="uid://bmqfjjl80hj22"]
+
+[ext_resource type="Script" uid="uid://bc57o8svrrobn" path="res://abilities/fireball/fireball.gd" id="1_tgnnj"]
+[ext_resource type="Script" uid="uid://ckcqe2bew2lbo" path="res://components/ability_system/projectile_spawner_component.gd" id="2_1sunr"]
+[ext_resource type="PackedScene" uid="uid://dlgak2wfy0jb3" path="res://abilities/fireball/fireball_projectile.tscn" id="3_1sunr"]
+[ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat_system/stats_container.gd" id="4_sepjv"]
+
+[node name="Fireball" type="Node" node_paths=PackedStringArray("projectile_spawner", "stats_container")]
+script = ExtResource("1_tgnnj")
+projectile_spawner = NodePath("ProjectileSpawnerComponent")
+stats_container = NodePath("StatsContainer")
+
+[node name="ProjectileSpawnerComponent" type="Node" parent="."]
+script = ExtResource("2_1sunr")
+projectile_scene = ExtResource("3_1sunr")
+
+[node name="StatsContainer" type="Node" parent="."]
+script = ExtResource("4_sepjv")
