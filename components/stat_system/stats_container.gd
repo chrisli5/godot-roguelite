@@ -7,7 +7,7 @@ var profile: StatsProfile
 var stats: Dictionary[Stat.Type, Stat] = {}
 
 
-func initialize_from_profile(stats_profile: StatsProfile) -> void:
+func initialize_profile(stats_profile: StatsProfile) -> void:
 	profile = stats_profile
 	if not profile:
 		push_warning("StatsContainer on %s missing a StatsProfile!" % get_parent().name)

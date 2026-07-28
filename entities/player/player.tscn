@@ -4,7 +4,7 @@
 [ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://entities/player/player_profile.tres" id="2_8fjmc"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="2_fkugw"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat_system/stats_container.gd" id="3_8fjmc"]
-[ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/keyboard_movement_component.gd" id="4_qiwj3"]
+[ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/velocity_movement_component.gd" id="4_qiwj3"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
@@ -12,7 +12,7 @@
 motion_mode = 1
 script = ExtResource("1_bls4j")
 stats_container = NodePath("StatsContainer")
-movement_component = NodePath("KeyboardMovementComponent")
+movement_component = NodePath("VelocityMovementComponent")
 stats_profile = ExtResource("2_8fjmc")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -24,5 +24,5 @@ shape = SubResource("CircleShape2D_26q78")
 [node name="StatsContainer" type="Node" parent="."]
 script = ExtResource("3_8fjmc")
 
-[node name="KeyboardMovementComponent" type="Node" parent="."]
+[node name="VelocityMovementComponent" type="Node" parent="."]
 script = ExtResource("4_qiwj3")

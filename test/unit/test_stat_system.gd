@@ -4,6 +4,7 @@ const StatClass = preload("res://components/stat_system/resources/stat.gd")
 const StatModifierClass = preload("res://components/stat_system/resources/stat_modifier.gd")
 const StatsContainerClass = preload("res://components/stat_system/stats_container.gd")
 const StatsProfileClass = preload("res://components/stat_system/resources/stats_profile.gd")
+const AbilityDataClass = preload("res://components/ability_system/resources/ability_data.gd")
 
 var container: StatsContainer
 
@@ -12,6 +13,19 @@ func before_each() -> void:
 	# Use GUT's memory management to automatically clear nodes and avoid leaks
 	container = autofree(StatsContainerClass.new())
 
+func test_ability_data_resource_binding() -> void:
+	var mock_profile = autofree(StatsProfileClass.new())
+	var ability_data = autofree(AbilityDataClass.new())
+	
+	# Create a dummy packed scene or load a placeholder to test reference retention
+	var mock_scene = PackedScene.new()
+	
+	ability_data.ability_scene = mock_scene
+	ability_data.stats_profile = mock_profile
+	
+	assert_not_null(ability_data.ability_scene, "AbilityData should accurately hold a PackedScene reference.")
+	assert_not_null(ability_data.stats_profile, "AbilityData should safely bind a custom StatsProfile asset.")
+	assert_eq(ability_data.stats_profile, mock_profile, "The assigned profile instance must match the stored reference exactly.")
 # --- STAT RESOURCE TESTS ---
 
 func test_flat_modifier_calculation() -> void:
@@ -108,7 +122,7 @@ func test_container_initialization_from_profile() -> void:
 	profile.default_stats.append(health_stat)
 	
 	# Execute container init
-	container.initialize_from_profile(profile)
+	container.initialize_profile(profile)
 	
 	assert_true(container.stats.has(StatClass.Type.MAX_HEALTH), "Container should index stat by Type.")
 	assert_eq(container.get_stat_value(StatClass.Type.MAX_HEALTH), 500.0, "Container values should match profile data.")
@@ -120,7 +134,7 @@ func test_stat_updated_signal_emission() -> void:
 	attack_stat.base_value = 10.0
 	profile.default_stats.append(attack_stat)
 	
-	container.initialize_from_profile(profile)
+	container.initialize_profile(profile)
 	
 	# Watch the container node for signal emissions
 	watch_signals(container)

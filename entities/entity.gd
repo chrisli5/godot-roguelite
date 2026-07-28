@@ -28,7 +28,7 @@ func _ready() -> void:
 	if not components_valid:
 		return
 		
-	stats_container.initialize_from_profile(stats_profile)
+	stats_container.initialize_profile(stats_profile)
 
 
 @abstract
