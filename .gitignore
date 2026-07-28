@@ -4,3 +4,4 @@ addons/
 assets/
 test/
 /android/
+*.uid
