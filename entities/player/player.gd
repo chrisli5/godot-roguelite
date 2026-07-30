@@ -1,6 +1,16 @@
 class_name Player
 extends Entity
 
+@export_group("Components")
+@export var progression_component: ProgressionComponent
+@export var collector_component: CollectorComponent
+
+
+func _ready() -> void:
+	super()
+	if is_instance_valid(collector_component):
+		collector_component.payload_collected.connect(_on_payload_collected)
+
 
 func _physics_process(_delta: float) -> void:
 	_handle_movement_physics()
@@ -28,5 +38,10 @@ func _handle_movement_physics() -> void:
 	
 	velocity = movement_component.calculate_velocity(velocity, target_velocity, max_speed, acceleration, friction)
 	move_and_slide()
-		
-	
+
+
+func _on_payload_collected(payload: PickupPayload) -> void:
+	match payload.type:
+		"experience":
+			if is_instance_valid(progression_component):
+				progression_component.gain_experience(payload.value)

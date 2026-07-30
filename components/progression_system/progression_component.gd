@@ -1,7 +1,7 @@
 class_name ProgressionComponent
 extends Node
 
-signal experienced_gained(gained_amount: float, total_xp: float)
+signal experience_gained(gained_amount: float, total_xp: float)
 signal leveled_up(new_level: int, stats_profile_reference: Resource)
 
 @export var thresholds_profile: LevelThresholdsProfile
@@ -17,7 +17,7 @@ func gain_experience(amount: float) -> void:
 		
 	current_xp += amount
 	total_accumulated_xp += amount
-	experienced_gained.emit(amount, current_xp)
+	experience_gained.emit(amount, current_xp)
 	
 	_evaluate_progression_loop()
 
