@@ -8,8 +8,20 @@ extends Entity
 
 func _ready() -> void:
 	super()
-	if is_instance_valid(collector_component):
-		collector_component.payload_collected.connect(_on_payload_collected)
+	var components_valid: bool = true
+	
+	if not progression_component:
+		push_error("Entity '%s' is missing a ProgressionComponent!" % name)
+		components_valid = false
+	if not collector_component:
+		push_error("Entity '%s' is missing a CollectorComponent!" % name)
+		components_valid = false	
+
+	if not components_valid:
+		return
+	
+	collector_component.payload_collected.connect(_on_payload_collected)
+	progression_component.leveled_up.connect(_on_leveled_up)
 
 
 func _physics_process(_delta: float) -> void:
@@ -38,6 +50,10 @@ func _handle_movement_physics() -> void:
 	
 	velocity = movement_component.calculate_velocity(velocity, target_velocity, max_speed, acceleration, friction)
 	move_and_slide()
+
+
+func _on_leveled_up() -> void:
+	pass
 
 
 func _on_payload_collected(payload: PickupPayload) -> void:

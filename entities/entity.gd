@@ -5,8 +5,10 @@ extends CharacterBody2D
 signal died
 
 @export_group("Components")
+@export var ability_container: AbilityContainer
 @export var stats_container: StatsContainer
 @export var movement_component: MovementComponent
+@export var status_effect_component: StatusEffectComponent
 
 @export_group("Stats Profile")
 @export var stats_profile: StatsProfile
@@ -28,8 +30,42 @@ func _ready() -> void:
 	if not components_valid:
 		return
 		
+	status_effect_component.modifier_addition_requested.connect(_on_add_stat_modifier_requested)
+	status_effect_component.modifier_removal_requested.connect(_on_remove_stat_modifier_requested)
+	
 	stats_container.initialize_profile(stats_profile)
 
 
 @abstract
 func _handle_movement_physics() -> void
+
+
+func add_stat_modifier(stat_type: Stat.Type, modifier: StatModifier, target_ability_id: int) -> void:
+	if not is_instance_valid(modifier): return
+	var active_stats_container = _resolve_stats_container(target_ability_id)
+	if is_instance_valid(active_stats_container):
+		active_stats_container.add_modifier(stat_type, modifier)
+
+
+func remove_stat_modifier(stat_type: Stat.Type, modifier_id: String, target_ability_id: int) -> void:
+	var active_stats_container = _resolve_stats_container(target_ability_id)
+	if is_instance_valid(active_stats_container):
+		active_stats_container.remove_modifier(stat_type, modifier_id)
+
+
+func _resolve_stats_container(target_ability_id: int) -> StatsContainer:
+	if target_ability_id > 0:
+		if is_instance_valid(ability_container):
+			var ability = ability_container.get_ability_by_id(target_ability_id)
+			if is_instance_valid(ability) and is_instance_valid(ability.stats_container):
+				return ability.stats_container
+		return null
+	return stats_container
+
+
+func _on_add_stat_modifier_requested(stat_type: Stat.Type, modifier: StatModifier, target_ability_id: int):
+	add_stat_modifier(stat_type, modifier, target_ability_id)
+
+
+func _on_remove_stat_modifier_requested(stat_type: Stat.Type, modifier_id: String, target_ability_id: int):
+	remove_stat_modifier(stat_type, modifier_id, target_ability_id)

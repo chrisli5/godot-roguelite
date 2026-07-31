@@ -1,22 +1,30 @@
-[gd_scene load_steps=8 format=3 uid="uid://dgoq3h4eqmvj"]
+[gd_scene load_steps=12 format=3 uid="uid://dgoq3h4eqmvj"]
 
 [ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://entities/player/player.gd" id="1_bls4j"]
 [ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://entities/player/player_profile.tres" id="2_8fjmc"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="2_fkugw"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat_system/stats_container.gd" id="3_8fjmc"]
 [ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/velocity_movement_component.gd" id="4_qiwj3"]
+[ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability_system/ability_container.gd" id="5_bectd"]
 [ext_resource type="Script" uid="uid://b6b6gqeb5wik8" path="res://components/progression_system/progression_component.gd" id="6_8fjmc"]
+[ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction_system/collector_component.gd" id="6_wvtmh"]
+[ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
-[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "stats_container", "movement_component")]
+[sub_resource type="CircleShape2D" id="CircleShape2D_bectd"]
+
+[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "collector_component", "ability_container", "stats_container", "movement_component", "status_effect_component")]
 collision_layer = 2
 collision_mask = 0
 motion_mode = 1
 script = ExtResource("1_bls4j")
 progression_component = NodePath("ProgressionComponent")
+collector_component = NodePath("CollectorComponent")
+ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 movement_component = NodePath("VelocityMovementComponent")
+status_effect_component = NodePath("StatusEffectComponent")
 stats_profile = ExtResource("2_8fjmc")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -28,8 +36,20 @@ shape = SubResource("CircleShape2D_26q78")
 [node name="StatsContainer" type="Node" parent="."]
 script = ExtResource("3_8fjmc")
 
-[node name="VelocityMovementComponent" type="Node" parent="."]
-script = ExtResource("4_qiwj3")
+[node name="AbilityContainer" type="Node" parent="."]
+script = ExtResource("5_bectd")
+
+[node name="CollectorComponent" type="Area2D" parent="."]
+script = ExtResource("6_wvtmh")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CollectorComponent"]
+shape = SubResource("CircleShape2D_bectd")
 
 [node name="ProgressionComponent" type="Node" parent="."]
 script = ExtResource("6_8fjmc")
+
+[node name="StatusEffectComponent" type="Node" parent="."]
+script = ExtResource("8_7thud")
+
+[node name="VelocityMovementComponent" type="Node" parent="."]
+script = ExtResource("4_qiwj3")
