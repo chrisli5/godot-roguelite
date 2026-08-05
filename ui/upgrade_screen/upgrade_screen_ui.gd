@@ -8,6 +8,7 @@ extends CanvasLayer
 @export var upgrade_manager: UpgradeManager
 
 @onready var cards_container: HBoxContainer = $MarginContainer/HBoxContainer
+@onready var reroll_button: Button = $MarginContainer/RerollButton
 
 
 func _ready() -> void:
@@ -16,6 +17,8 @@ func _ready() -> void:
 	
 	if is_instance_valid(upgrade_manager):
 		upgrade_manager.upgrade_options_ready.connect(_on_upgrade_options_presented)
+	if is_instance_valid(reroll_button):
+		reroll_button.pressed.connect(_on_reroll_button_pressed)
 		
 	# Automatically self-intercept selection notifications to clear view frames
 	EventBus.upgrade_selected.connect(_on_choice_finalized)
@@ -39,3 +42,7 @@ func _on_upgrade_options_presented(options: Array[UpgradeChoice]) -> void:
 
 func _on_choice_finalized(_chosen_choice: UpgradeChoice) -> void:
 	hide()
+
+
+func _on_reroll_button_pressed() -> void:
+	EventBus.upgrade_reroll_requested.emit()

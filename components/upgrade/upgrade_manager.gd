@@ -3,12 +3,14 @@ extends Node
 
 signal upgrade_options_ready(options: Array[UpgradeChoice])
 
+var _cached_full_pool: Array[UpgradeChoice] = []
 var _level_up_queue: Array[int] = []
 var _is_presenting_ui: bool = false
 
 func _ready() -> void:
 	EventBus.player_leveled_up.connect(_on_player_leveled_up)
 	EventBus.upgrade_selected.connect(_on_ui_upgrade_selected)
+	EventBus.upgrade_reroll_requested.connect(reroll_current_options)
 
 
 func _on_player_leveled_up(new_level: int) -> void:
@@ -25,15 +27,26 @@ func _try_process_next_level_up() -> void:
 		return
 
 	_is_presenting_ui = true
-	
-	var _processing_level = _level_up_queue.pop_front()
-
 	get_tree().paused = true
 	
-	var full_pool: Array[UpgradeChoice] = generate_selection_pool(current_player)
-	var rolled_options: Array[UpgradeChoice] = _roll_random_subset(full_pool, 3)
+	var _processing_level = _level_up_queue.pop_front()
+	_cached_full_pool = generate_selection_pool(current_player)
 	
+	var rolled_options: Array[UpgradeChoice] = _roll_random_subset(_cached_full_pool, 3)
 	upgrade_options_ready.emit(rolled_options)
+
+
+func reroll_current_options() -> void:
+	# Enforce safety guard limits (E.g. spend a reroll currency token here if desired)
+	if not _is_presenting_ui or _cached_full_pool.is_empty():
+		return
+		
+	# Instantly roll a fresh subset deck without expensive hierarchy lookups
+	var fresh_rolled_options: Array[UpgradeChoice] = _roll_random_subset(_cached_full_pool, 3)
+	
+	# Broadcast the fresh cards straight to the UI listeners to update the screen
+	upgrade_options_ready.emit(fresh_rolled_options)
+
 
 ## Intercepts user card selection events to apply state updates and resume the game loop
 func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
@@ -57,7 +70,7 @@ func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
 	
 	# 3. Hand off raw context values to the player actor execution layer
 	current_player.apply_contextual_upgrade(chosen_choice)
-	
+	_cached_full_pool.clear()
 	# 4. Turn off the active presentation lock flag
 	_is_presenting_ui = false
 	

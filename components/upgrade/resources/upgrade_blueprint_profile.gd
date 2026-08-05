@@ -86,9 +86,9 @@ func _generate_single_line_trackers() -> Array[UpgradeTracker]:
 		tracker.max_purchases = 1 
 		tracker.current_purchases = 0
 		
-		if tier > 0:
-			var previous_tier_id = definition_template.upgrade_id + "_tier_" + str(tier)
-			tracker.prerequisite_upgrade_ids.append(previous_tier_id)
+		#if tier > 0:
+			#var previous_tier_id = definition_template.upgrade_id + "_tier_" + str(tier)
+			#tracker.prerequisite_upgrade_ids.append(previous_tier_id)
 			
 		generated_list.append(tracker)
 		
