@@ -1,0 +1,41 @@
+class_name UpgradeScreenUI
+extends CanvasLayer
+
+@export_group("Layout Configurations")
+@export var card_scene: PackedScene
+
+@export_group("Upgrade Manager Wiring")
+@export var upgrade_manager: UpgradeManager
+
+@onready var cards_container: HBoxContainer = $MarginContainer/HBoxContainer
+
+
+func _ready() -> void:
+	# Keep user interface hidden from standard screen runtime frames by default
+	hide()
+	
+	if is_instance_valid(upgrade_manager):
+		upgrade_manager.upgrade_options_ready.connect(_on_upgrade_options_presented)
+		
+	# Automatically self-intercept selection notifications to clear view frames
+	EventBus.upgrade_selected.connect(_on_choice_finalized)
+
+func _on_upgrade_options_presented(options: Array[UpgradeChoice]) -> void:
+	if not is_instance_valid(cards_container) or not is_instance_valid(card_scene):
+		return
+		
+	# Clear out old card frames from previous level-up cycles
+	for child in cards_container.get_children():
+		child.queue_free()
+		
+	# Populate screen with newly drawn card choice options
+	for choice in options:
+		var card_instance = card_scene.instantiate()
+		if card_instance is UpgradeCard:
+			cards_container.add_child(card_instance)
+			card_instance.populate_display_data(choice)
+
+	show()
+
+func _on_choice_finalized(_chosen_choice: UpgradeChoice) -> void:
+	hide()

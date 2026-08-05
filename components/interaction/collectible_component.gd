@@ -2,12 +2,7 @@
 class_name CollectibleComponent
 extends Area2D
 
-signal collected
-
-
-func _ready() -> void:
-	collision_layer = 0
-	monitoring = false
+signal pickup_collected
 
 
 @abstract
@@ -15,5 +10,5 @@ func get_pickup_payload() -> PickupPayload
 
 
 func register_collection() -> void:
-	monitorable = false
-	collected.emit()
+	set_deferred("monitorable", false)
+	pickup_collected.emit()

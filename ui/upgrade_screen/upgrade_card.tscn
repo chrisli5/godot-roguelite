@@ -1,0 +1,25 @@
+[gd_scene load_steps=2 format=3 uid="uid://cnkj8o7nekcf6"]
+
+[ext_resource type="Script" uid="uid://d2l2a5boryti2" path="res://ui/upgrade_screen/upgrade_card.gd" id="1_ddxqp"]
+
+[node name="UpgradeCard" type="PanelContainer" node_paths=PackedStringArray("title_label", "description_label", "target_tag_label")]
+custom_minimum_size = Vector2(300, 300)
+script = ExtResource("1_ddxqp")
+title_label = NodePath("MarginContainer/VBoxContainer/Title")
+description_label = NodePath("MarginContainer/VBoxContainer/Description")
+target_tag_label = NodePath("MarginContainer/VBoxContainer/TargetTag")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Description" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="TargetTag" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2

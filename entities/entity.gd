@@ -53,6 +53,22 @@ func remove_stat_modifier(stat_type: Stat.Type, modifier_id: String, target_abil
 		active_stats_container.remove_modifier(stat_type, modifier_id)
 
 
+func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
+	var definition: UpgradeDefinition = choice.definition
+	
+	match definition.payload_type:
+		UpgradeDefinition.PayloadType.STAT_MODIFIER:
+			add_stat_modifier(
+				definition.target_stat_type, 
+				definition.modifier, 
+				choice.target_ability_id
+			)
+			
+		UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
+			if is_instance_valid(definition.ability_to_unlock) and is_instance_valid(ability_container):
+				ability_container.add_ability_from_data(definition.ability_to_unlock)
+
+
 func _resolve_stats_container(target_ability_id: int) -> StatsContainer:
 	if target_ability_id > 0:
 		if is_instance_valid(ability_container):

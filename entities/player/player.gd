@@ -4,6 +4,7 @@ extends Entity
 @export_group("Components")
 @export var progression_component: ProgressionComponent
 @export var collector_component: CollectorComponent
+@export var upgrade_tree_component: UpgradeTreeComponent
 
 
 func _ready() -> void:
@@ -15,13 +16,24 @@ func _ready() -> void:
 		components_valid = false
 	if not collector_component:
 		push_error("Entity '%s' is missing a CollectorComponent!" % name)
+		components_valid = false
+	if not upgrade_tree_component:
+		push_error("Entity '%s' is missing a UpgradeTreeComponent!" % name)
 		components_valid = false	
 
 	if not components_valid:
 		return
 	
 	collector_component.payload_collected.connect(_on_payload_collected)
-	progression_component.leveled_up.connect(_on_leveled_up)
+
+
+func _enter_tree() -> void:
+	EventBus.active_player = self
+
+
+func _exit_tree() -> void:
+	if EventBus.active_player == self:
+		EventBus.active_player = null
 
 
 func _physics_process(_delta: float) -> void:
@@ -50,10 +62,6 @@ func _handle_movement_physics() -> void:
 	
 	velocity = movement_component.calculate_velocity(velocity, target_velocity, max_speed, acceleration, friction)
 	move_and_slide()
-
-
-func _on_leveled_up() -> void:
-	pass
 
 
 func _on_payload_collected(payload: PickupPayload) -> void:

@@ -2,7 +2,6 @@ class_name ProgressionComponent
 extends Node
 
 signal experience_gained(gained_amount: float, total_xp: float)
-signal leveled_up(new_level: int, stats_profile_reference: Resource)
 
 @export var thresholds_profile: LevelThresholdsProfile
 
@@ -33,7 +32,7 @@ func _evaluate_progression_loop() -> void:
 		current_xp -= required_xp
 		current_level += 1
 		
-		leveled_up.emit(current_level, thresholds_profile)
-		
+		EventBus.player_leveled_up.emit(current_level)
+		print("level: ", current_level)
 		# Fetch next evaluation target tier ceiling dynamically
 		required_xp = thresholds_profile.get_required_xp_for_level(current_level + 1)

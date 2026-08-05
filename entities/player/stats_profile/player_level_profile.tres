@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="LevelThresholdsProfile" load_steps=2 format=3 uid="uid://ch47sl0dooves"]
+
+[ext_resource type="Script" uid="uid://yurq5kses6fx" path="res://components/progression/resources/level_thresholds_profile.gd" id="1_4hgha"]
+
+[resource]
+script = ExtResource("1_4hgha")
+base_xp_requirement = 1.0
+metadata/_custom_type_script = "uid://yurq5kses6fx"

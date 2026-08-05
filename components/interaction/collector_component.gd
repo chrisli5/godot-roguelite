@@ -5,7 +5,6 @@ signal payload_collected(payload: PickupPayload)
 
 
 func _ready() -> void:
-	collision_layer = 0
 	area_entered.connect(_on_area_entered)
 
 

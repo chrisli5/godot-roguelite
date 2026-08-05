@@ -10,5 +10,5 @@ func _ready() -> void:
 		experience_pickup_component.pickup_collected.connect(_on_pickup_collected)
 
 
-func _on_pickup_collected(_by_entity: Node) -> void:
+func _on_pickup_collected() -> void:
 	queue_free()

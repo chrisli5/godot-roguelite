@@ -1,26 +1,32 @@
-[gd_scene load_steps=12 format=3 uid="uid://dgoq3h4eqmvj"]
+[gd_scene load_steps=16 format=3 uid="uid://dgoq3h4eqmvj"]
 
 [ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://entities/player/player.gd" id="1_bls4j"]
 [ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://entities/player/player_profile.tres" id="2_8fjmc"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="2_fkugw"]
-[ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat_system/stats_container.gd" id="3_8fjmc"]
+[ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="3_8fjmc"]
 [ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/velocity_movement_component.gd" id="4_qiwj3"]
-[ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability_system/ability_container.gd" id="5_bectd"]
-[ext_resource type="Script" uid="uid://b6b6gqeb5wik8" path="res://components/progression_system/progression_component.gd" id="6_8fjmc"]
-[ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction_system/collector_component.gd" id="6_wvtmh"]
+[ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="5_bectd"]
+[ext_resource type="Script" uid="uid://b6b6gqeb5wik8" path="res://components/progression/progression_component.gd" id="6_8fjmc"]
+[ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction/collector_component.gd" id="6_wvtmh"]
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
+[ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://entities/player/stats_profile/player_level_profile.tres" id="8_wvtmh"]
+[ext_resource type="Script" uid="uid://bsxfuvn01glay" path="res://components/upgrade/upgrade_tree_component.gd" id="11_a1qjk"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_j3ovn"]
+[ext_resource type="Resource" uid="uid://dy1ftkmydw16b" path="res://entities/player/upgrade_profile/player_speed_profile.tres" id="13_afbqv"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_bectd"]
+radius = 24.0
 
-[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "collector_component", "ability_container", "stats_container", "movement_component", "status_effect_component")]
+[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "collector_component", "upgrade_tree_component", "ability_container", "stats_container", "movement_component", "status_effect_component")]
 collision_layer = 2
 collision_mask = 0
 motion_mode = 1
 script = ExtResource("1_bls4j")
 progression_component = NodePath("ProgressionComponent")
 collector_component = NodePath("CollectorComponent")
+upgrade_tree_component = NodePath("UpgradeTreeComponent")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 movement_component = NodePath("VelocityMovementComponent")
@@ -40,6 +46,9 @@ script = ExtResource("3_8fjmc")
 script = ExtResource("5_bectd")
 
 [node name="CollectorComponent" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
 script = ExtResource("6_wvtmh")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="CollectorComponent"]
@@ -47,9 +56,14 @@ shape = SubResource("CircleShape2D_bectd")
 
 [node name="ProgressionComponent" type="Node" parent="."]
 script = ExtResource("6_8fjmc")
+thresholds_profile = ExtResource("8_wvtmh")
 
 [node name="StatusEffectComponent" type="Node" parent="."]
 script = ExtResource("8_7thud")
 
 [node name="VelocityMovementComponent" type="Node" parent="."]
 script = ExtResource("4_qiwj3")
+
+[node name="UpgradeTreeComponent" type="Node" parent="."]
+script = ExtResource("11_a1qjk")
+blueprint_profiles = Array[ExtResource("12_j3ovn")]([ExtResource("13_afbqv")])

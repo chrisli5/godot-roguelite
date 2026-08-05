@@ -71,3 +71,7 @@ func remove_modifier_from_ability(ability_instance_id: int, stat_type: Stat.Type
 		return
 		
 	ability.stats_container.remove_modifier(stat_type, modifier_id)
+
+
+func get_active_abilities() -> Array:
+	return abilities.values()

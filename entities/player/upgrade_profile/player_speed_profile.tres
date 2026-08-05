@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=4 format=3 uid="uid://dy1ftkmydw16b"]
+
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="1_ea3dk"]
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_rtp0e"]
+[ext_resource type="Resource" uid="uid://dltdjd6cbrrkg" path="res://entities/player/upgrade_profile/player_speed_def.tres" id="1_slstj"]
+
+[resource]
+script = ExtResource("1_ea3dk")
+definition_template = ExtResource("1_slstj")
+levels_per_tier = 0
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

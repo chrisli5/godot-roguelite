@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://d23mkghb50m7a"]
+
+[ext_resource type="Script" uid="uid://vp43uskrficf" path="res://ui/upgrade_screen/upgrade_screen_ui.gd" id="1_asqfa"]
+
+[node name="UpgradeScreenUI" type="CanvasLayer"]
+script = ExtResource("1_asqfa")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2

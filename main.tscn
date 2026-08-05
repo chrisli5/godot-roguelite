@@ -1,9 +1,25 @@
-[gd_scene load_steps=3 format=3 uid="uid://b3w47o22pu23x"]
+[gd_scene load_steps=7 format=3 uid="uid://b3w47o22pu23x"]
 
 [ext_resource type="Script" uid="uid://cr4r81mgqs3o1" path="res://main.gd" id="1_ig7tw"]
 [ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://entities/player/player.tscn" id="2_0xm2m"]
+[ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_1bvp3"]
+[ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://objects/xp_gem/xp_gem.tscn" id="3_h2yge"]
+[ext_resource type="PackedScene" uid="uid://d23mkghb50m7a" path="res://ui/upgrade_screen/upgrade_screen_ui.tscn" id="5_7mycd"]
+[ext_resource type="PackedScene" uid="uid://cnkj8o7nekcf6" path="res://ui/upgrade_screen/upgrade_card.tscn" id="6_7mycd"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_ig7tw")
 
+[node name="UpgradeManager" type="Node" parent="."]
+script = ExtResource("2_1bvp3")
+
 [node name="Player" parent="." instance=ExtResource("2_0xm2m")]
+position = Vector2(160, 70)
+
+[node name="XPGem" parent="." instance=ExtResource("3_h2yge")]
+position = Vector2(113, 69)
+
+[node name="UpgradeScreenUI" parent="." node_paths=PackedStringArray("upgrade_manager") instance=ExtResource("5_7mycd")]
+process_mode = 2
+card_scene = ExtResource("6_7mycd")
+upgrade_manager = NodePath("../UpgradeManager")
