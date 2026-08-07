@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SceneProfile" load_steps=3 format=3 uid="uid://t4jsjojboxxs"]
+
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="1_o2ac4"]
+[ext_resource type="Script" uid="uid://b7j2blnwiks6g" path="res://components/loading/resources/scene_profile.gd" id="2_a450v"]
+
+[resource]
+script = ExtResource("2_a450v")
+scene_id = "main_menu"
+display_name = "Main Menu"
+category = 1
+scene_file_path = "uid://c21odq6ae4ik8"
+metadata/_custom_type_script = "uid://b7j2blnwiks6g"

@@ -1,0 +1,105 @@
+class_name SceneTransitionManager
+extends Node
+
+@export_group("Database Dependencies")
+@export var scene_database: SceneDatabase
+
+## Target container bucket where dynamic scenes are mounted
+var scene_container: Node = null
+var _is_transitioning: bool = false
+var _target_scene_path: String = ""
+var _loading_progress_array: Array = []
+
+func _ready() -> void:
+	# Synchronize connection to trace the agnostic event channel
+	EventBus.scene_change_requested.connect(transition_to_scene)
+	set_process(false) # Disable delta loops until a background load phase awakens
+	
+	if is_instance_valid(scene_database):
+		scene_database.initialize_database()
+
+## External initialization pass invoked by the Main orchestrator setup sequence
+func initialize_context(target_container: Node) -> void:
+	scene_container = target_container
+
+## Core thread handler entry hook coordinating the asset pipeline switch
+func transition_to_scene(target_scene_id: String) -> void:
+	if _is_transitioning or not is_instance_valid(scene_container) or not is_instance_valid(scene_database): 
+		return
+		
+	var profile: SceneProfile = scene_database.get_profile(target_scene_id)
+	if not is_instance_valid(profile):
+		push_error("SceneTransitionManager: Requested scene_id not found: " + target_scene_id)
+		return
+		
+	var next_scene_path = profile.scene_file_path
+	if next_scene_path.is_empty() or not FileAccess.file_exists(next_scene_path):
+		push_error("SceneTransitionManager: Path inside profile is invalid: " + next_scene_path)
+		return
+		
+	_is_transitioning = true
+	_target_scene_path = next_scene_path
+	_loading_progress_array = [0.0]
+	
+	EventBus.scene_transition_started.emit()
+	
+	# Pause active physics loops if entering a gameplay level to prevent frame timing issues
+	if profile.category == SceneProfile.SceneCategory.GAMEPLAY_LEVEL:
+		get_tree().paused = true
+
+	# Purge the existing LevelRoot scene completely from engine memory pointers
+	for child in scene_container.get_children():
+		child.queue_free()
+		
+	# Defer one frame pass to ensure old node addresses are safely cleared from RAM
+	await get_tree().process_frame
+
+	# Spin up Multi-Threaded Load Pass (background CPU worker thread)
+	var error = ResourceLoader.load_threaded_request(_target_scene_path, "", true)
+	if error != OK:
+		push_error("SceneTransitionManager: Threaded load request failed with error code: " + str(error))
+		_cleanup_failed_transition()
+		return
+		
+	# Awake the frame monitor loop callback to query worker thread compilation updates
+	set_process(true)
+
+## Thread status surveillance engine loop frame ticks
+func _process(_delta: float) -> void:
+	var status = ResourceLoader.load_threaded_get_status(_target_scene_path, _loading_progress_array)
+	
+	match status:
+		ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			return # Still baking elements safely inside backgrounds; wait for subsequent frames
+			
+		ResourceLoader.THREAD_LOAD_LOADED:
+			set_process(false)
+			_finalize_scene_swap()
+			
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			set_process(false)
+			push_error("SceneTransitionManager: Asynchronous thread tracking encountered fatal error status: " + str(status))
+			_cleanup_failed_transition()
+
+## Finishes mounting the newly baked layout elements into the active tree
+func _finalize_scene_swap() -> void:
+	var packed_scene = ResourceLoader.load_threaded_get(_target_scene_path) as PackedScene
+	if is_instance_valid(packed_scene) and is_instance_valid(scene_container):
+		var new_instance = packed_scene.instantiate()
+		scene_container.add_child(new_instance)
+		
+	# Unpause the active process thread runners safely once compilation completes
+	get_tree().paused = false
+	await get_tree().process_frame
+
+	# Flush internal pipeline cache trackers
+	_target_scene_path = ""
+	_is_transitioning = false
+	EventBus.scene_transition_finished.emit()
+
+## Emergency fallback cleanup pipeline handling broken/missing disk files safely
+func _cleanup_failed_transition() -> void:
+	get_tree().paused = false
+	_target_scene_path = ""
+	_is_transitioning = false
+	EventBus.scene_transition_finished.emit()

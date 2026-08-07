@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SceneProfile" load_steps=3 format=3 uid="uid://dhda0clmo20mo"]
+
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="1_m8hh6"]
+[ext_resource type="Script" uid="uid://b7j2blnwiks6g" path="res://components/loading/resources/scene_profile.gd" id="2_1gwry"]
+
+[resource]
+script = ExtResource("2_1gwry")
+scene_id = "forest_map"
+display_name = "Forgotten Forest"
+scene_file_path = "uid://cmhhvwlg88dxg"
+metadata/_custom_type_script = "uid://b7j2blnwiks6g"

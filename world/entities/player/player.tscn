@@ -1,7 +1,7 @@
 [gd_scene load_steps=16 format=3 uid="uid://dgoq3h4eqmvj"]
 
-[ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://entities/player/player.gd" id="1_bls4j"]
-[ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://entities/player/player_profile.tres" id="2_8fjmc"]
+[ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://world/entities/player/player.gd" id="1_bls4j"]
+[ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://world/entities/player/player_profile.tres" id="2_8fjmc"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="2_fkugw"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="3_8fjmc"]
 [ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/velocity_movement_component.gd" id="4_qiwj3"]
@@ -9,10 +9,10 @@
 [ext_resource type="Script" uid="uid://b6b6gqeb5wik8" path="res://components/progression/progression_component.gd" id="6_8fjmc"]
 [ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction/collector_component.gd" id="6_wvtmh"]
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
-[ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://entities/player/stats_profile/player_level_profile.tres" id="8_wvtmh"]
+[ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://world/entities/player/stats_profile/player_level_profile.tres" id="8_wvtmh"]
 [ext_resource type="Script" uid="uid://bsxfuvn01glay" path="res://components/upgrade/upgrade_tree_component.gd" id="11_a1qjk"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_j3ovn"]
-[ext_resource type="Resource" uid="uid://dy1ftkmydw16b" path="res://entities/player/upgrade_profile/player_speed_profile.tres" id="13_afbqv"]
+[ext_resource type="Resource" uid="uid://dy1ftkmydw16b" path="res://world/entities/player/upgrade_profile/player_speed_profile.tres" id="13_afbqv"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 

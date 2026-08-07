@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3 uid="uid://dktpey7kemnpa"]
 
-[ext_resource type="Script" uid="uid://crop8h4i2ckhi" path="res://objects/xp_gem/xp_gem.gd" id="1_y1ava"]
+[ext_resource type="Script" uid="uid://crop8h4i2ckhi" path="res://world/objects/xp_gem/xp_gem.gd" id="1_y1ava"]
 [ext_resource type="Texture2D" uid="uid://sssi8vrlw1vt" path="res://assets/entities/oryx_16bit_fantasy_creatures_219.png" id="2_14sls"]
 [ext_resource type="Script" uid="uid://cghfyvb2eokiq" path="res://components/interaction/experience_pickup_component.gd" id="2_v1ri6"]
 

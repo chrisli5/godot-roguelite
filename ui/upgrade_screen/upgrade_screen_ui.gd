@@ -23,6 +23,7 @@ func _ready() -> void:
 	# Automatically self-intercept selection notifications to clear view frames
 	EventBus.upgrade_selected.connect(_on_choice_finalized)
 
+
 func _on_upgrade_options_presented(options: Array[UpgradeChoice]) -> void:
 	if not is_instance_valid(cards_container) or not is_instance_valid(card_scene):
 		return

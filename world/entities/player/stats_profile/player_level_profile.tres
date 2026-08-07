@@ -4,5 +4,5 @@
 
 [resource]
 script = ExtResource("1_4hgha")
-base_xp_requirement = 1.0
+base_xp_requirement = 4.0
 metadata/_custom_type_script = "uid://yurq5kses6fx"
