@@ -3,8 +3,8 @@
 [ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_lmp16"]
 [ext_resource type="Script" uid="uid://celujugebouvs" path="res://components/environment/player_spawner.gd" id="3_pg2up"]
 [ext_resource type="PackedScene" uid="uid://d23mkghb50m7a" path="res://ui/upgrade_screen/upgrade_screen_ui.tscn" id="3_t2cyp"]
-[ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://world/entities/player/player.tscn" id="4_kefsx"]
-[ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://world/objects/xp_gem/xp_gem.tscn" id="4_t2cyp"]
+[ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://scenes/entities/player/player.tscn" id="4_kefsx"]
+[ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="4_t2cyp"]
 
 [node name="Forest" type="Node2D"]
 

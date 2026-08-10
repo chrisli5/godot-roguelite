@@ -41,18 +41,12 @@ func _physics_process(_delta: float) -> void:
 
 
 func _handle_movement_physics() -> void:
-	if not movement_component:
+	if not movement_component or not stats_container:
 		return
 	
-	var max_speed: float = 10.0
-	var acceleration: float = 1.0
-	var friction: float = 1.0
-	
-	if stats_container:
-		max_speed = stats_container.get_stat_value(Stat.Type.SPEED, max_speed)
-		acceleration = stats_container.get_stat_value(Stat.Type.ACCELERATION, acceleration)
-		friction = stats_container.get_stat_value(Stat.Type.FRICTION, friction)
-		
+	var max_speed = stats_container.get_stat_value(Stat.Type.SPEED, 1.0)
+	var acceleration = stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0)
+	var friction = stats_container.get_stat_value(Stat.Type.FRICTION, 1.0)
 	var direction: Vector2 = Vector2.ZERO
 	
 	direction.x = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")

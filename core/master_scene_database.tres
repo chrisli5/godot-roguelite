@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://b7j2blnwiks6g" path="res://components/loading/resources/scene_profile.gd" id="1_kcec8"]
 [ext_resource type="Script" uid="uid://ki7mle5k0t8b" path="res://components/loading/resources/scene_database.gd" id="2_fioug"]
 [ext_resource type="Resource" uid="uid://t4jsjojboxxs" path="res://ui/main_menu/scene_profile_main_menu.tres" id="2_msaqo"]
-[ext_resource type="Resource" uid="uid://dhda0clmo20mo" path="res://world/maps/forest/scene_profile_forest.tres" id="3_bfuov"]
+[ext_resource type="Resource" uid="uid://dhda0clmo20mo" path="res://scenes/maps/forest/scene_profile_forest.tres" id="3_bfuov"]
 
 [resource]
 script = ExtResource("2_fioug")
