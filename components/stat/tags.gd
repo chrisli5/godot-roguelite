@@ -7,6 +7,7 @@ enum Type {
 	MARTIAL,
 	METAMAGIC,
 	HAZARD,
+	INFUSION,
 	
 	# Delivery Mechanics
 	MELEE,

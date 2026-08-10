@@ -9,6 +9,7 @@ signal died
 @export var stats_container: StatsContainer
 @export var movement_component: MovementComponent
 @export var status_effect_component: StatusEffectComponent
+@export var tag_component: TagComponent
 
 @export_group("Stats Profile")
 @export var stats_profile: StatsProfile
@@ -56,6 +57,9 @@ func remove_stat_modifier(stat_type: Stat.Type, modifier_id: String, target_abil
 func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	var definition: UpgradeDefinition = choice.definition
 	
+	if definition.tags.has(Tags.Type.INFUSION):
+		_route_infusion_tag_payload(choice)
+	
 	match definition.payload_type:
 		UpgradeDefinition.PayloadType.STAT_MODIFIER:
 			add_stat_modifier(
@@ -77,6 +81,19 @@ func _resolve_stats_container(target_ability_id: int) -> StatsContainer:
 				return ability.stats_container
 		return null
 	return stats_container
+
+
+func _route_infusion_tag_payload(choice: UpgradeChoice) -> void:
+	if choice.target_ability_id <= 0:
+		return
+		
+	var target_ability = ability_container.get_ability_by_id(choice.target_ability_id)
+	if not is_instance_valid(target_ability):
+		return
+		
+	if target_ability.tag_component:
+		for tag in choice.definition.tags:
+			target_ability.tag_component.add_tag(tag)
 
 
 func _on_add_stat_modifier_requested(stat_type: Stat.Type, modifier: StatModifier, target_ability_id: int):

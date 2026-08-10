@@ -6,10 +6,11 @@ enum ExecutionType { MANUAL, AUTOMATIC }
 @export var execution_mode: ExecutionType = ExecutionType.MANUAL
 @export var base_cooldown: float = 1.0
 
-@onready var stats_container: StatsContainer = $StatsContainer
+@export var stats_container: StatsContainer
+@export var tag_component: TagComponent
+
 @onready var cooldown_timer: Timer = $CooldownTimer
 
-var active_infusions: Dictionary = {}
 
 func _ready() -> void:
 	cooldown_timer.wait_time = base_cooldown

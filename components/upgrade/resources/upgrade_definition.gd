@@ -7,6 +7,7 @@ enum PayloadType { STAT_MODIFIER, ABILITY_UNLOCK }
 @export var upgrade_id: String = ""
 @export var display_name: String = ""
 @export_multiline var description: String = ""
+@export var tags: Array[Tags.Type] = []
 
 @export_group("Payload Configuration")
 @export var payload_type: PayloadType = PayloadType.STAT_MODIFIER
