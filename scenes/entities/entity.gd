@@ -56,21 +56,26 @@ func remove_stat_modifier(stat_type: Stat.Type, modifier_id: String, target_abil
 
 func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	var definition: UpgradeDefinition = choice.definition
+	if not is_instance_valid(definition):
+		return
+		
+	# 1. Delegate infusion tags directly to the managing container component
+	if definition.tags.has(Tags.Type.INFUSION) and choice.target_ability_id > 0:
+		if is_instance_valid(ability_container):
+			ability_container.add_infusion_tags_to_ability(choice.target_ability_id, definition.tags)
 	
-	if definition.tags.has(Tags.Type.INFUSION):
-		_route_infusion_tag_payload(choice)
-	
+	# 2. Process systemic structural execution passes
 	match definition.payload_type:
 		UpgradeDefinition.PayloadType.STAT_MODIFIER:
-			add_stat_modifier(
-				definition.target_stat_type, 
-				definition.modifier, 
-				choice.target_ability_id
-			)
+			add_stat_modifier(definition.target_stat_type, definition.modifier, choice.target_ability_id)
 			
 		UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
-			if is_instance_valid(definition.ability_to_unlock) and is_instance_valid(ability_container):
-				ability_container.add_ability_from_data(definition.ability_to_unlock)
+			if choice.target_ability_id > 0:
+				if is_instance_valid(ability_container):
+					ability_container.execute_ability_evolution(choice.target_ability_id, definition.ability_to_unlock)
+			else: 
+				if is_instance_valid(ability_container) and is_instance_valid(definition.ability_to_unlock):
+					ability_container.add_ability_from_data(definition.ability_to_unlock)
 
 
 func _resolve_stats_container(target_ability_id: int) -> StatsContainer:

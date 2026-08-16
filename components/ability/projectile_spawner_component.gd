@@ -8,7 +8,7 @@ signal projectile_impacted(target: Node2D)
 @export var projectile_scene: PackedScene
 
 ## Instantiates a projectile and injects fully processed, raw parameter data
-func spawn(start_pos: Vector2, target_dir: Vector2, speed_value: float, lifetime_value: float) -> Projectile:
+func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: float, lifetime_value: float, _active_tags: Array[Tags.Type]) -> Projectile:
 	if projectile_scene == null:
 		push_error("ProjectileSpawnerComponent: Missing scene reference assignment.")
 		return null

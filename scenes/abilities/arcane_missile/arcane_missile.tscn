@@ -1,0 +1,34 @@
+[gd_scene load_steps=8 format=3 uid="uid://pkcpypby833p"]
+
+[ext_resource type="Script" uid="uid://b3x4kasw6ex1l" path="res://scenes/abilities/arcane_missile/arcane_missile.gd" id="1_brok0"]
+[ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="2_drohb"]
+[ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="3_s6hkg"]
+[ext_resource type="Script" uid="uid://bsxfuvn01glay" path="res://components/upgrade/upgrade_tree_component.gd" id="4_tinsh"]
+[ext_resource type="Script" uid="uid://07c0yeyxgr4l" path="res://components/ability/nearest_targeting_component.gd" id="5_qwf3u"]
+[ext_resource type="Script" uid="uid://ckcqe2bew2lbo" path="res://components/ability/projectile_spawner_component.gd" id="6_feday"]
+[ext_resource type="PackedScene" uid="uid://c4wd6nk63btt1" path="res://components/ability/projectile.tscn" id="7_s6hkg"]
+
+[node name="ArcaneMissile" type="Node2D" node_paths=PackedStringArray("targeting_module", "spawner_module", "stats_container", "tag_component", "upgrade_tree_component")]
+script = ExtResource("1_brok0")
+targeting_module = NodePath("NearestTargetingComponent")
+spawner_module = NodePath("ProjectileSpawnerComponent")
+stats_container = NodePath("StatsContainer")
+tag_component = NodePath("TagComponent")
+upgrade_tree_component = NodePath("UpgradeTreeComponent")
+
+[node name="StatsContainer" type="Node" parent="."]
+script = ExtResource("2_drohb")
+
+[node name="TagComponent" type="Node" parent="."]
+script = ExtResource("3_s6hkg")
+
+[node name="UpgradeTreeComponent" type="Node" parent="."]
+script = ExtResource("4_tinsh")
+
+[node name="NearestTargetingComponent" type="Node" parent="."]
+script = ExtResource("5_qwf3u")
+enemy_collision_mask = 4
+
+[node name="ProjectileSpawnerComponent" type="Node" parent="."]
+script = ExtResource("6_feday")
+projectile_scene = ExtResource("7_s6hkg")

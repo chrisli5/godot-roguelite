@@ -1,5 +1,5 @@
 class_name AbilityContainer
-extends Node
+extends Node2D
 
 var abilities: Dictionary[int, Ability] = {}
 
@@ -16,6 +16,7 @@ func add_ability_from_data(data: AbilityData) -> Ability:
 		return null
 		
 	var ability: Ability = new_ability_instance as Ability
+	ability.display_name = data.display_name
 	
 	if data.stats_profile:
 		if ability.stats_container:
@@ -30,6 +31,24 @@ func add_ability_from_data(data: AbilityData) -> Ability:
 	abilities[instance_id] = ability
 	
 	return ability
+
+
+func execute_ability_evolution(old_ability_id: int, new_ability_data: AbilityData) -> Ability:
+	if not is_instance_valid(new_ability_data):
+		push_error("AbilityContainer: Evolved AbilityData payload template is empty.")
+		return null
+		
+	var old_ability = get_ability_by_id(old_ability_id)
+	if not is_instance_valid(old_ability):
+		push_error("AbilityContainer: Cannot find target ability ID: " + str(old_ability_id))
+		return null
+		
+	remove_ability_by_id(old_ability_id)
+	
+	var evolved_ability = add_ability_from_data(new_ability_data)
+	
+	print("AbilityContainer: Successfully hot-swapped ability instance frames.")
+	return evolved_ability
 
 
 func remove_ability_by_id(ability_instance_id: int) -> void:
@@ -71,6 +90,14 @@ func remove_modifier_from_ability(ability_instance_id: int, stat_type: Stat.Type
 		return
 		
 	ability.stats_container.remove_modifier(stat_type, modifier_id)
+
+
+func add_infusion_tags_to_ability(ability_id: int, tags_to_add: Array[Tags.Type]) -> void:
+	var ability = get_ability_by_id(ability_id)
+	
+	if is_instance_valid(ability) and is_instance_valid(ability.tag_component):
+		for tag in tags_to_add:
+			ability.tag_component.add_tag(tag)
 
 
 func get_active_abilities() -> Array:

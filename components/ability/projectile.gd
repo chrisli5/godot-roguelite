@@ -23,7 +23,6 @@ func _ready() -> void:
 		velocity = direction * base_speed
 	
 	area_entered.connect(_on_collision_detected)
-	body_entered.connect(_on_collision_detected)
 	
 	if not movement_component:
 		push_error("Projectile: Missing required MovementComponent child node.")
@@ -34,8 +33,7 @@ func _physics_process(delta: float) -> void:
 	if time_elapsed >= lifetime:
 		queue_free()
 		return
-		
-	# Route frame updates safely through your polymorphic calculation method [1]
+
 	velocity = movement_component.calculate_velocity(
 		velocity,
 		direction,
@@ -43,8 +41,7 @@ func _physics_process(delta: float) -> void:
 		acceleration,
 		friction
 	)
-	
-	# Translate calculated velocity vectors into standard global transformations [1]
+
 	global_position += velocity * delta
 
 func _on_collision_detected(incoming_node: Node2D) -> void:

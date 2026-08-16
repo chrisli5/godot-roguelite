@@ -17,4 +17,4 @@ enum PayloadType { STAT_MODIFIER, ABILITY_UNLOCK }
 @export var target_stat_type: Stat.Type
 
 ## Used if payload_type is ABILITY_UNLOCK. 
-@export var ability_scene_to_unlock: AbilityData
+@export var ability_to_unlock: AbilityData

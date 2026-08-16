@@ -14,6 +14,14 @@ func _ready() -> void:
 
 
 func _on_player_leveled_up(new_level: int) -> void:
+	var current_player = EventBus.active_player
+	if not is_instance_valid(current_player): 
+		return
+		
+	var player_global_tree = current_player.upgrade_tree_component
+	if is_instance_valid(player_global_tree):
+		player_global_tree.rebuild_upgrade_caches([] as Array[Tags.Type], new_level)
+		
 	_level_up_queue.append(new_level)
 	_try_process_next_level_up()
 
@@ -48,81 +56,98 @@ func reroll_current_options() -> void:
 	upgrade_options_ready.emit(fresh_rolled_options)
 
 
-## Intercepts user card selection events to apply state updates and resume the game loop
 func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
 	var current_player = EventBus.active_player
 	if not is_instance_valid(chosen_choice) or not is_instance_valid(current_player):
 		return
 		
-	# 1. Increment purchase limits directly through the tracker resource pointer
 	chosen_choice.source_tracker.current_purchases += 1
-	var upgrade_id = chosen_choice.definition.upgrade_id
+	var base_upgrade_id = chosen_choice.definition.upgrade_id
 	
-	# 2. Route purchase history tracking lists cleanly based on intent targets
+	# Extract situational variables to pass safely across the boundary interfaces
+	var current_level = current_player.current_level if "current_level" in current_player else 1
+	
 	if chosen_choice.target_ability_id != 0:
 		var ability = current_player.ability_container.get_ability_by_id(chosen_choice.target_ability_id)
 		if is_instance_valid(ability) and is_instance_valid(ability.upgrade_tree):
-			ability.upgrade_tree.register_purchase(upgrade_id)
+			var active_tags = ability.tag_component.get_active_tags() if is_instance_valid(ability.tag_component) else []
+			
+			# Registers purchase and automatically forces an O(N) evaluation block right here
+			ability.upgrade_tree.register_purchase(base_upgrade_id, active_tags, current_level)
 	else:
 		var player_tree = current_player.get_node_or_null("UpgradeTreeComponent") as UpgradeTreeComponent
 		if is_instance_valid(player_tree):
-			player_tree.register_purchase(upgrade_id)
+			player_tree.register_purchase(base_upgrade_id, [], current_level)
 	
-	# 3. Hand off raw context values to the player actor execution layer
 	current_player.apply_contextual_upgrade(chosen_choice)
 	_cached_full_pool.clear()
-	# 4. Turn off the active presentation lock flag
 	_is_presenting_ui = false
 	
-	# 5. Check if more level-ups are waiting in line before unpausing the game
 	if _level_up_queue.is_empty():
 		get_tree().paused = false
 	else:
-		# Process the next level up on the next frame to allow previous changes to settle
 		get_tree().process_frame.connect(_try_process_next_level_up, CONNECT_ONE_SHOT)
 
-## Compiles an unbloated flat array list containing all currently eligible upgrade choices
+
 func generate_selection_pool(target_player: Player) -> Array[UpgradeChoice]:
 	var full_pool: Array[UpgradeChoice] = []
 	if not is_instance_valid(target_player) or not is_instance_valid(target_player.ability_container):
 		return full_pool
 		
+	var current_char_level: int = target_player.current_level if "current_level" in target_player else 1
+
+	# --- 1. Gather Upgrades and Evolutions From All Active Weapons ---
 	var active_abilities = target_player.ability_container.get_active_abilities()
-	
-	# --- 1. Gather Active Ability Upgrades ---
 	for ability in active_abilities:
-		if not ability is Ability: 
+		if not ability is Ability or not is_instance_valid(ability.upgrade_tree_component): 
 			continue
-			
-		# Pure direct memory reference checking—avoids get_node_or_null lookup bloat
-		var tree_component = ability.upgrade_tree
-		if not is_instance_valid(tree_component): 
-			continue
-			
-		var ability_level: int = ability.current_level if "current_level" in ability else 1
-		var eligible_trackers = tree_component.get_eligible_upgrades(ability_level)
-		
-		for tracker in eligible_trackers:
-			var choice = UpgradeChoice.new()
-			choice.source_tracker = tracker
-			choice.target_ability_id = ability.ability_id
-			choice.target_display_name = ability.display_name if "display_name" in ability else "Ability"
-			full_pool.append(choice)
-			
-	# --- 2. Gather Player Global Character Upgrades ---
-	var player_tree = target_player.get_node_or_null("UpgradeTreeComponent") as UpgradeTreeComponent
-	if is_instance_valid(player_tree):
-		var player_level: int = target_player.current_level if "current_level" in target_player else 1
-		var eligible_trackers = player_tree.get_eligible_upgrades(player_level)
-		
-		for tracker in eligible_trackers:
-			var choice = UpgradeChoice.new()
-			choice.source_tracker = tracker
-			choice.target_ability_id = 0 
-			choice.target_display_name = "Core Stats"
-			full_pool.append(choice)
+
+		_append_choices_from_tree(
+			full_pool, 
+			ability.upgrade_tree_component, 
+			ability.get_instance_id(), 
+			ability.display_name
+		)
+
+	# --- 2. Gather Upgrades and First-Time Unlocks From Player Global Core ---
+	var player_global_tree = target_player.upgrade_tree_component
+	if is_instance_valid(player_global_tree):		
+		# Append global character buffs and brand new unowned ability unlocks (target_id = 0)
+		_append_choices_from_tree(
+			full_pool, 
+			player_global_tree, 
+			0, 
+			"Character Core"
+		)
 			
 	return full_pool
+
+
+func _append_choices_from_tree(
+	pool: Array[UpgradeChoice], 
+	tree: UpgradeTreeComponent, 
+	target_id: int, 
+	target_display_name: String
+) -> void:
+	
+	# 1. Map standard structural stat progression choices
+	var cached_upgrades = tree.get_cached_upgrades()
+	for tracker in cached_upgrades:
+		var choice = UpgradeChoice.new()
+		choice.source_tracker = tracker
+		choice.target_ability_id = target_id
+		choice.target_display_name = target_display_name
+		pool.append(choice)
+		
+	# 2. Map structural unlock possibilities (Evolutions if ID > 0, New Skills if ID = 0)
+	var cached_unlocks = tree.get_cached_evolutions()
+	for tracker in cached_unlocks:
+		var choice = UpgradeChoice.new()
+		choice.source_tracker = tracker
+		choice.target_ability_id = target_id
+		choice.target_display_name = target_display_name
+		pool.append(choice)
+
 
 ## Slices a duplicated copy of the selection array to deliver unique random options to the UI
 func _roll_random_subset(pool: Array[UpgradeChoice], count: int) -> Array[UpgradeChoice]:
