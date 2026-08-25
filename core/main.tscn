@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://b3w47o22pu23x"]
+[gd_scene load_steps=5 format=3 uid="uid://b3w47o22pu23x"]
 
 [ext_resource type="Script" uid="uid://cr4r81mgqs3o1" path="res://core/main.gd" id="1_ig7tw"]
 [ext_resource type="Script" uid="uid://n4yp35436xgk" path="res://core/scene_transition_manager.gd" id="2_1bvp3"]
 [ext_resource type="Resource" uid="uid://jkt15gwm0v2s" path="res://core/master_scene_database.tres" id="3_h2yge"]
+[ext_resource type="Script" uid="uid://cxt7v7a2nxkr5" path="res://components/world/map_generator.gd" id="4_csopv"]
 
 [node name="Main" type="Node" node_paths=PackedStringArray("transition_manager", "scene_container")]
 script = ExtResource("1_ig7tw")
@@ -13,5 +14,9 @@ scene_container = NodePath("CurrentSceneContainer")
 process_mode = 3
 script = ExtResource("2_1bvp3")
 scene_database = ExtResource("3_h2yge")
+
+[node name="MapGenerator" type="Node" parent="." node_paths=PackedStringArray("transition_manager")]
+script = ExtResource("4_csopv")
+transition_manager = NodePath("../SceneTransitionManager")
 
 [node name="CurrentSceneContainer" type="Node" parent="."]

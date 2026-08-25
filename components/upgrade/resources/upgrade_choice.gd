@@ -1,5 +1,5 @@
 class_name UpgradeChoice
-extends Object
+extends RefCounted
 
 var source_tracker: UpgradeTracker
 var target_ability_id: int = 0

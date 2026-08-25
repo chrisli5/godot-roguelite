@@ -1,8 +1,10 @@
-[gd_resource type="Resource" script_class="MenuActionType" load_steps=2 format=3 uid="uid://xf3q33amlwtx"]
+[gd_resource type="Resource" script_class="MenuActionType" load_steps=3 format=3 uid="uid://xf3q33amlwtx"]
 
+[ext_resource type="Resource" uid="uid://cvx24ygsjao8m" path="res://test/world/mock_act_config.tres" id="1_wha01"]
 [ext_resource type="Script" uid="uid://cw3vmcc43wwwx" path="res://ui/main_menu/menu_action_type.gd" id="1_y17qs"]
 
 [resource]
 script = ExtResource("1_y17qs")
-target_scene_id = "forest_map"
+intent = 3
+act_configuration = ExtResource("1_wha01")
 metadata/_custom_type_script = "uid://cw3vmcc43wwwx"

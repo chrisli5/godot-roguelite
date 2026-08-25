@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://kncoyi4824c7"]
+
+[ext_resource type="Script" uid="uid://f6754572eari" path="res://ui/map_screen/map_node_button.gd" id="1_6n73o"]
+
+[node name="MapNodeButton" type="TextureButton"]
+custom_minimum_size = Vector2(150, 50)
+script = ExtResource("1_6n73o")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 23.0
+text = "select map node"

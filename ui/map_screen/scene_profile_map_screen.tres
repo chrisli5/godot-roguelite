@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SceneProfile" load_steps=2 format=3 uid="uid://dt16dpltu06we"]
+
+[ext_resource type="Script" uid="uid://b7j2blnwiks6g" path="res://components/loading/resources/scene_profile.gd" id="1_vl37i"]
+
+[resource]
+script = ExtResource("1_vl37i")
+scene_id = "map_screen_ui"
+category = 1
+scene_file_path = "uid://c0cn5vthq4xh6"
+metadata/_custom_type_script = "uid://b7j2blnwiks6g"

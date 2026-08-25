@@ -48,6 +48,12 @@ func _on_action_triggered(action: MenuActionType) -> void:
 		MenuActionType.ActionIntent.TOGGLE_OPTIONS_PANEL:
 			if is_instance_valid(options_panel):
 				options_panel.visible = not options_panel.visible
+		# --- NEW PROCEDURAL ROUTING INTERSECTION ---
+		MenuActionType.ActionIntent.START_NEW_RUN:
+			if is_instance_valid(action.act_configuration):
+				print("MainMenu: Dynamic execution path confirmed. Initializing procedural campaign framework...")
+				# Alert our persistent MapGenerator root controller to initialize the campaign tree grid
+				EventBus.new_run_started.emit(action.act_configuration)
 				
 		MenuActionType.ActionIntent.QUIT_GAME:
 			_on_quit_pressed()

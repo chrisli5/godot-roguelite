@@ -93,8 +93,6 @@ func generate_selection_pool(target_player: Player) -> Array[UpgradeChoice]:
 	var full_pool: Array[UpgradeChoice] = []
 	if not is_instance_valid(target_player) or not is_instance_valid(target_player.ability_container):
 		return full_pool
-		
-	var current_char_level: int = target_player.current_level if "current_level" in target_player else 1
 
 	# --- 1. Gather Upgrades and Evolutions From All Active Weapons ---
 	var active_abilities = target_player.ability_container.get_active_abilities()

@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3 uid="uid://c0cn5vthq4xh6"]
+
+[ext_resource type="Script" uid="uid://b53pth448md2x" path="res://ui/map_screen/map_screen_ui.gd" id="1_jejdx"]
+[ext_resource type="PackedScene" uid="uid://kncoyi4824c7" path="res://ui/map_screen/map_node_button.tscn" id="2_fgpge"]
+[ext_resource type="Script" uid="uid://l6x3i6527spq" path="res://ui/map_screen/graph_canvas.gd" id="3_yyog0"]
+
+[node name="MapScreenUI" type="CanvasLayer" node_paths=PackedStringArray("nodes_layer", "graph_canvas")]
+script = ExtResource("1_jejdx")
+node_button_scene = ExtResource("2_fgpge")
+nodes_layer = NodePath("ScrollContainer/GraphCanvas/NodesLayer")
+graph_canvas = NodePath("ScrollContainer/GraphCanvas")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GraphCanvas" type="Control" parent="ScrollContainer"]
+layout_mode = 2
+script = ExtResource("3_yyog0")
+
+[node name="NodesLayer" type="Control" parent="ScrollContainer/GraphCanvas"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="LinesLayer" type="Control" parent="ScrollContainer/GraphCanvas"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0

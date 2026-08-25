@@ -1,13 +1,16 @@
 class_name MenuActionType
 extends Resource
 
-enum ActionIntent { LOAD_SCENE, TOGGLE_OPTIONS_PANEL, QUIT_GAME }
+# Added START_NEW_RUN to separate standalone scenes from procedural runs
+enum ActionIntent { LOAD_SCENE, TOGGLE_OPTIONS_PANEL, QUIT_GAME, START_NEW_RUN }
 
 @export_group("Behavior Mode")
-## Select what happens when this menu item button is clicked
 @export var intent: ActionIntent = ActionIntent.LOAD_SCENE
 
-@export_group("Target Scene")
-## Used ONLY if intent is set to LOAD_SCENE. 
-## The exact scene identifier key matching your SceneDatabase (e.g. "level_01")
+@export_group("Target Configurations")
+## Used ONLY if intent is set to LOAD_SCENE.
 @export var target_scene_id: String = ""
+
+## Used ONLY if intent is set to START_NEW_RUN. 
+## Injects the target Act environment rules (e.g. Act 1 Catacombs data card).
+@export var act_configuration: ActConfiguration
