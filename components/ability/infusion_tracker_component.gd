@@ -8,7 +8,7 @@ const INFUSION_SOFT_CAP_T1: int = 3
 const INFUSION_SOFT_CAP_T2: int = 5
 const INFUSION_HARD_CAP: int = 15
 
-var specialty_cards_purchased: int = 0
+#var specialty_cards_purchased: int = 0
 var last_calculated_total_infusions: int = 0
 
 
@@ -21,9 +21,9 @@ func calculate_total_infusions(purchase_levels: Dictionary[String, int]) -> int:
 	return total_count
 
 
-func is_specialty_card_allowed() -> bool:
-	var earned_tokens = clampi(last_calculated_total_infusions / 3, 0, 3)
-	return specialty_cards_purchased < earned_tokens
+#func is_specialty_card_allowed() -> bool:
+	#var earned_tokens = clampi(last_calculated_total_infusions / 3, 0, 3)
+	#return specialty_cards_purchased < earned_tokens
 
 
 func is_infusion_card_allowed(

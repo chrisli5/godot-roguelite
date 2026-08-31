@@ -28,11 +28,6 @@ func evaluate_evolution_recipes(available_evolutions: Array[UpgradeTracker], pur
 		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases: 
 			continue
 		
-		# Enforce State Machine Gate
-		var targeted_state_gate: int = tracker.required_character_level - 1
-		if int(current_state) != targeted_state_gate: 
-			continue
-
 		# Order-Agnostic Subset Check
 		var recipe_satisfied = true
 		for required_tag in definition.tags:

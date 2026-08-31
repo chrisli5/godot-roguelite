@@ -1,16 +1,27 @@
-[gd_scene load_steps=6 format=3 uid="uid://cvyt2nvnh6xne"]
+[gd_scene load_steps=11 format=3 uid="uid://cvyt2nvnh6xne"]
 
 [ext_resource type="Script" uid="uid://i0tbekhtmw2d" path="res://scenes/entities/enemies/enemy.gd" id="1_essrt"]
 [ext_resource type="Script" uid="uid://666k74n4yr6j" path="res://components/collision/hurtbox_component.gd" id="2_c8ylr"]
+[ext_resource type="Script" uid="uid://b36aaylcjqa7p" path="res://components/stat/resources/stat.gd" id="2_j3iiu"]
+[ext_resource type="Script" uid="uid://dmq5w3j3r2g5r" path="res://components/stat/resources/stats_profile.gd" id="3_bii57"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="3_c8ylr"]
+[ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="6_uu37f"]
+[ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="7_wyqsp"]
+
+[sub_resource type="Resource" id="Resource_w6k81"]
+script = ExtResource("3_bii57")
+metadata/_custom_type_script = "uid://dmq5w3j3r2g5r"
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pm80n"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_gflvi"]
 
-[node name="Enemy" type="CharacterBody2D"]
+[node name="Enemy" type="CharacterBody2D" node_paths=PackedStringArray("ability_container", "stats_container")]
 motion_mode = 1
 script = ExtResource("1_essrt")
+ability_container = NodePath("AbilityContainer")
+stats_container = NodePath("StatsContainer")
+stats_profile = SubResource("Resource_w6k81")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_pm80n")
@@ -26,3 +37,9 @@ shape = SubResource("CircleShape2D_gflvi")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("3_c8ylr")
+
+[node name="AbilityContainer" type="Node2D" parent="."]
+script = ExtResource("6_uu37f")
+
+[node name="StatsContainer" type="Node" parent="."]
+script = ExtResource("7_wyqsp")
