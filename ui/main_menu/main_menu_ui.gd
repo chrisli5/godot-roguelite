@@ -51,7 +51,7 @@ func _on_action_triggered(action: MenuActionType) -> void:
 		# --- NEW PROCEDURAL ROUTING INTERSECTION ---
 		MenuActionType.ActionIntent.START_NEW_RUN:
 			if is_instance_valid(action.act_configuration):
-				print("MainMenu: Dynamic execution path confirmed. Initializing procedural campaign framework...")
+				print("[MAINMENU] Dynamic execution path confirmed. Initializing procedural campaign framework...")
 				# Alert our persistent MapGenerator root controller to initialize the campaign tree grid
 				EventBus.new_run_started.emit(action.act_configuration)
 				

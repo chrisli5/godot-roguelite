@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction/collector_component.gd" id="6_wvtmh"]
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
 [ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/stats_profile/player_level_profile.tres" id="8_wvtmh"]
-[ext_resource type="Script" uid="uid://bsxfuvn01glay" path="res://components/upgrade/upgrade_tree_component.gd" id="11_a1qjk"]
+[ext_resource type="Script" uid="uid://digb326esho6n" path="res://components/upgrade/upgrade_ledger_component.gd" id="11_7wli1"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_xy2vv"]
 [ext_resource type="Resource" uid="uid://dy1ftkmydw16b" path="res://scenes/entities/player/upgrade_profile/player_speed_profile.tres" id="13_r4dfn"]
 [ext_resource type="Resource" uid="uid://bjx7cbceaxrqp" path="res://scenes/abilities/start_abilities.tres" id="14_r4dfn"]
@@ -20,14 +20,14 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_bectd"]
 radius = 24.0
 
-[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "collector_component", "upgrade_tree_component", "ability_container", "stats_container", "movement_component", "status_effect_component")]
+[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "collector_component", "upgrade_ledger_component", "ability_container", "stats_container", "movement_component", "status_effect_component")]
 collision_layer = 2
 collision_mask = 0
 motion_mode = 1
 script = ExtResource("1_bls4j")
 progression_component = NodePath("ProgressionComponent")
 collector_component = NodePath("CollectorComponent")
-upgrade_tree_component = NodePath("UpgradeTreeComponent")
+upgrade_ledger_component = NodePath("UpgradeLedgerComponent")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 movement_component = NodePath("VelocityMovementComponent")
@@ -65,6 +65,7 @@ script = ExtResource("8_7thud")
 [node name="VelocityMovementComponent" type="Node" parent="."]
 script = ExtResource("4_qiwj3")
 
-[node name="UpgradeTreeComponent" type="Node" parent="."]
-script = ExtResource("11_a1qjk")
-blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("13_r4dfn"), ExtResource("14_r4dfn")])
+[node name="UpgradeLedgerComponent" type="Node" parent="."]
+script = ExtResource("11_7wli1")
+stat_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("13_r4dfn")])
+evo_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("14_r4dfn")])

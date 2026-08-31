@@ -105,7 +105,7 @@ func _on_map_node_selected(target_node_id: String) -> void:
 		return
 		
 	_active_room_id = target_node_id
-	print("target_node_id ", target_node_id)
+	print("[MAPGEN] Entering room: ", target_node_id)
 	# Command transition pipeline to re-route to BaseWorld while injecting the mapped payload
 	transition_manager.transition_to_scene(target_node_id)
 

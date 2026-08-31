@@ -4,8 +4,9 @@
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_yop6j"]
 [ext_resource type="Script" uid="uid://cegijyh7qyyhp" path="res://components/ability/resources/ability_data.gd" id="2_m4cnr"]
 
-[sub_resource type="Resource" id="Resource_qq5eq"]
+[sub_resource type="Resource" id="Resource_2q4sx"]
 script = ExtResource("2_m4cnr")
+display_name = "Arcane Missile"
 ability_scene = ExtResource("1_2q4sx")
 metadata/_custom_type_script = "uid://cegijyh7qyyhp"
 
@@ -15,5 +16,5 @@ upgrade_id = "ability_arcane_missile"
 display_name = "Arcane Missile"
 description = "Shoot Stuff"
 payload_type = 1
-ability_to_unlock = SubResource("Resource_qq5eq")
+ability_data_payload = SubResource("Resource_2q4sx")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

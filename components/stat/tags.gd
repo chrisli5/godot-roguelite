@@ -3,6 +3,8 @@ extends Node
 
 # Grouped logically by function for easy inspector assignment
 enum Type {
+	NONE,
+	
 	# Core Archetypes
 	MARTIAL,
 	METAMAGIC,

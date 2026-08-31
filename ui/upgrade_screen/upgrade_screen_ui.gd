@@ -4,9 +4,6 @@ extends CanvasLayer
 @export_group("Layout Configurations")
 @export var card_scene: PackedScene
 
-@export_group("Upgrade Manager Wiring")
-@export var upgrade_manager: UpgradeManager
-
 @onready var cards_container: HBoxContainer = $MarginContainer/HBoxContainer
 @onready var reroll_button: Button = $MarginContainer/RerollButton
 
@@ -14,13 +11,11 @@ extends CanvasLayer
 func _ready() -> void:
 	# Keep user interface hidden from standard screen runtime frames by default
 	hide()
-	
-	if is_instance_valid(upgrade_manager):
-		upgrade_manager.upgrade_options_ready.connect(_on_upgrade_options_presented)
 	if is_instance_valid(reroll_button):
 		reroll_button.pressed.connect(_on_reroll_button_pressed)
 		
 	# Automatically self-intercept selection notifications to clear view frames
+	EventBus.upgrade_options_ready.connect(_on_upgrade_options_presented)
 	EventBus.upgrade_selected.connect(_on_choice_finalized)
 
 

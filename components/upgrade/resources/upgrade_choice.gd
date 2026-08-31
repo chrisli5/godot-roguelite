@@ -2,7 +2,7 @@ class_name UpgradeChoice
 extends RefCounted
 
 var source_tracker: UpgradeTracker
-var target_ability_id: int = 0
+var target_slot_index: int = 0
 
 ## The display name of the target being upgraded
 var target_display_name: String = ""

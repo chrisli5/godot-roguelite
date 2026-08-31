@@ -33,6 +33,5 @@ func _evaluate_progression_loop() -> void:
 		current_level += 1
 		
 		EventBus.player_leveled_up.emit(current_level)
-		print("level: ", current_level)
 		# Fetch next evaluation target tier ceiling dynamically
 		required_xp = thresholds_profile.get_required_xp_for_level(current_level + 1)
