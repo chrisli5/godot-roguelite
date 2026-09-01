@@ -48,13 +48,32 @@ func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 		if choice.target_slot_index > 0:
 			# Route weapon stats (e.g. +5% Damage) directly to the target slot track
 			if is_instance_valid(ability_container):
-				ability_container.add_stat_modifier_to_slot(choice.target_slot_index, definition.target_stat_type, definition.modifier)
+				ability_container.add_stat_modifier_to_slot(choice.target_slot_index, definition.target_stat_type, definition.stat_modifier_payload)
 		else:
 			# Apply player character core stat adjustments (e.g., Player Speed, Max Health)
-			stats_container.add_modifier(definition.target_stat_type, definition.modifier)
+			stats_container.add_modifier(definition.target_stat_type, definition.stat_modifier_payload)
 		return
-
-	# --- BRANCH B: STRUCTURAL MUTATIONS (ABILITY_UNLOCK) ---
+	
+	# --- BRANCH B: GLOBAL CORE ABILITY / MULTIPLIER UPGRADES (STAT_MODIFIER) ---
+	if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER and not definition.global_modifier_tags.is_empty():
+		# Loop through slots 1 to 4 symmetrically
+		for slot_idx in range(1, 5):
+			var weapon = ability_container.get_ability_by_slot_index(slot_idx)
+			if is_instance_valid(weapon):
+				# Extract the weapon's active tags
+				var weapon_tags = weapon.tag_component.get_active_tags() if is_instance_valid(weapon.tag_component) else []
+				
+				# Check for compatibility intersection matches
+				var match_found = false
+				for modifier_tag in definition.global_modifier_tags:
+					if weapon_tags.has(modifier_tag):
+						match_found = true
+						break
+						
+				if match_found:
+					if is_instance_valid(weapon.stats_container):
+						weapon.stats_container.add_modifier(definition.target_stat_type, definition.stat_modifier_payload)
+	# --- BRANCH C: STRUCTURAL MUTATIONS (ABILITY_UNLOCK) ---
 	if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
 		if not is_instance_valid(ability_container):
 			return

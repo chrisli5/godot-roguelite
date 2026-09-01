@@ -38,7 +38,7 @@ func add_modifier(stat_type: Stat.Type, modifier: StatModifier) -> void:
 	if tracking_stat:
 		tracking_stat.add_modifier(modifier)
 	else:
-		push_error("Cannot add modifier: Stat %s not found!" % Stat.Type.keys()[stat_type])
+		push_warning("Cannot add modifier: Stat %s not found!" % Stat.Type.keys()[stat_type])
 
 
 func remove_modifier(stat_type: Stat.Type, modifier_id: String) -> void:

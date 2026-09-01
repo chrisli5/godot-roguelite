@@ -35,9 +35,6 @@ func add_ability_from_data(data: AbilityData) -> Ability:
 		remove_ability_by_slot(slot_index)
 		
 	add_child(ability)
-	
-	# --- STABLE SLOT INDEX BINDING ---
-	# We map the weapon node strictly to its hotbar location index instead of its get_instance_id()
 	abilities[slot_index] = ability
 	
 	return ability
@@ -149,3 +146,31 @@ func get_active_abilities() -> Array[Ability]:
 			ordered_list.append(abilities[i])
 			
 	return ordered_list
+
+
+func _apply_global_modifiers_to_ability(ability: Ability) -> void:
+	var player = EventBus.active_player
+	if is_instance_valid(player) and is_instance_valid(player.upgrade_ledger):
+		var player_ledger = player.upgrade_ledger
+		var weapon_tags = ability.tag_component.get_active_tags() if is_instance_valid(ability.tag_component) else []
+
+		for tracker in player_ledger.available_upgrades:
+			var def = tracker.definition
+			if not is_instance_valid(def) or not def.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
+				continue
+
+			if not def.global_modifier_tags.is_empty():
+				var player_purchased_tier = player_ledger.purchase_levels.get(def.upgrade_id, 0)
+				
+				# If the player has actually invested in this global modifier card
+				if player_purchased_tier > 0:
+					var tag_match_found = false
+					for modifier_tag in def.global_modifier_tags:
+						if weapon_tags.has(modifier_tag):
+							tag_match_found = true
+							break
+							
+					# Symmetrically inject the historical global card straight into the new node!
+					if tag_match_found:
+						if is_instance_valid(ability.stats_container):
+							ability.stats_container.add_modifier(def.target_stat_type, def.stat_modifier_payload)
