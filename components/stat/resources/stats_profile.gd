@@ -1,4 +1,4 @@
 class_name StatsProfile
 extends Resource
 
-@export var default_stats: Array[Stat] = []
+@export var base_stats: Dictionary[Stat.Type, float] = {}

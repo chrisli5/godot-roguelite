@@ -57,8 +57,8 @@ func execute_ability_evolution(new_ability_data: AbilityData) -> Ability:
 	var saved_ledger_data: Dictionary = {}
 	var saved_specialty_count: int = 0
 	
-	if is_instance_valid(old_ability.upgrade_ledger):
-		saved_ledger_data = old_ability.upgrade_ledger.purchase_levels.duplicate()
+	if is_instance_valid(old_ability.upgrade_ledger_component):
+		saved_ledger_data = old_ability.upgrade_ledger_component.purchase_levels.duplicate()
 		
 	if is_instance_valid(old_ability.infusion_tracker):
 		saved_specialty_count = old_ability.infusion_tracker.specialty_cards_purchased
@@ -76,8 +76,8 @@ func execute_ability_evolution(new_ability_data: AbilityData) -> Ability:
 		
 	# --- 4. INJECT HISTORICAL POOLS ---
 	# Stitch the data ledger records back into the newly spawned node context seamlessly
-	if is_instance_valid(evolved_ability.upgrade_ledger):
-		evolved_ability.upgrade_ledger.purchase_levels = saved_ledger_data
+	if is_instance_valid(evolved_ability.upgrade_ledger_component):
+		evolved_ability.upgrade_ledger_component.purchase_levels = saved_ledger_data
 		
 	if is_instance_valid(evolved_ability.infusion_tracker):
 		evolved_ability.infusion_tracker.specialty_cards_purchased = saved_specialty_count
@@ -150,22 +150,22 @@ func get_active_abilities() -> Array[Ability]:
 
 func _apply_global_modifiers_to_ability(ability: Ability) -> void:
 	var player = EventBus.active_player
-	if is_instance_valid(player) and is_instance_valid(player.upgrade_ledger):
-		var player_ledger = player.upgrade_ledger
+	if is_instance_valid(player) and is_instance_valid(player.upgrade_ledger_component):
+		var player_ledger = player.upgrade_ledger_component
 		var weapon_tags = ability.tag_component.get_active_tags() if is_instance_valid(ability.tag_component) else []
 
 		for tracker in player_ledger.available_upgrades:
-			var def = tracker.definition
-			if not is_instance_valid(def) or not def.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
+			var definition = tracker.definition
+			if not is_instance_valid(definition) or not definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
 				continue
 
-			if not def.global_modifier_tags.is_empty():
-				var player_purchased_tier = player_ledger.purchase_levels.get(def.upgrade_id, 0)
+			if not definition.global_modifier_tags.is_empty():
+				var player_purchased_tier = player_ledger.purchase_levels.get(definition.upgrade_id, 0)
 				
 				# If the player has actually invested in this global modifier card
 				if player_purchased_tier > 0:
 					var tag_match_found = false
-					for modifier_tag in def.global_modifier_tags:
+					for modifier_tag in definition.global_modifier_tags:
 						if weapon_tags.has(modifier_tag):
 							tag_match_found = true
 							break
@@ -173,4 +173,10 @@ func _apply_global_modifiers_to_ability(ability: Ability) -> void:
 					# Symmetrically inject the historical global card straight into the new node!
 					if tag_match_found:
 						if is_instance_valid(ability.stats_container):
-							ability.stats_container.add_modifier(def.target_stat_type, def.stat_modifier_payload)
+							var global_modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
+							global_modifier_instance.id = ModifierFactory.generate_id(
+								ModifierFactory.OriginSource.GLOBAL_UPGRADE,
+								tracker,
+								ability
+							)
+							ability.stats_container.add_modifier(definition.target_stat_type, global_modifier_instance)

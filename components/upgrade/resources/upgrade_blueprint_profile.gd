@@ -52,6 +52,7 @@ func _generate_single_line_trackers() -> Array[UpgradeTracker]:
 		var tracker = UpgradeTracker.new()
 		var unique_definition = definition_template.duplicate(true)
 		
+		
 		tracker.definition = unique_definition
 		# Linear character stat cards increment their level requirement smoothly
 		tracker.required_character_level = initial_unlock_level + (tier * levels_per_tier)

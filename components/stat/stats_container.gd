@@ -13,15 +13,14 @@ func initialize_profile(stats_profile: StatsProfile) -> void:
 		push_warning("StatsContainer on %s missing a StatsProfile!" % get_parent().name)
 		return
 		
-	for stat in profile.default_stats:
-		if not stat:
-			continue
-			
-		var duplicated_stat: Stat = stat.duplicate(true) as Stat
-		stats[duplicated_stat.type] = duplicated_stat
+	for stat_type in profile.base_stats.keys():
+		var runtime_stat = Stat.new()
+		runtime_stat.type = stat_type
+		runtime_stat.base_value = profile.base_stats[stat_type]
 		
-		duplicated_stat.value_changed.connect(_on_stat_value_changed.bind(duplicated_stat))
-		duplicated_stat.update_value()
+		stats[stat_type] = runtime_stat
+		runtime_stat.value_changed.connect(_on_stat_value_changed.bind(runtime_stat))
+		runtime_stat.update_value()
 
 
 func get_stat(stat_type: Stat.Type) -> Stat:
