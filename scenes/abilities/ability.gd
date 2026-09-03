@@ -9,7 +9,24 @@ extends Node2D
 
 var display_name: String = ""
 
-## The definitive cache compiler orchestration loop managed entirely by the parent
+
+func _ready() -> void:
+	var required_ability_components: Array[String] = [
+		"stats_container",
+		"upgrade_ledger_component",
+		"infusion_tracker_component",
+		"evolution_gate_component",
+		"tag_component"
+	]
+	
+	if not ValidationUtility.validate_components(self, required_ability_components):
+		set_physics_process(false)
+		return
+	
+	if is_instance_valid(stats_container):
+		stats_container.stat_updated.connect(_on_stat_updated)
+
+
 func compile_eligible_pool(player_character_level: int) -> void:
 	if not is_instance_valid(upgrade_ledger_component):
 		return
@@ -17,7 +34,6 @@ func compile_eligible_pool(player_character_level: int) -> void:
 	var compiled_upgrades: Array[UpgradeTracker] = []
 	var compiled_evolutions: Array[UpgradeTracker] = []
 	
-	# EXTRACT DATA FROM THE SINGLE SOURCE OF TRUTH
 	var purchase_records: Dictionary[String, int] = upgrade_ledger_component.purchase_levels
 	var raw_evo_blueprints: Array[UpgradeTracker] = upgrade_ledger_component.available_evolutions
 	var active_tags: Array[Tags.Type] = tag_component.get_active_tags() if is_instance_valid(tag_component) else []
@@ -66,7 +82,7 @@ func compile_eligible_pool(player_character_level: int) -> void:
 	upgrade_ledger_component.overwrite_cached_pools(compiled_upgrades, compiled_evolutions)
 
 
-func apply_evolution_mutation(choice: UpgradeChoice) -> void:
+func apply_evolution_mutation(_choice: UpgradeChoice) -> void:
 	if is_instance_valid(evolution_gate_component):
 		evolution_gate_component.advance_evolution_state()
 
@@ -86,3 +102,7 @@ func apply_infusion_socket(element_tag: Tags.Type, upgrade_id: String) -> void:
 		infusion_tracker_component.calculate_total_infusions(upgrade_ledger_component.purchase_levels)
 
 	print("[SOCKET] %s successfully socketed into %s" % [upgrade_id, display_name])
+
+
+func _on_stat_updated(_stat_type: Stat.Type, _new_value: float) -> void:
+	pass

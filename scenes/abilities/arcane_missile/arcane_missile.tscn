@@ -1,7 +1,8 @@
-[gd_scene load_steps=10 format=3 uid="uid://pkcpypby833p"]
+[gd_scene load_steps=11 format=3 uid="uid://pkcpypby833p"]
 
 [ext_resource type="Script" uid="uid://b3x4kasw6ex1l" path="res://scenes/abilities/arcane_missile/arcane_missile.gd" id="1_brok0"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="2_drohb"]
+[ext_resource type="Resource" uid="uid://dp41cbfwoedbw" path="res://scenes/abilities/arcane_missile/arcane_missile_stats_profile.tres" id="3_feday"]
 [ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="3_s6hkg"]
 [ext_resource type="Script" uid="uid://07c0yeyxgr4l" path="res://components/ability/nearest_targeting_component.gd" id="5_qwf3u"]
 [ext_resource type="Script" uid="uid://ckcqe2bew2lbo" path="res://components/ability/projectile_spawner_component.gd" id="6_feday"]
@@ -10,10 +11,10 @@
 [ext_resource type="Script" uid="uid://dwg4bj0221jp5" path="res://components/ability/evolution_gate_component.gd" id="8_feday"]
 [ext_resource type="Script" uid="uid://qdwd7w4w5cw" path="res://components/ability/infusion_tracker_component.gd" id="9_cj15r"]
 
-[node name="ArcaneMissile" type="Node2D" node_paths=PackedStringArray("targeting_module", "spawner_module", "stats_container", "upgrade_ledger_component", "infusion_tracker_component", "evolution_gate_component", "tag_component")]
+[node name="ArcaneMissile" type="Node2D" node_paths=PackedStringArray("targeting_component", "spawner_component", "stats_container", "upgrade_ledger_component", "infusion_tracker_component", "evolution_gate_component", "tag_component")]
 script = ExtResource("1_brok0")
-targeting_module = NodePath("NearestTargetingComponent")
-spawner_module = NodePath("ProjectileSpawnerComponent")
+targeting_component = NodePath("NearestTargetingComponent")
+spawner_component = NodePath("ProjectileSpawnerComponent")
 stats_container = NodePath("StatsContainer")
 upgrade_ledger_component = NodePath("UpgradeLedgerComponent")
 infusion_tracker_component = NodePath("InfusionTrackerComponent")
@@ -22,6 +23,7 @@ tag_component = NodePath("TagComponent")
 
 [node name="StatsContainer" type="Node" parent="."]
 script = ExtResource("2_drohb")
+stats_profile = ExtResource("3_feday")
 
 [node name="TagComponent" type="Node" parent="."]
 script = ExtResource("3_s6hkg")

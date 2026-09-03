@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://dgoq3h4eqmvj"]
+[gd_scene load_steps=21 format=3 uid="uid://dgoq3h4eqmvj"]
 
 [ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://scenes/entities/player/player.gd" id="1_bls4j"]
 [ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://scenes/entities/player/player_stats_profile.tres" id="2_8fjmc"]
@@ -6,9 +6,12 @@
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="3_8fjmc"]
 [ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/velocity_movement_component.gd" id="4_qiwj3"]
 [ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="5_bectd"]
+[ext_resource type="Script" uid="uid://hnkcyvsaierv" path="res://components/stat/health_component.gd" id="5_yywfu"]
 [ext_resource type="Script" uid="uid://b6b6gqeb5wik8" path="res://components/progression/progression_component.gd" id="6_8fjmc"]
+[ext_resource type="Script" uid="uid://666k74n4yr6j" path="res://components/collision/hurtbox_component.gd" id="6_pcd0u"]
 [ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction/collector_component.gd" id="6_wvtmh"]
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
+[ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="8_w3p2j"]
 [ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/player_level_profile.tres" id="8_wvtmh"]
 [ext_resource type="Script" uid="uid://digb326esho6n" path="res://components/upgrade/upgrade_ledger_component.gd" id="11_7wli1"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_xy2vv"]
@@ -17,22 +20,26 @@
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
+[sub_resource type="CircleShape2D" id="CircleShape2D_yywfu"]
+
 [sub_resource type="CircleShape2D" id="CircleShape2D_bectd"]
 radius = 24.0
 
-[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("progression_component", "collector_component", "upgrade_ledger_component", "ability_container", "stats_container", "movement_component", "status_effect_component")]
+[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("collector_component", "progression_component", "upgrade_ledger_component", "ability_container", "stats_container", "health_component", "hurtbox_component", "movement_component", "status_effect_component", "tag_component")]
 collision_layer = 2
 collision_mask = 0
 motion_mode = 1
 script = ExtResource("1_bls4j")
-progression_component = NodePath("ProgressionComponent")
 collector_component = NodePath("CollectorComponent")
+progression_component = NodePath("ProgressionComponent")
 upgrade_ledger_component = NodePath("UpgradeLedgerComponent")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
+health_component = NodePath("HealthComponent")
+hurtbox_component = NodePath("HurtboxComponent")
 movement_component = NodePath("VelocityMovementComponent")
 status_effect_component = NodePath("StatusEffectComponent")
-stats_profile = ExtResource("2_8fjmc")
+tag_component = NodePath("TagComponent")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_fkugw")
@@ -40,11 +47,27 @@ texture = ExtResource("2_fkugw")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_26q78")
 
-[node name="StatsContainer" type="Node" parent="."]
-script = ExtResource("3_8fjmc")
-
 [node name="AbilityContainer" type="Node2D" parent="."]
 script = ExtResource("5_bectd")
+
+[node name="StatsContainer" type="Node" parent="."]
+script = ExtResource("3_8fjmc")
+stats_profile = ExtResource("2_8fjmc")
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("5_yywfu")
+
+[node name="HurtboxComponent" type="Area2D" parent="."]
+script = ExtResource("6_pcd0u")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent"]
+shape = SubResource("CircleShape2D_yywfu")
+
+[node name="StatusEffectComponent" type="Node" parent="."]
+script = ExtResource("8_7thud")
+
+[node name="TagComponent" type="Node" parent="."]
+script = ExtResource("8_w3p2j")
 
 [node name="CollectorComponent" type="Area2D" parent="."]
 collision_layer = 0
@@ -58,9 +81,6 @@ shape = SubResource("CircleShape2D_bectd")
 [node name="ProgressionComponent" type="Node" parent="."]
 script = ExtResource("6_8fjmc")
 thresholds_profile = ExtResource("8_wvtmh")
-
-[node name="StatusEffectComponent" type="Node" parent="."]
-script = ExtResource("8_7thud")
 
 [node name="VelocityMovementComponent" type="Node" parent="."]
 script = ExtResource("4_qiwj3")

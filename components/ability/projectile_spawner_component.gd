@@ -1,16 +1,14 @@
 class_name ProjectileSpawnerComponent
 extends Node
 
-## Emitted outwards to bubble up collision events to the parent ability handler
 signal projectile_impacted(target: Node2D)
 
-## The baseline projectile scene file (.tscn)
 @export var projectile_scene: PackedScene
 
-## Instantiates a projectile and injects fully processed, raw parameter data
-func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: float, lifetime_value: float, _active_tags: Array[Tags.Type]) -> Projectile:
+
+func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: float, hit_payload: HitPayload) -> Projectile:
 	if projectile_scene == null:
-		push_error("ProjectileSpawnerComponent: Missing scene reference assignment.")
+		push_error("ProjectileSpawnerComponent on '%s': Missing projectile scene reference." % get_parent().name)
 		return null
 		
 	var instance: Node = projectile_scene.instantiate()
@@ -21,13 +19,15 @@ func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: floa
 		
 	var projectile: Projectile = instance as Projectile
 	
-	# Pure numerical assignment—no stat containers or dictionary lookups here
+	# 1. Assign physical movement vectors
 	projectile.base_speed = speed_value
-	projectile.lifetime = lifetime_value
 	projectile.spawn_position = start_pos
 	projectile.direction = target_dir.normalized()
 	
-	# Bubble up the impact data blindly to whatever orchestrator spawned us
+	# 2. Directly inject the pre-packaged payload passed from the orchestrator
+	projectile.hit_payload = hit_payload
+	
+	# 3. Bubble up impact data safely via signals
 	projectile.collided.connect(func(target: Node2D) -> void:
 		projectile_impacted.emit(target)
 	)

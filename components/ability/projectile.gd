@@ -10,6 +10,7 @@ signal collided(target: Node2D)
 @export var friction: float = 0.0
 @export var lifetime: float = 5.0
 
+var hit_payload: HitPayload
 var direction: Vector2 = Vector2.RIGHT
 var spawn_position: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
@@ -44,8 +45,17 @@ func _physics_process(delta: float) -> void:
 
 	global_position += velocity * delta
 
+
 func _on_collision_detected(incoming_node: Node2D) -> void:
 	if incoming_node == self or incoming_node.get_parent() == self:
 		return
+		
+	# Check if the object we overlapped is a valid hurtbox
+	if incoming_node is HurtboxComponent:
+		var hurtbox = incoming_node as HurtboxComponent
+		
+		# Deliver the payload context straight to the receiver!
+		hurtbox.take_hit(hit_payload)
+		
 	collided.emit(incoming_node)
 	queue_free()

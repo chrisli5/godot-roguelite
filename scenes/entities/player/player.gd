@@ -2,8 +2,8 @@ class_name Player
 extends Entity
 
 @export_group("Components")
-@export var progression_component: ProgressionComponent
 @export var collector_component: CollectorComponent
+@export var progression_component: ProgressionComponent
 @export var upgrade_ledger_component: UpgradeLedgerComponent
 
 
@@ -13,19 +13,14 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	super()
-	var components_valid: bool = true
+	var required_player_components: Array[String] = [
+		"collector_component",
+		"progression_component",
+		"upgrade_ledger_component"
+	]
 	
-	if not progression_component:
-		push_error("Entity '%s' is missing a ProgressionComponent!" % name)
-		components_valid = false
-	if not collector_component:
-		push_error("Entity '%s' is missing a CollectorComponent!" % name)
-		components_valid = false
-	if not upgrade_ledger_component:
-		push_error("Entity '%s' is missing a UpgradeLedgerComponent!" % name)
-		components_valid = false	
-
-	if not components_valid:
+	if not ValidationUtility.validate_components(self, required_player_components):
+		set_physics_process(false)
 		return
 	
 	collector_component.payload_collected.connect(_on_payload_collected)

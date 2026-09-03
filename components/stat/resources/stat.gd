@@ -12,6 +12,8 @@ enum Type {
 	COOLDOWN,
 	ACCELERATION,
 	FRICTION,
+	CRIT_CHANCE,
+	CRIT_MULTIPLIER
 }
 
 @export var type: Type = Type.MAX_HEALTH

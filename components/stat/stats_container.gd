@@ -3,14 +3,19 @@ extends Node
 
 signal stat_updated(stat_type: Stat.Type, new_value: float)
 
-var profile: StatsProfile
+@export var stats_profile: StatsProfile
+
 var stats: Dictionary[Stat.Type, Stat] = {}
 
+func _ready() -> void:
+	if is_instance_valid(stats_profile):
+		initialize_profile(stats_profile)
+	else:
+		push_warning("StatsContainer on '%s' was instantiated without a StatsProfile asset template." % get_parent().name)
 
-func initialize_profile(stats_profile: StatsProfile) -> void:
-	profile = stats_profile
+
+func initialize_profile(profile: StatsProfile) -> void:
 	if not profile:
-		push_warning("StatsContainer on %s missing a StatsProfile!" % get_parent().name)
 		return
 		
 	for stat_type in profile.base_stats.keys():
