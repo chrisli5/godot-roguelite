@@ -148,7 +148,7 @@ func get_active_abilities() -> Array[Ability]:
 	return ordered_list
 
 
-func _apply_global_modifiers_to_ability(ability: Ability) -> void:
+func apply_global_modifiers_to_ability(ability: Ability) -> void:
 	var player = EventBus.active_player
 	if is_instance_valid(player) and is_instance_valid(player.upgrade_ledger_component):
 		var player_ledger = player.upgrade_ledger_component

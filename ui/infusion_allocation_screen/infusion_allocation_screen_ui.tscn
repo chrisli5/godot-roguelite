@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://dd8t6wruc1tkv"]
+
+[ext_resource type="Script" uid="uid://bypbtb3omlt3h" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.gd" id="1_052tt"]
+[ext_resource type="PackedScene" uid="uid://bfy34avyifpl4" path="res://ui/infusion_allocation_screen/AbilityRowUI.tscn" id="2_ga50a"]
+
+[node name="InfusionAllocationScreenUI" type="CanvasLayer" node_paths=PackedStringArray("weapon_rows_container")]
+process_mode = 3
+script = ExtResource("1_052tt")
+weapon_rows_container = NodePath("VBoxContainer")
+weapon_row_scene = ExtResource("2_ga50a")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0

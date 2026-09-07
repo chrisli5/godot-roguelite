@@ -3,7 +3,8 @@ extends Node
 @warning_ignore_start("unused_signal")
 signal player_leveled_up(new_level: int)
 
-signal infusion_allocation_requested(element_pool: Array[Tags.Type])
+signal infusion_allocation_requested(chosen_choice: UpgradeChoice)
+signal infusion_allocation_confirmed(chosen_choice: UpgradeChoice)
 signal infusion_socket_confirmed(ability_id: int, element_tag: Tags.Type, upgrade_id: String)
 
 signal new_run_started(act_config: ActConfiguration)

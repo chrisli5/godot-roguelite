@@ -2,12 +2,14 @@ class_name UpgradeChoice
 extends RefCounted
 
 var source_tracker: UpgradeTracker
+## Destination lane mapping (0 for Player Character Core, 1-4 for hotbar weapon slot indices).
 var target_slot_index: int = 0
-
-## The display name of the target being upgraded
+## The scannable category name of the target being upgraded (e.g., "Character Core", "Arcane Missile").
 var target_display_name: String = ""
 
-# --- Clean Definition Proxies ---
+# --- CLEAN DEFINITION PROXIES ---
+# Accessing these safely redirects traffic string-free straight down to the disk assets
+
 var definition: UpgradeDefinition:
 	get:
 		return source_tracker.definition if is_instance_valid(source_tracker) else null

@@ -1,65 +1,48 @@
 class_name UpgradeBlueprintProfile
 extends Resource
 
-enum ProfileBehavior { SINGLE_CARD_LINE, BUNDLE_LIST }
-
-@export_group("Profile Mode")
-@export var behavior_mode: ProfileBehavior = ProfileBehavior.SINGLE_CARD_LINE
-
-@export_group("Single Template Configurations")
-@export var definition_template: UpgradeDefinition
-@export var total_tiers: int = 5
-@export var initial_unlock_level: int = 1
-@export var levels_per_tier: int = 2
-
-@export_group("Bundle List Configurations")
+@export_group("Blueprint Configuration Bundle")
+## The list of upgrade definitions managed by this profile tracker family.
+## For single-line progression lines (like Movement Speed), simply add one definition template here.
 @export var definition_bundle: Array[UpgradeDefinition] = []
 
+@export_group("Gating & Ceiling Metrics")
+## The total purchase ceiling allowed for each card family in this bundle.
+## Set this to 1 for unique items like first-time skill unlocks or evolutions.
+@export var total_tiers: int = 5
+@export var initial_unlock_level: int = 1
+@export var levels_per_tier: int = 1
 
+
+## UNIFIED TRACKER GENERATION PIPELINE:
+## Bakes exactly ONE stable, persistent tracker object in RAM for each definition template.
 func generate_trackers() -> Array[UpgradeTracker]:
-	if behavior_mode == ProfileBehavior.BUNDLE_LIST:
-		return _generate_bundle_trackers()
-	return _generate_single_line_trackers()
-
-
-func _generate_bundle_trackers() -> Array[UpgradeTracker]:
 	var generated_list: Array[UpgradeTracker] = []
+	
 	for template in definition_bundle:
-		if not is_instance_valid(template): continue
+		if not is_instance_valid(template): 
+			continue
 			
+		# 1. Instantiate a single persistent tracker to hold this card family's run state
 		var tracker = UpgradeTracker.new()
-		tracker.definition = template.duplicate()
-			
-		# Explicit Assignment Pass
+		
+		# Isolate a pristine data copy of the asset definition to prevent global file bleeding
+		tracker.definition = template.duplicate(true)
+		
+		# 2. Assign standard structural properties uniformly
 		tracker.required_character_level = initial_unlock_level
-		tracker.required_infusion_level = 0 # Standard baseline evolution gate target
+		tracker.required_infusion_level = 1 
+		tracker.current_purchases = 0
 		tracker.tier_index = 1
-		tracker.max_purchases = 1
-		tracker.current_purchases = 0
-		generated_list.append(tracker)
 		
-	return generated_list
-
-
-func _generate_single_line_trackers() -> Array[UpgradeTracker]:
-	var generated_list: Array[UpgradeTracker] = []
-	if not is_instance_valid(definition_template): return generated_list
-		
-	var dynamic_max_tiers = 1 if definition_template.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK else total_tiers
-		
-	for tier in range(dynamic_max_tiers):
-		var current_tier_num = tier + 1
-		var tracker = UpgradeTracker.new()
-		var unique_definition = definition_template.duplicate(true)
-		
-		
-		tracker.definition = unique_definition
-		# Linear character stat cards increment their level requirement smoothly
-		tracker.required_character_level = initial_unlock_level + (tier * levels_per_tier)
-		tracker.required_infusion_level = 1 # Linear cards do not care about recipe checks
-		tracker.tier_index = current_tier_num
-		tracker.max_purchases = 1 
-		tracker.current_purchases = 0
+		# 3. Handle maximum purchase bounds contextually based on payload type
+		if template.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
+			# Structural morphological swaps and first-time skill unlocks can only be bought once
+			tracker.max_purchases = 1
+		else:
+			# Linear cards and socketed infusions scale up to your predefined ceiling parameters
+			tracker.max_purchases = total_tiers
+			
 		generated_list.append(tracker)
 		
 	return generated_list

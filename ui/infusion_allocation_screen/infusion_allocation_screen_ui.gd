@@ -1,93 +1,115 @@
-#=============================================================================
-# FILE: res://components/ui/infusion/infusion_allocation_ui.gd
-#=============================================================================
 class_name InfusionAllocationUI
-extends Control
+extends CanvasLayer
 
 @export_group("Layout Component Containers")
-@export var element_buttons_container: HBoxContainer
 @export var weapon_rows_container: VBoxContainer
 
 @export_group("UI Item Prefabs")
-@export var element_button_scene: PackedScene
+## Drag res://ui/infusion_allocation_screen/weapon_row_ui.tscn into this inspector slot
 @export var weapon_row_scene: PackedScene
 
+# Local caching registers mapping the active state of the current draft intercept
+var _active_choice: UpgradeChoice = null
 var _selected_element: Tags.Type = Tags.Type.NONE
-var _rolled_elements: Array[Tags.Type] = []
 
 
 func _ready() -> void:
+	# Keep the interface screen hidden from the main viewport loop by default
 	visible = false
 	EventBus.infusion_allocation_requested.connect(_on_allocation_requested)
 
 
-func _on_allocation_requested(element_pool: Array[Tags.Type]) -> void:
-	_rolled_elements = element_pool
-	_selected_element = Tags.Type.NONE
-	visible = true
-	
-	_render_element_selection_view()
-	_clear_weapon_rows_view()
-
-
-func _render_element_selection_view() -> void:
-	for child in element_buttons_container.get_children():
-		child.queue_free()
+## Triggered by the persistent controllers when an infusion upgrade card is selected
+func _on_allocation_requested(chosen_choice: UpgradeChoice) -> void:
+	if not is_instance_valid(chosen_choice) or not is_instance_valid(chosen_choice.definition):
+		push_error("InfusionAllocationUI: Received empty or corrupt UpgradeChoice packet data.")
+		return
 		
-	for element in _rolled_elements:
-		var btn = element_button_scene.instantiate() as Button
-		element_buttons_container.add_child(btn)
-		btn.text = Tags.get_tag_name(element)
-		btn.pressed.connect(_on_element_button_pressed.bind(element))
-
-
-func _on_element_button_pressed(chosen_element: Tags.Type) -> void:
-	_selected_element = chosen_element
+	_active_choice = chosen_choice
+	_selected_element = Tags.Type.NONE
+	
+	# Harvest the core element tag on the fly out of the choice taxonomy list array
+	for tag in chosen_choice.definition.tags:
+		if tag != Tags.Type.INFUSION:
+			_selected_element = tag
+			break
+			
+	if _selected_element == Tags.Type.NONE:
+		push_error("InfusionAllocationUI: Failed to isolate a valid element tag inside card definition payload.")
+		return
+		
+	# Reveal the pop-up canvas overlay panel layer
+	visible = true
 	_render_eligible_weapon_rows()
 
 
+## Clears old visual elements out of the viewport tree layout container
 func _clear_weapon_rows_view() -> void:
-	for child in weapon_rows_container.get_children():
-		child.queue_free()
+	if is_instance_valid(weapon_rows_container):
+		for child in weapon_rows_container.get_children():
+			child.queue_free()
 
 
+## Dynamically compiles scannable row elements for each active weapon slot (1 to 4)
 func _render_eligible_weapon_rows() -> void:
 	_clear_weapon_rows_view()
 	
 	var player = EventBus.active_player
 	if not is_instance_valid(player) or not is_instance_valid(player.ability_container):
+		push_warning("InfusionAllocationUI: Accessing weapon fields failed. Active player or layout container missing.")
 		return
 		
-	var active_weapons = player.ability_container.get_active_abilities()
-	
-	for weapon in active_weapons:
-		if not weapon is Ability or not is_instance_valid(weapon.upgrade_ledger): 
+	# Symmetrically cycle through hotbar slots 1 to 4 (Fixed bounds layout rules)
+	for slot_idx in range(1, 5):
+		var weapon: Ability = player.ability_container.get_ability_by_slot(slot_idx)
+		if not is_instance_valid(weapon) or not is_instance_valid(weapon.upgrade_ledger_component): 
 			continue
 			
-		var ledger = weapon.upgrade_ledger
-		var element_key = ledger.get_upgrade_id_from_element(_selected_element)
+		var ledger = weapon.upgrade_ledger_component
+		var element_key = "inf_" + Tags.get_tag_name(_selected_element)
 		var is_allowed = true
 		
-		if weapon.has_node("InfusionTrackerComponent"):
-			var tracker = weapon.get_node("InfusionTrackerComponent") as InfusionTrackerComponent
-			var state_gate = int(weapon.evolution_gate.current_state) if is_instance_valid(weapon.evolution_gate) else 0
-			var is_oc = weapon.evolution_gate.is_permanently_overclocked if is_instance_valid(weapon.evolution_gate) else false
+		# --- DYNAMIC CONSTRAINT AUDITING ---
+		# Check weapon boundaries and soft/hard socket caps against the Infusion Tracker component
+		if is_instance_valid(weapon.infusion_tracker_component):
+			var tracker = weapon.infusion_tracker_component
+			var state_gate = int(weapon.evolution_gate_component.current_state) if is_instance_valid(weapon.evolution_gate_component) else 0
+			var is_oc = weapon.evolution_gate_component.is_permanently_overclocked if is_instance_valid(weapon.evolution_gate_component) else false
 			
+			# Build a transient blueprint data record profile to pass to the tester routine safely
 			var dummy_def = UpgradeDefinition.new()
 			dummy_def.upgrade_id = element_key
-			dummy_def.tags = [_selected_element, Tags.Type.INFUSION]
+			dummy_def.tags.append(Tags.Type.INFUSION)
+			dummy_def.tags.append(_selected_element)
 			
 			is_allowed = tracker.is_infusion_card_allowed(dummy_def, state_gate, is_oc, ledger.purchase_levels)
 			
-		var row = weapon_row_scene.instantiate()
-		weapon_rows_container.add_child(row)
-		row.setup_row_display(weapon.display_name, ledger.purchase_levels, is_allowed)
+		# --- LAYOUT INSTANTIATION ---
+		var row_instance = weapon_row_scene.instantiate()
+		weapon_rows_container.add_child(row_instance)
 		
-		if is_allowed:
-			row.clicked.connect(_on_final_allocation_confirmed.bind(weapon.ability_id, element_key))
+		if row_instance is AbilityRowUI:
+			# Command the blind UI row to parse data strings and adjust its look/disabled state on the fly
+			row_instance.setup_row_display(weapon.display_name, ledger.purchase_levels, is_allowed)
+			
+			if is_allowed:
+				# Bind click routines tightly to our deterministic slot indexes using Lambda wrappers
+				row_instance.pressed.connect(_on_final_allocation_confirmed.bind(_active_choice, slot_idx))
 
 
-func _on_final_allocation_confirmed(ability_id: int, upgrade_id: String) -> void:
-	EventBus.infusion_socket_confirmed.emit(ability_id, _selected_element, upgrade_id)
+## Triggered when a user successfully selects an eligible weapon row container node button
+func _on_final_allocation_confirmed(chosen_choice: UpgradeChoice, target_slot_index: int) -> void:
+	# 1. Stamp the choice structure with its concrete destination hotbar slot (1 to 4)
+	chosen_choice.target_slot_index = target_slot_index
+	
+	print("[INFUSION UI] Allocation finalized for slot %d. Broadcasting package back to managers..." % target_slot_index)
+	
+	# 2. BUBBLE UP: Emit choices back into persistent global bus channels string-free
+	EventBus.infusion_allocation_confirmed.emit(chosen_choice)
+	
+	# 3. Wipe layout memory cache lines, conceal the canvas panel, and resume standard frame execution passes
+	_clear_weapon_rows_view()
+	_active_choice = null
+	_selected_element = Tags.Type.NONE
 	visible = false
 	get_tree().paused = false

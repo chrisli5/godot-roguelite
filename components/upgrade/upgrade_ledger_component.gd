@@ -1,12 +1,16 @@
 class_name UpgradeLedgerComponent
 extends Node
 
-@export_group("Linear Stat Upgrades Profile")
+@export_group("Stat Blueprint Profile")
 @export var stat_blueprint_profiles: Array[UpgradeBlueprintProfile] = []
 ## Master bucket for linear stat modifications (STAT_MODIFIER payloads)
 var available_upgrades: Array[UpgradeTracker] = []
 
-@export_group("Structural Evolution Profile")
+@export_group("Infusion Blueprint Profile")
+@export var infusion_blueprint_profiles: Array[UpgradeBlueprintProfile] = []
+var available_infusions: Array[UpgradeTracker] = []
+
+@export_group("Evolution Blueprint Profile")
 @export var evo_blueprint_profiles: Array[UpgradeBlueprintProfile] = []
 ## Master bucket for structural mutations (ABILITY_UNLOCK payloads)
 var available_evolutions: Array[UpgradeTracker] = []
@@ -27,6 +31,10 @@ func _ready() -> void:
 	for profile in evo_blueprint_profiles:
 		if is_instance_valid(profile):
 			available_evolutions.append_array(profile.generate_trackers())
+	
+	for profile in infusion_blueprint_profiles:
+		if is_instance_valid(profile):
+			available_infusions.append_array(profile.generate_trackers())
 
 
 func get_cached_upgrades() -> Array[UpgradeTracker]: return _cached_eligible_upgrades

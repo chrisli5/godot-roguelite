@@ -6,5 +6,6 @@
 
 [resource]
 script = ExtResource("1_ea3dk")
-definition_template = ExtResource("1_slstj")
+definition_bundle = Array[ExtResource("1_rtp0e")]([ExtResource("1_slstj")])
+levels_per_tier = 0
 metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

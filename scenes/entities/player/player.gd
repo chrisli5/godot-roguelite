@@ -53,8 +53,8 @@ func _handle_movement_physics() -> void:
 	move_and_slide()
 
 
+## UNIFIED SINGLE VALUE SCALING COMPILE:
 func compile_character_eligible_pool(player_character_level: int) -> void:	
-	# Cache localized temporary arrays to pass to storage registers
 	var compiled_upgrades: Array[UpgradeTracker] = []
 	var compiled_unlocks: Array[UpgradeTracker] = []
 	
@@ -63,16 +63,14 @@ func compile_character_eligible_pool(player_character_level: int) -> void:
 		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases:
 			continue
 			
-		# Enforce standard player level gating constraints layout metrics
-		if player_character_level < tracker.required_character_level:
+		# Dynamic level step gating calculation pass
+		var dynamic_req_level = tracker.required_character_level + (tracker.current_purchases * 2)
+		if player_character_level < dynamic_req_level:
 			continue
 			
-		match definition.payload_type:
-			UpgradeDefinition.PayloadType.STAT_MODIFIER:
-				# Character stats (e.g. Speed, Health) map smoothly based on purchased tiers
-				var current_acquired_tier = upgrade_ledger_component.purchase_levels.get(definition.upgrade_id, 0)
-				if tracker.tier_index == current_acquired_tier + 1:
-					compiled_upgrades.append(tracker)
+		if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
+			tracker.tier_index = tracker.current_purchases + 1
+			compiled_upgrades.append(tracker)
 					
 	for tracker in upgrade_ledger_component.available_evolutions:
 		var definition = tracker.definition
@@ -82,103 +80,141 @@ func compile_character_eligible_pool(player_character_level: int) -> void:
 		if player_character_level < tracker.required_character_level:
 			continue
 			
-		match definition.payload_type:
-			UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
-				compiled_unlocks.append(tracker)
+		if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
+			tracker.tier_index = tracker.current_purchases + 1
+			compiled_unlocks.append(tracker)
 
-	# Overwrite local cache storage registers instantly
 	upgrade_ledger_component.clear_caches()
 	upgrade_ledger_component.overwrite_cached_pools(compiled_upgrades, compiled_unlocks)
 
 
+## Refactored Entry Point Router Passing Choice Data
 func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	var definition = choice.definition
 	if not is_instance_valid(definition):
 		return
 		
-	# --- BRANCH A: LINEAR STAT UPGRADES (STAT_MODIFIER) ---
-	if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER and definition.global_modifier_tags.is_empty():
-		# Isolate a pristine data copy so we don't pollute the global static asset resource disk file
-		var modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
+	if definition.tags.has(Tags.Type.INFUSION):
+		_process_elemental_infusion(choice)
+		return
+	if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER and not definition.global_modifier_tags.is_empty():
+		_process_global_modifier(choice)
+		return
+	if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
+		_process_local_stat_modifier(choice)
+		return
+	if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
+		_process_structural_ability_mutation(choice)
+		return
+
+
+func _process_elemental_infusion(choice: UpgradeChoice) -> void:
+	var definition = choice.definition
+	if not is_instance_valid(ability_container) or choice.target_slot_index <= 0:
+		return
 		
-		if choice.target_slot_index > 0:
-			# SCENARIO 1: Weapon-Specific Local Modifier
-			if is_instance_valid(ability_container):
-				var ability = ability_container.get_ability_by_slot(choice.target_slot_index)
-				if is_instance_valid(ability):
-					modifier_instance.id = ModifierFactory.generate_id(
-						ModifierFactory.OriginSource.LOCAL_UPGRADE,
-						choice.source_tracker,
-						ability
-					)
-					ability_container.add_stat_modifier_to_slot(choice.target_slot_index, definition.target_stat_type, modifier_instance)
-		else:
+	var target_weapon = ability_container.get_ability_by_slot(choice.target_slot_index)
+	if not is_instance_valid(target_weapon):
+		return
+		
+	var picked_element: Tags.Type = Tags.Type.NONE
+	for tag in definition.tags:
+		if tag != Tags.Type.INFUSION:
+			picked_element = tag
+			break
+			
+	# Update DNA taxonomy tags and log purchase entries inside local weapon register
+	target_weapon.apply_infusion_socket(picked_element, definition.upgrade_id)
+	
+	# Uniform Scaling Calculation Pass
+	var modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
+	var current_tier: int = choice.source_tracker.current_purchases
+	if current_tier == 0: current_tier = 1
+	modifier_instance.value = definition.stat_modifier_payload.value * current_tier
+	
+	modifier_instance.id = ModifierFactory.generate_id(
+		ModifierFactory.OriginSource.LOCAL_UPGRADE,
+		choice.source_tracker,
+		target_weapon,
+		"infusion_socket"
+	)
+	
+	ability_container.add_stat_modifier_to_slot(choice.target_slot_index, definition.target_stat_type, modifier_instance)
+
+
+func _process_local_stat_modifier(choice: UpgradeChoice) -> void:
+	var definition = choice.definition
+	var modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
+	
+	var current_tier: int = choice.source_tracker.current_purchases
+	if current_tier == 0: current_tier = 1
+	modifier_instance.value = definition.stat_modifier_payload.value * current_tier
+	
+	if choice.target_slot_index > 0:
+		var ability = ability_container.get_ability_by_slot(choice.target_slot_index)
+		if is_instance_valid(ability):
 			modifier_instance.id = ModifierFactory.generate_id(
 				ModifierFactory.OriginSource.LOCAL_UPGRADE,
 				choice.source_tracker,
-				self
+				ability,
+				"local_linear_stat"
 			)
-			stats_container.add_modifier(definition.target_stat_type, modifier_instance)
-		return
-	
-	# --- BRANCH B: GLOBAL CORE / MULTIPLIER UPGRADES (STAT_MODIFIER) ---
-	if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER and not definition.global_modifier_tags.is_empty():
-		if not is_instance_valid(ability_container):
-			return
-			
-		# Loop symmetrically through structural hotbar index targets 1 to 4
-		for slot_idx in range(1, 5):
-			var weapon = ability_container.get_ability_by_slot(slot_idx)
-			if not is_instance_valid(weapon):
-				continue
-				
-			var weapon_tags = weapon.tag_component.get_active_tags() if is_instance_valid(weapon.tag_component) else []
-			
-			# Check for compatibility intersection matches against broadcast rules
-			var match_found = false
-			for modifier_tag in definition.global_modifier_tags:
-				if weapon_tags.has(modifier_tag):
-					match_found = true
-					break
-						
-			if match_found and is_instance_valid(weapon.stats_container):
-				var global_modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
-				
-				# Scale total output payload directly by total investments tracked inside the ledger history registers
-				var purchased_tier = choice.source_tracker.current_purchases
-				global_modifier_instance.value = definition.stat_modifier_payload.value * purchased_tier
-				global_modifier_instance.id = ModifierFactory.generate_id(
-					ModifierFactory.OriginSource.GLOBAL_UPGRADE,
-					choice.source_tracker,
-					weapon
-				)
-				weapon.stats_container.add_modifier(definition.target_stat_type, global_modifier_instance)
-		return
+			ability_container.add_stat_modifier_to_slot(choice.target_slot_index, definition.target_stat_type, modifier_instance)
+	else:
+		modifier_instance.id = ModifierFactory.generate_id(
+			ModifierFactory.OriginSource.LOCAL_UPGRADE,
+			choice.source_tracker,
+			self,
+			"character_linear_stat"
+		)
+		stats_container.add_modifier(definition.target_stat_type, modifier_instance)
 
-	# --- BRANCH C: STRUCTURAL MUTATIONS (ABILITY_UNLOCK) ---
-	if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
-		if not is_instance_valid(ability_container):
-			return
-			
-		var existing_ability = ability_container.get_ability_by_slot(choice.target_slot_index)
-		
-		if not is_instance_valid(existing_ability):
-			# SCENARIO 1: FIRST-TIME WEAPON UNLOCK
-			var new_ability = ability_container.add_ability_from_data(definition.ability_data_payload)
-			print("[UNLOCK] New ability successfully mounted into static Slot: ", choice.target_slot_index)
-			
-			# Symmetrical Check: Does the player already own global cards that match this fresh skill's tags?
-			if is_instance_valid(new_ability) and is_instance_valid(ability_container):
-				ability_container._apply_global_modifiers_to_ability(new_ability)
-		else:
-			# SCENARIO 2: ABILITY EVOLUTION GEOMETRY SWAP
-			var evolved_ability = ability_container.execute_ability_evolution(definition.ability_data_payload)
-			print("[EVOLUTION] Active slot morphed. State data migrated cleanly on Slot: ", choice.target_slot_index)
-			
-			# Symmetrical Check: Re-inject historic global passives into the new structural geometry frames instantly
-			if is_instance_valid(evolved_ability) and is_instance_valid(ability_container):
-				ability_container._apply_global_modifiers_to_ability(evolved_ability)
+
+func _process_global_modifier(choice: UpgradeChoice) -> void:
+	var definition = choice.definition
+	if not is_instance_valid(ability_container):
 		return
+			
+	for slot_idx in range(1, 5):
+		var weapon = ability_container.get_ability_by_slot(slot_idx)
+		if not is_instance_valid(weapon):
+			continue
+				
+		var weapon_tags = weapon.tag_component.get_active_tags() if is_instance_valid(weapon.tag_component) else []
+		var match_found = false
+		for modifier_tag in definition.global_modifier_tags:
+			if weapon_tags.has(modifier_tag):
+				match_found = true
+				break
+						
+		if match_found and is_instance_valid(weapon.stats_container):
+			var global_modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
+			var current_tier: int = choice.source_tracker.current_purchases
+			if current_tier == 0: current_tier = 1
+			global_modifier_instance.value = definition.stat_modifier_payload.value * current_tier
+			
+			global_modifier_instance.id = ModifierFactory.generate_id(
+				ModifierFactory.OriginSource.GLOBAL_UPGRADE,
+				choice.source_tracker,
+				weapon
+			)
+			weapon.stats_container.add_modifier(definition.target_stat_type, global_modifier_instance)
+
+
+func _process_structural_ability_mutation(choice: UpgradeChoice) -> void:
+	var definition = choice.definition
+	if not is_instance_valid(ability_container):
+		return
+			
+	var existing_ability = ability_container.get_ability_by_slot(choice.target_slot_index)
+	if not is_instance_valid(existing_ability):
+		var new_ability = ability_container.add_ability_from_data(definition.ability_data_payload)
+		if is_instance_valid(new_ability):
+			ability_container.apply_global_modifiers_to_ability(new_ability)
+	else:
+		var evolved_ability = ability_container.execute_ability_evolution(definition.ability_data_payload)
+		if is_instance_valid(evolved_ability):
+			ability_container.apply_global_modifiers_to_ability(evolved_ability)
 
 
 func _on_payload_collected(payload: PickupPayload) -> void:

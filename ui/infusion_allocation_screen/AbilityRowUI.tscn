@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://bfy34avyifpl4"]
+
+[ext_resource type="Script" uid="uid://ddes4fi4l1rhn" path="res://ui/infusion_allocation_screen/ability_row_ui.gd" id="1_enmpk"]
+
+[node name="AbilityRowUI" type="Button" node_paths=PackedStringArray("weapon_name_label", "level_details_label")]
+custom_minimum_size = Vector2(400, 60)
+script = ExtResource("1_enmpk")
+weapon_name_label = NodePath("HBoxContainer/AbilityName")
+level_details_label = NodePath("HBoxContainer/LevelDetails")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="AbilityName" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+
+[node name="LevelDetails" type="Label" parent="HBoxContainer"]
+layout_mode = 2

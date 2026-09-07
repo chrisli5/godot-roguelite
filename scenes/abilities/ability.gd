@@ -27,6 +27,7 @@ func _ready() -> void:
 		stats_container.stat_updated.connect(_on_stat_updated)
 
 
+## Cleaned and Streamlined Selection Compiler:
 func compile_eligible_pool(player_character_level: int) -> void:
 	if not is_instance_valid(upgrade_ledger_component):
 		return
@@ -38,46 +39,26 @@ func compile_eligible_pool(player_character_level: int) -> void:
 	var raw_evo_blueprints: Array[UpgradeTracker] = upgrade_ledger_component.available_evolutions
 	var active_tags: Array[Tags.Type] = tag_component.get_active_tags() if is_instance_valid(tag_component) else []
 	
-	# --- PHASE 1: COMPILE STRUCTURAL RECIPES THROUGH THE FILTER PIPE ---
+	# --- PHASE 1: COMPILE STRUCTURAL EVO RECIPES ---
 	if is_instance_valid(evolution_gate_component):
 		if is_instance_valid(infusion_tracker_component):
 			infusion_tracker_component.calculate_total_infusions(purchase_records)
 			
-		# Pass the raw ledger arrays into the pure processing filter method
 		compiled_evolutions = evolution_gate_component.evaluate_evolution_recipes(raw_evo_blueprints, purchase_records, active_tags)
 		
-	var has_active_evolutions: bool = not compiled_evolutions.is_empty()
-
-	# --- PHASE 2: COMPILE LINEAR STAT UPGRADE CARDS ---
+	# --- PHASE 2: COMPILE LINEAR STAT MODIFIERS ---
 	for tracker in upgrade_ledger_component.available_upgrades:
 		var definition = tracker.definition
 		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases: 
 			continue
 		
-		# Validate active socket boundaries and constraints
-		if is_instance_valid(infusion_tracker_component):
-			if definition.has_meta("specialty_payload"):
-				if not infusion_tracker_component.is_specialty_card_allowed(): 
-					continue
-			else:
-				if player_character_level < tracker.required_character_level: 
-					continue
+		var dynamic_req_level = tracker.required_character_level + (tracker.current_purchases * 2)
+		if player_character_level < dynamic_req_level: 
+			continue
 			
-			var state_gate = int(evolution_gate_component.current_state) if is_instance_valid(evolution_gate_component) else 0
-			var is_oc = evolution_gate_component.is_permanently_overclocked if is_instance_valid(evolution_gate_component) else false
-			var is_hybrid_overclocked: bool = (not has_active_evolutions)
-			
-			if not infusion_tracker_component.is_infusion_card_allowed(definition, state_gate, is_oc or is_hybrid_overclocked, purchase_records):
-				continue
-		else:
-			if player_character_level < tracker.required_character_level: 
-				continue
-			
-		var current_acquired_tier = purchase_records.get(definition.upgrade_id, 0)
-		if tracker.tier_index == current_acquired_tier + 1: 
-			compiled_upgrades.append(tracker)
+		tracker.tier_index = tracker.current_purchases + 1
+		compiled_upgrades.append(tracker)
 
-	# --- PHASE 3: WRITE BACK TO THE STORAGE REGISTERS ---
 	upgrade_ledger_component.clear_caches()
 	upgrade_ledger_component.overwrite_cached_pools(compiled_upgrades, compiled_evolutions)
 
@@ -88,16 +69,13 @@ func apply_evolution_mutation(_choice: UpgradeChoice) -> void:
 
 
 func apply_infusion_socket(element_tag: Tags.Type, upgrade_id: String) -> void:
-	# 1. Update the pure physics/combat execution tags string-free
 	if is_instance_valid(tag_component):
 		tag_component.add_tag(element_tag)
 		tag_component.add_tag(Tags.Type.INFUSION)
 
-	# 2. Update the progress accounting ledger
 	if is_instance_valid(upgrade_ledger_component):
 		upgrade_ledger_component.log_purchase_entry(upgrade_id)
 
-	# 3. Inform the infusion tracker to audit new totals and validate socket boundaries
 	if is_instance_valid(infusion_tracker_component) and is_instance_valid(upgrade_ledger_component):
 		infusion_tracker_component.calculate_total_infusions(upgrade_ledger_component.purchase_levels)
 

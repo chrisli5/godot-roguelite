@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=5 format=3 uid="uid://enkt04os3bdr"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_637bw"]
+[ext_resource type="Resource" uid="uid://cusxy3s22tcm7" path="res://scenes/entities/player/infusion_profile/inf_fire_def.tres" id="2_8xa8a"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_pek3h"]
+[ext_resource type="Resource" uid="uid://0ssq10ilfgd1" path="res://scenes/entities/player/infusion_profile/inf_lightning_def.tres" id="3_217np"]
+
+[resource]
+script = ExtResource("2_pek3h")
+behavior_mode = 1
+definition_bundle = Array[ExtResource("1_637bw")]([ExtResource("2_8xa8a"), ExtResource("3_217np")])
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"
