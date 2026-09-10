@@ -19,7 +19,7 @@ func _ready() -> void:
 	EventBus.infusion_allocation_requested.connect(_on_allocation_requested)
 
 
-## Triggered by the persistent controllers when an infusion upgrade card is selected
+## Triggered by persistent controllers when an infusion upgrade card is selected
 func _on_allocation_requested(chosen_choice: UpgradeChoice) -> void:
 	if not is_instance_valid(chosen_choice) or not is_instance_valid(chosen_choice.definition):
 		push_error("InfusionAllocationUI: Received empty or corrupt UpgradeChoice packet data.")
@@ -62,39 +62,38 @@ func _render_eligible_weapon_rows() -> void:
 	# Symmetrically cycle through hotbar slots 1 to 4 (Fixed bounds layout rules)
 	for slot_idx in range(1, 5):
 		var weapon: Ability = player.ability_container.get_ability_by_slot(slot_idx)
-		if not is_instance_valid(weapon) or not is_instance_valid(weapon.upgrade_ledger_component): 
+		if not is_instance_valid(weapon) or not is_instance_valid(weapon.infusion_tracker_component): 
 			continue
 			
-		var ledger = weapon.upgrade_ledger_component
-		var element_key = "inf_" + Tags.get_tag_name(_selected_element)
 		var is_allowed = true
-		
-		# --- DYNAMIC CONSTRAINT AUDITING ---
-		# Check weapon boundaries and soft/hard socket caps against the Infusion Tracker component
-		if is_instance_valid(weapon.infusion_tracker_component):
-			var tracker = weapon.infusion_tracker_component
-			var state_gate = int(weapon.evolution_gate_component.current_state) if is_instance_valid(weapon.evolution_gate_component) else 0
-			var is_oc = weapon.evolution_gate_component.is_permanently_overclocked if is_instance_valid(weapon.evolution_gate_component) else false
-			
-			# Build a transient blueprint data record profile to pass to the tester routine safely
-			var dummy_def = UpgradeDefinition.new()
-			dummy_def.upgrade_id = element_key
-			dummy_def.tags.append(Tags.Type.INFUSION)
-			dummy_def.tags.append(_selected_element)
-			
-			is_allowed = tracker.is_infusion_card_allowed(dummy_def, state_gate, is_oc, ledger.purchase_levels)
+		print(_selected_element)
+		# --- DYNAMIC TYPE-SAFE CONSTRAINT AUDITING ---
+		# Poll the streamlined tracker module directly using the selected element enum
+		# Sibling reference parsing has been completely decoupled!
+		is_allowed = weapon.infusion_tracker_component.is_element_socket_allowed(
+			_selected_element,
+			int(weapon.evolution_gate_component.current_state) if is_instance_valid(weapon.evolution_gate_component) else 0,
+			weapon.evolution_gate_component.is_permanently_overclocked if is_instance_valid(weapon.evolution_gate_component) else false
+		)
+		print("is_allowed: ", is_allowed)
 			
 		# --- LAYOUT INSTANTIATION ---
 		var row_instance = weapon_row_scene.instantiate()
 		weapon_rows_container.add_child(row_instance)
 		
 		if row_instance is AbilityRowUI:
-			# Command the blind UI row to parse data strings and adjust its look/disabled state on the fly
-			row_instance.setup_row_display(weapon.display_name, ledger.purchase_levels, is_allowed)
+			# Command the blind UI row to parse type-safe level arrays on the fly
+			row_instance.setup_row_display(
+				weapon.display_name, 
+				weapon.infusion_tracker_component.infusion_levels, 
+				is_allowed
+			)
 			
 			if is_allowed:
 				# Bind click routines tightly to our deterministic slot indexes using Lambda wrappers
-				row_instance.pressed.connect(_on_final_allocation_confirmed.bind(_active_choice, slot_idx))
+				row_instance.pressed.connect(func() -> void:
+					_on_final_allocation_confirmed(_active_choice, slot_idx)
+				)
 
 
 ## Triggered when a user successfully selects an eligible weapon row container node button

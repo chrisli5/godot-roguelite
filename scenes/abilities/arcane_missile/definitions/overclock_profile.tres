@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=4 format=3 uid="uid://ccvmcm4sfkf0i"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_0l4h3"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_d22ov"]
+[ext_resource type="Resource" uid="uid://bcfubfefcihwl" path="res://scenes/abilities/arcane_missile/definitions/overclock_def.tres" id="2_wpo14"]
+
+[resource]
+script = ExtResource("2_d22ov")
+definition_bundle = Array[ExtResource("1_0l4h3")]([ExtResource("2_wpo14")])
+total_tiers = 1
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

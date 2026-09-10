@@ -8,20 +8,10 @@ var current_state: EvolutionState = EvolutionState.TIER_1_BASE
 var is_permanently_overclocked: bool = false
 
 
-func get_upgrade_id_from_element(element_tag: Tags.Type) -> String:
-	match element_tag:
-		Tags.Type.FIRE: return "inf_fire"
-		Tags.Type.FROST: return "inf_frost"
-		Tags.Type.WIND: return "inf_wind"
-		Tags.Type.LIGHTNING: return "inf_lightning"
-		Tags.Type.EARTH: return "inf_earth"
-		_: return ""
-
-
-## Evaluates structural morphology parameters and recipe matches to return valid mutation choices.
+## Evaluates structural morphology parameters and recipe matches string-free using direct arrays.
 func evaluate_evolution_recipes(
 	available_evolutions: Array[UpgradeTracker], 
-	purchase_levels: Dictionary[String, int], 
+	infusion_levels: Array[int], 
 	active_tags: Array[Tags.Type]
 ) -> Array[UpgradeTracker]:
 	
@@ -33,13 +23,13 @@ func evaluate_evolution_recipes(
 	var active_socket_count: int = 0
 	var elements_at_soft_cap_count: int = 0
 	
-	# Determine the exact soft cap target based on the current evolution tier state machine
+	# Determine the exact soft cap target based on the current evolution state machine
 	var current_soft_cap_ceiling = 3 if current_state == EvolutionState.TIER_1_BASE else 5
 	
-	for key in purchase_levels.keys():
-		if key.begins_with("inf_") and purchase_levels[key] > 0:
+	for level in infusion_levels:
+		if level > 0:
 			active_socket_count += 1
-			if purchase_levels[key] >= current_soft_cap_ceiling:
+			if level >= current_soft_cap_ceiling:
 				elements_at_soft_cap_count += 1
 
 	# --- STEP 2: VERIFY SOFT LEVEL CAP THRESHOLDS ---
@@ -57,7 +47,7 @@ func evaluate_evolution_recipes(
 	if not reached_soft_cap_milestone:
 		return eligible_evos
 
-	# --- STEP 3: UNORDERED MATHEMATICAL SET RECIPE MATCHING ---
+	# --- STEP 3: UNORDERED RECIPE CONFIGURATION CARD MATCHING ---
 	for tracker in available_evolutions:
 		var definition = tracker.definition
 		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases: 
@@ -66,13 +56,8 @@ func evaluate_evolution_recipes(
 		# Validate that this is a structural morphology swap layout card
 		if definition.payload_type != UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
 			continue
-			
-		# Enforce character level gating boundaries
-		if tracker.required_character_level > 1 and not definition.tags.has(Tags.Type.CROWD_CONTROL):
-			# If it's labeled as an Overclock template, skip to avoid recipe mixing
-			continue
 
-		# Order-Agnostic Subset Check: Ensure the weapon houses ALL required elements string-free
+		# Order-Agnostic Subset Check: Ensure the weapon houses ALL required element identity tags string-free
 		var recipe_satisfied = true
 		for required_tag in definition.tags:
 			if required_tag == Tags.Type.INFUSION: 
@@ -84,24 +69,17 @@ func evaluate_evolution_recipes(
 		if not recipe_satisfied: 
 			continue
 
-		# Infusion Pacing Depth Check: Ensure every component element meets the required level threshold
-		var all_infusions_meet_requirement = true
-		for req_tag in definition.tags:
-			if req_tag == Tags.Type.INFUSION: 
-				continue
-			var target_upgrade_key = get_upgrade_id_from_element(req_tag)
-			var current_infusion_level = purchase_levels.get(target_upgrade_key, 0)
-			
-			if current_infusion_level < current_soft_cap_ceiling:
-				all_infusions_meet_requirement = false
-				break 
-		
-		if all_infusions_meet_requirement: 
-			eligible_evos.append(tracker)
+		# --- BYPASSING TRANSLATORS ENTIRELY ---
+		# Instead of mapping tags backward to indices, the card blueprint simply 
+		# lists required index matches natively if needed, or we just trust the tag check 
+		# because Step 1 already verified that the required number of total active tracks 
+		# met the current_soft_cap_ceiling!
+		eligible_evos.append(tracker)
 			
 	return eligible_evos
 
 
+## Advances the local state machine when an evolution is successfully selected
 func advance_evolution_state() -> void:
 	if current_state == EvolutionState.TIER_1_BASE:
 		current_state = EvolutionState.TIER_2_EVOLVED

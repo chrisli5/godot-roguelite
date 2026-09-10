@@ -1,7 +1,7 @@
 class_name ArcaneMissile
 extends Ability
 
-@export_group("Modular Behavioral Components")
+
 @export var targeting_component: NearestTargetingComponent
 @export var spawner_component: ProjectileSpawnerComponent
 

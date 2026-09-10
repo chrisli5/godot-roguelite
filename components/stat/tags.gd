@@ -10,6 +10,7 @@ enum Type {
 	METAMAGIC,
 	HAZARD,
 	INFUSION,
+	OVERCLOCK,
 	
 	# Delivery Mechanics
 	MELEE,
@@ -27,7 +28,13 @@ enum Type {
 	ON_HIT,
 	ON_DASH,
 	DOT,
-	CROWD_CONTROL
+	CROWD_CONTROL,
+	
+	SOCKET_FIRE,
+	SOCKET_FROST,
+	SOCKET_LIGHTNING,
+	SOCKET_WIND,
+	SOCKET_EARTH
 }
 
 # Helper to turn an array of Enums into scannable bitwise flags if maximum performance is needed

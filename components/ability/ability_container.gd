@@ -53,18 +53,20 @@ func execute_ability_evolution(new_ability_data: AbilityData) -> Ability:
 		return null
 		
 	# --- 1. HARVEST HISTORICAL DATA REGISTERS ---
-	# We copy the passive dictionary ledger tracking frames before deleting the old node node
 	var saved_ledger_data: Dictionary = {}
 	var saved_specialty_count: int = 0
 	
+	# NEW: Isolate and duplicate the integer array cache directly out of the child component
+	var saved_infusion_levels: Array[int] = [0, 0, 0, 0, 0]
+	
+	if is_instance_valid(old_ability.infusion_tracker_component):
+		saved_infusion_levels = old_ability.infusion_tracker_component.infusion_levels.duplicate()
+		saved_specialty_count = old_ability.infusion_tracker_component.specialty_cards_purchased
+		
 	if is_instance_valid(old_ability.upgrade_ledger_component):
 		saved_ledger_data = old_ability.upgrade_ledger_component.purchase_levels.duplicate()
 		
-	if is_instance_valid(old_ability.infusion_tracker):
-		saved_specialty_count = old_ability.infusion_tracker.specialty_cards_purchased
-		
 	# --- 2. DESTROY OLD GEOMETRY LAYOUT ---
-	# We unregister and clear the old node from the active scene tree loops
 	abilities.erase(slot_index)
 	old_ability.queue_free()
 	
@@ -75,18 +77,21 @@ func execute_ability_evolution(new_ability_data: AbilityData) -> Ability:
 		return null
 		
 	# --- 4. INJECT HISTORICAL POOLS ---
-	# Stitch the data ledger records back into the newly spawned node context seamlessly
 	if is_instance_valid(evolved_ability.upgrade_ledger_component):
 		evolved_ability.upgrade_ledger_component.purchase_levels = saved_ledger_data
 		
-	if is_instance_valid(evolved_ability.infusion_tracker):
-		evolved_ability.infusion_tracker.specialty_cards_purchased = saved_specialty_count
+	# NEW: Seamlessly stitch the exact companion levels array back into the fresh child module context!
+	if is_instance_valid(evolved_ability.infusion_tracker_component):
+		evolved_ability.infusion_tracker_component.infusion_levels = saved_infusion_levels
+		evolved_ability.infusion_tracker_component.specialty_cards_purchased = saved_specialty_count
+		# Instantly recalibrate calculated sums in RAM memory blocks
+		evolved_ability.infusion_tracker_component._recalculate_totals()
 		
 	# Advance the evolution state machine index on the fresh component explicitly
-	if is_instance_valid(evolved_ability.evolution_gate):
-		evolved_ability.evolution_gate.advance_evolution_state()
+	if is_instance_valid(evolved_ability.evolution_gate_component):
+		evolved_ability.evolution_gate_component.advance_evolution_state()
 	
-	print("AbilityContainer: Successfully hot-swapped ability frames and migrated state data on slot: ", slot_index)
+	print("AbilityContainer: Successfully hot-swapped ability frames and migrated type-safe data on slot: ", slot_index)
 	return evolved_ability
 
 

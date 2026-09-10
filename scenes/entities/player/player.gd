@@ -203,16 +203,26 @@ func _process_global_modifier(choice: UpgradeChoice) -> void:
 
 func _process_structural_ability_mutation(choice: UpgradeChoice) -> void:
 	var definition = choice.definition
-	if not is_instance_valid(ability_container):
+	if not is_instance_valid(ability_container) or not is_instance_valid(definition.ability_data_payload):
 		return
-			
+		
 	var existing_ability = ability_container.get_ability_by_slot(choice.target_slot_index)
+	
 	if not is_instance_valid(existing_ability):
+		# SCENARIO A: FIRST-TIME SLOT DEPLOYMENT
 		var new_ability = ability_container.add_ability_from_data(definition.ability_data_payload)
+		print("[UNLOCK] New ability mounted into static Slot: ", choice.target_slot_index)
+		
 		if is_instance_valid(new_ability):
 			ability_container.apply_global_modifiers_to_ability(new_ability)
 	else:
+		# SCENARIO B: GEOMETRY SWAP EVOLUTION / OVERCLOCK VARIANT SCENE SWAP
+		# This single unified method now handles standard compound evolutions 
+		# AND Overclock variants identically! It harvests your element tracker levels,
+		# frees the old weapon node, mounts the new scene, and re-injects the history ledger.
 		var evolved_ability = ability_container.execute_ability_evolution(definition.ability_data_payload)
+		print("[MUTATION] Active slot morphed. State data migrated cleanly on Slot: ", choice.target_slot_index)
+		
 		if is_instance_valid(evolved_ability):
 			ability_container.apply_global_modifiers_to_ability(evolved_ability)
 

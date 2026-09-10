@@ -25,7 +25,7 @@ func populate_display_data(choice: UpgradeChoice) -> void:
 		title_label.text = choice.display_name
 		
 	if is_instance_valid(description_label):
-		description_label.text = choice.description + str(choice.source_tracker.tier_index)
+		description_label.text = choice.description
 		
 	if is_instance_valid(target_tag_label):
 		target_tag_label.text = "Modifies: " + choice.target_display_name

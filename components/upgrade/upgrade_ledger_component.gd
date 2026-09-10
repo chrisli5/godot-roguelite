@@ -1,19 +1,16 @@
 class_name UpgradeLedgerComponent
 extends Node
 
-@export_group("Stat Blueprint Profile")
+@export_group("Blueprint Profiles")
 @export var stat_blueprint_profiles: Array[UpgradeBlueprintProfile] = []
-## Master bucket for linear stat modifications (STAT_MODIFIER payloads)
-var available_upgrades: Array[UpgradeTracker] = []
-
-@export_group("Infusion Blueprint Profile")
 @export var infusion_blueprint_profiles: Array[UpgradeBlueprintProfile] = []
-var available_infusions: Array[UpgradeTracker] = []
-
-@export_group("Evolution Blueprint Profile")
 @export var evo_blueprint_profiles: Array[UpgradeBlueprintProfile] = []
-## Master bucket for structural mutations (ABILITY_UNLOCK payloads)
+@export var overclock_blueprint_profile: UpgradeBlueprintProfile
+
+var available_upgrades: Array[UpgradeTracker] = []
+var available_infusions: Array[UpgradeTracker] = []
 var available_evolutions: Array[UpgradeTracker] = []
+var overclock_tracker: UpgradeTracker = null
 
 # Centralized ledger purchase log framework
 var purchase_levels: Dictionary[String, int] = {}

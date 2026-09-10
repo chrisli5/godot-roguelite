@@ -167,13 +167,24 @@ func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
 
 
 func _on_infusion_allocation_confirmed(finalized_choice: UpgradeChoice) -> void:
-	# Increment purchases on the player's core element tracking card
+	# 1. Increment purchases on the player's core master element tracking card family
 	finalized_choice.source_tracker.current_purchases += 1
 	
-	var player_ledger = EventBus.active_player.upgrade_ledger_component
-	if is_instance_valid(player_ledger):
-		player_ledger.log_purchase_entry(finalized_choice.definition.upgrade_id)
+	var current_player = EventBus.active_player
+	if is_instance_valid(current_player):
+		var player_ledger = current_player.upgrade_ledger_component
+		if is_instance_valid(player_ledger):
+			# Log purchase inside the single source of truth player memory ledger
+			player_ledger.log_purchase_entry(finalized_choice.definition.upgrade_id)
 		
+		print("[UPGRADE MANAGER] Infusion placement locked. Forwarding finalized package to Player...")
+		
+		# --- THE CRITICAL FIX: INVOKE THE MUTATION PIPELINE ---
+		# This routes the choice straight to Player._process_elemental_infusion() 
+		# where the tags are updated and the Single Value Scaling stats are injected!
+		current_player.apply_contextual_upgrade(finalized_choice)
+		
+	# 2. Clear out menu choice variable caches to prepare for subsequent queued transactions
 	_is_presenting_ui = false
 	_try_process_next_level_up()
 

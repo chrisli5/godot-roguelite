@@ -1,11 +1,10 @@
 [gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=4 format=3 uid="uid://bjx7cbceaxrqp"]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_rptf3"]
-[ext_resource type="Resource" uid="uid://c63e657lili5n" path="res://scenes/abilities/arcane_missile/arcane_missile_upgrade_def.tres" id="2_efkfi"]
+[ext_resource type="Resource" uid="uid://iywmio44vb8g" path="res://scenes/abilities/arcane_missile/definitions/arcane_missile_unlock_def.tres" id="2_efkfi"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_y38m0"]
 
 [resource]
 script = ExtResource("2_y38m0")
-behavior_mode = 1
 definition_bundle = Array[ExtResource("1_rptf3")]([ExtResource("2_efkfi")])
 metadata/_custom_type_script = "uid://vhx7ws3s2gjc"
