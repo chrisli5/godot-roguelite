@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=5 format=3 uid="uid://wggmjwhvhawa"]
+
+[ext_resource type="PackedScene" uid="uid://djxjqolsa8r0" path="res://scenes/abilities/ability.tscn" id="1_1scaa"]
+[ext_resource type="PackedScene" uid="uid://dx05rbr7k8aaw" path="res://components/ability/drivers/geometry/projectile_line_geometry.tscn" id="2_b5vjm"]
+[ext_resource type="Script" uid="uid://cegijyh7qyyhp" path="res://components/ability/resources/ability_data.gd" id="3_htqw6"]
+[ext_resource type="Resource" uid="uid://rvdgfj80wi0p" path="res://resources/abilities/arcane_missile/profiles/am_base_stats.tres" id="4_sgqm7"]
+
+[resource]
+script = ExtResource("3_htqw6")
+display_name = "Arcane Missile"
+structural_tags = Array[int]([7, 0])
+base_ability_scene = ExtResource("1_1scaa")
+stats_profile = ExtResource("4_sgqm7")
+geometry_driver_scene = ExtResource("2_b5vjm")
+metadata/_custom_type_script = "uid://cegijyh7qyyhp"

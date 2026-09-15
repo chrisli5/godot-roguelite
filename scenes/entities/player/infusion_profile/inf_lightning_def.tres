@@ -14,7 +14,6 @@ script = ExtResource("1_75wst")
 upgrade_id = "inf_lightning"
 display_name = "Lightning Infusion"
 description = "+15% Crit Chance and inflicts shock."
-tags = Array[int]([4, 20])
 stat_modifier_payload = SubResource("Resource_w8hrr")
 target_stat_type = 8
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

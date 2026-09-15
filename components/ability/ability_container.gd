@@ -5,94 +5,63 @@ var max_slots: int = 4
 var abilities: Dictionary[int, Ability] = {}
 
 
-func add_ability_from_data(data: AbilityData) -> Ability:
-	if data == null or data.ability_scene == null:
-		push_error("AbilityContainer: Cannot add ability. Provided AbilityData or its scene is null.")
+func add_ability_from_data(ability_data: AbilityData) -> Ability:
+	if ability_data == null or ability_data.base_ability_scene == null:
+		push_error("AbilityContainer: Cannot mount ability. Provided AbilityData or its generic base scene is null.")
 		return null
 	
-	var slot_index: int = data.slot_index
+	var slot_index: int = ability_data.slot_index
 	if slot_index < 0 or slot_index >= max_slots:
-		push_error("AbilityContainer: Target slot index %d is out of bounds (Max: %d)." % [slot_index, max_slots])
+		push_error("AbilityContainer: Hotbar slot index %d is out of bounds." % slot_index)
 		return null
 		
-	var new_ability_instance: Node = data.ability_scene.instantiate()
+	# 1. Instantiate the completely generic blueprint wrapper template shell
+	var new_ability_instance: Node = ability_data.base_ability_scene.instantiate()
 	if not new_ability_instance is Ability:
-		push_error("AbilityContainer: Instantiated scene root is not of type 'Ability'.")
+		push_error("AbilityContainer: Instantiated asset root is not of type 'Ability'.")
 		new_ability_instance.queue_free()
 		return null
 		
 	var ability: Ability = new_ability_instance as Ability
-	ability.display_name = data.display_name
+	ability.display_name = ability_data.display_name
 	
-	if data.stats_profile:
-		if ability.stats_container:
-			ability.stats_container.initialize_profile(data.stats_profile)
-		else:
-			push_warning("AbilityContainer: AbilityData contains a 'stats_profile', but the instantiated scene '%s' does not have an assigned 'stats_container'. Profile initialization skipped." % data.ability_scene.resource_path)
+	# Initialize baseline numerical stat profiles
+	if ability_data.stats_profile and ability.stats_container:
+		ability.stats_container.initialize_profile(ability_data.stats_profile)
 	
-	# Clear out any residual node occupying this slot index before mounting the fresh asset
+	# Clear out any residual node occupying this slot index before mounting
 	if abilities.has(slot_index):
 		remove_ability_by_slot(slot_index)
 		
 	add_child(ability)
 	abilities[slot_index] = ability
 	
+	# 2. Inject the initial starting runtime strategy drivers packed inside the ability_data file
+	ability.swap_runtime_strategies(ability_data)
+	
 	return ability
 
 
 func execute_ability_evolution(new_ability_data: AbilityData) -> Ability:
 	if not is_instance_valid(new_ability_data):
-		push_error("AbilityContainer: Evolved AbilityData payload template is empty.")
+		push_error("AbilityContainer: Evolved blueprint metadata template is empty.")
 		return null
 	
 	var slot_index: int = new_ability_data.slot_index
-	var old_ability = get_ability_by_slot(slot_index)
+	var target_ability = get_ability_by_slot(slot_index)
 	
-	if not is_instance_valid(old_ability):
-		push_error("AbilityContainer: Cannot find target ability on slot index: " + str(slot_index))
+	if not is_instance_valid(target_ability):
+		push_error("AbilityContainer: Target ability wrapper not found on slot index: " + str(slot_index))
 		return null
 		
-	# --- 1. HARVEST HISTORICAL DATA REGISTERS ---
-	var saved_ledger_data: Dictionary = {}
-	var saved_specialty_count: int = 0
+	# Pass the unified resource down to let the orchestrator handle sub-module state updates
+	target_ability.swap_runtime_strategies(new_ability_data)
 	
-	# NEW: Isolate and duplicate the integer array cache directly out of the child component
-	var saved_infusion_levels: Array[int] = [0, 0, 0, 0, 0]
+	if is_instance_valid(target_ability.evolution_gate_component):
+		target_ability.evolution_gate_component.advance_evolution_state()
 	
-	if is_instance_valid(old_ability.infusion_tracker_component):
-		saved_infusion_levels = old_ability.infusion_tracker_component.infusion_levels.duplicate()
-		saved_specialty_count = old_ability.infusion_tracker_component.specialty_cards_purchased
-		
-	if is_instance_valid(old_ability.upgrade_ledger_component):
-		saved_ledger_data = old_ability.upgrade_ledger_component.purchase_levels.duplicate()
-		
-	# --- 2. DESTROY OLD GEOMETRY LAYOUT ---
-	abilities.erase(slot_index)
-	old_ability.queue_free()
-	
-	# --- 3. INSTANTIATE NEW FORM ---
-	var evolved_ability = add_ability_from_data(new_ability_data)
-	if not is_instance_valid(evolved_ability):
-		push_error("AbilityContainer: Critical failure occurred while instantiating evolved scene template.")
-		return null
-		
-	# --- 4. INJECT HISTORICAL POOLS ---
-	if is_instance_valid(evolved_ability.upgrade_ledger_component):
-		evolved_ability.upgrade_ledger_component.purchase_levels = saved_ledger_data
-		
-	# NEW: Seamlessly stitch the exact companion levels array back into the fresh child module context!
-	if is_instance_valid(evolved_ability.infusion_tracker_component):
-		evolved_ability.infusion_tracker_component.infusion_levels = saved_infusion_levels
-		evolved_ability.infusion_tracker_component.specialty_cards_purchased = saved_specialty_count
-		# Instantly recalibrate calculated sums in RAM memory blocks
-		evolved_ability.infusion_tracker_component._recalculate_totals()
-		
-	# Advance the evolution state machine index on the fresh component explicitly
-	if is_instance_valid(evolved_ability.evolution_gate_component):
-		evolved_ability.evolution_gate_component.advance_evolution_state()
-	
-	print("AbilityContainer: Successfully hot-swapped ability frames and migrated type-safe data on slot: ", slot_index)
-	return evolved_ability
+	print("AbilityContainer: Unified Evolution completed for Wrapper Slot Index: ", slot_index)
+	return target_ability
 
 
 func remove_ability_by_slot(slot_index: int) -> void:
@@ -113,11 +82,11 @@ func get_ability_by_slot(slot_index: int) -> Ability:
 func add_stat_modifier_to_slot(slot_index: int, stat_type: Stat.Type, modifier: StatModifier) -> void:
 	var ability: Ability = get_ability_by_slot(slot_index)
 	if ability == null:
-		push_error("AbilityContainer: Cannot add modifier. Ability on slot index %d not found." % slot_index)
+		push_error("[ABILITYCONTAINER] Cannot add modifier. Ability on slot index %d not found." % slot_index)
 		return
 		
 	if ability.stats_container == null:
-		push_error("AbilityContainer: Cannot add modifier. Targeted ability does not have an assigned 'stats_container'.")
+		push_error("[ABILITYCONTAINER] Cannot add modifier. Targeted ability does not have an assigned 'stats_container'.")
 		return
 		
 	ability.stats_container.add_modifier(stat_type, modifier)

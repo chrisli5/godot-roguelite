@@ -17,7 +17,7 @@
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_xy2vv"]
 [ext_resource type="Resource" uid="uid://dy1ftkmydw16b" path="res://scenes/entities/player/upgrade_profile/player_speed_profile.tres" id="13_r4dfn"]
 [ext_resource type="Resource" uid="uid://enkt04os3bdr" path="res://scenes/entities/player/infusion_profile/master_infusion_profile.tres" id="17_pcd0u"]
-[ext_resource type="Resource" uid="uid://bjx7cbceaxrqp" path="res://scenes/abilities/start_abilities.tres" id="18_w3p2j"]
+[ext_resource type="Resource" uid="uid://llhg26ek24t7" path="res://scenes/entities/player/upgrade_profile/start_abilities.tres" id="18_w3p2j"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
@@ -41,6 +41,7 @@ hurtbox_component = NodePath("HurtboxComponent")
 movement_component = NodePath("VelocityMovementComponent")
 status_effect_component = NodePath("StatusEffectComponent")
 tag_component = NodePath("TagComponent")
+stats_profile = ExtResource("2_8fjmc")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_fkugw")
@@ -53,7 +54,6 @@ script = ExtResource("5_bectd")
 
 [node name="StatsContainer" type="Node" parent="."]
 script = ExtResource("3_8fjmc")
-stats_profile = ExtResource("2_8fjmc")
 
 [node name="HealthComponent" type="Node" parent="."]
 script = ExtResource("5_yywfu")

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=3 format=3 uid="uid://b7msm3b55dm7n"]
+
+[ext_resource type="Resource" uid="uid://wggmjwhvhawa" path="res://resources/abilities/arcane_missile/base/arcane_missile_base.tres" id="1_6uvhv"]
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_olbhk"]
+
+[resource]
+script = ExtResource("1_olbhk")
+upgrade_id = "wpn_arcane_missile"
+display_name = "Arcane Missile"
+description = "Fires a projectile."
+payload_type = 1
+ability_data_payload = ExtResource("1_6uvhv")
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

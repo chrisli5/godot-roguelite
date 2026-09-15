@@ -1,14 +1,21 @@
 class_name Ability
 extends Node2D
 
+@export_group("Components")
 @export var stats_container: StatsContainer
 @export var upgrade_ledger_component: UpgradeLedgerComponent
 @export var infusion_tracker_component: InfusionTrackerComponent
 @export var evolution_gate_component: EvolutionGateComponent
 @export var tag_component: TagComponent
 
+## Reference to the active child element handling shape boundaries and targeting
+var geometry_driver: GeometryDriver = null
+## Reference to the active child element inserting element matrix behavior loops
+var payload_driver: PayloadDriver = null
+
 var display_name: String = ""
 var is_eligible_for_overclock: bool = false
+var _cooldown_timer: Timer
 
 
 func _ready() -> void:
@@ -24,6 +31,7 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	
+	_setup_execution_clock()
 	if is_instance_valid(stats_container):
 		stats_container.stat_updated.connect(_on_stat_updated)
 
@@ -110,6 +118,93 @@ func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
 
 	print("[SOCKET] %s successfully registered inside local module layers." % Tags.Type.keys()[element_tag])
 
+func _setup_execution_clock() -> void:
+	_cooldown_timer = Timer.new()
+	var initial_cooldown: float = 0.8
+	if is_instance_valid(stats_container):
+		initial_cooldown = stats_container.get_stat_value(Stat.Type.COOLDOWN, 0.8)
+		
+	_cooldown_timer.wait_time = initial_cooldown
+	_cooldown_timer.autostart = true
+	_cooldown_timer.timeout.connect(_on_cooldown_execution_tick)
+	add_child(_cooldown_timer)
 
-func _on_stat_updated(_stat_type: Stat.Type, _new_value: float) -> void:
-	pass
+
+## Centralized Execution Loop: Handles all Parent-Mediated parameter gathering
+func _on_cooldown_execution_tick() -> void:
+	if not is_instance_valid(geometry_driver):
+		return
+		
+	# 1. Harvest physical metrics
+	var speed: float = 400.0
+	var aoe_scale: float = 1.0
+	if is_instance_valid(stats_container):
+		speed = stats_container.get_stat_value(Stat.Type.SPEED, 400.0)
+		aoe_scale = stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0) 
+
+	# 2. Compile transient baseline combat data from current state vectors
+	var running_payload: HitPayload = CombatCalculations.generate_hit_payload(owner, stats_container, tag_component)
+	
+	# 3. Intercept & apply Evolved Infusion behaviors sequentially (Parent-Mediated Mediation)
+	if is_instance_valid(payload_driver) and payload_driver.has_method("intercept_payload"):
+		payload_driver.intercept_payload(running_payload)
+
+	# 4. Dispatch deployment command downward, handing off the finalized payload data asset
+	geometry_driver.execute_delivery(speed, aoe_scale, running_payload)
+
+
+func swap_runtime_strategies(new_data: AbilityData) -> void:
+	# --- 1. UNIFORM DRIVER HOT-SWAP ---
+	if is_instance_valid(geometry_driver):
+		geometry_driver.queue_free()
+		geometry_driver = null
+		
+	if is_instance_valid(payload_driver):
+		payload_driver.queue_free()
+		payload_driver = null
+
+	if is_instance_valid(new_data.geometry_driver_scene):
+		var geom_inst = new_data.geometry_driver_scene.instantiate()
+		if geom_inst:
+			add_child(geom_inst)
+			geometry_driver = geom_inst
+
+	if is_instance_valid(new_data.payload_driver_scene):
+		var payload_inst = new_data.payload_driver_scene.instantiate()
+		if payload_inst:
+			add_child(payload_inst)
+			payload_driver = payload_inst
+
+	# --- 2. UNIFORM TAXONOMY OVERWRITE ---
+	if is_instance_valid(tag_component):
+		var current_tags: Array[Tags.Type] = tag_component.get_active_tags()
+		var preserved_infusions: Array[Tags.Type] = []
+		
+		for tag in current_tags:
+			if Tags.get_index_from_element(tag) >= 0:
+				preserved_infusions.append(tag)
+				
+		tag_component._active_tags.clear()
+		for tag in preserved_infusions:
+			tag_component.add_tag(tag)
+		for tag in new_data.structural_tags:
+			tag_component.add_tag(tag)
+			
+		tag_component.tags_changed.emit(tag_component._active_tags)
+
+	# --- 3. UNIFORM STAT OVERWRITE / MUTATION ---
+	# If the evolution asset includes an updated stats profile (common for Overclocks),
+	# we pass it down to re-initialize or augment base values smoothly.
+	if new_data.stats_profile and is_instance_valid(stats_container):
+		stats_container.mutate_base_profile(new_data.stats_profile)
+
+	# --- 4. UNIFORM OVERCLOCK FLAG GATING ---
+	# The EvolutionGateComponent evaluates state automatically using the data flag
+	if is_instance_valid(evolution_gate_component):
+		if new_data.is_overclock_evolution:
+			evolution_gate_component.is_permanently_overclocked = true
+
+
+func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
+	if stat_type == Stat.Type.COOLDOWN and is_instance_valid(_cooldown_timer):
+		_cooldown_timer.wait_time = new_value

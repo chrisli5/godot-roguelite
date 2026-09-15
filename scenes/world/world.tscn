@@ -37,6 +37,12 @@ player_scene = ExtResource("4_t5ptc")
 [node name="XPGem" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
 position = Vector2(100, 150)
 
+[node name="XPGem2" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
+position = Vector2(102, 207)
+
+[node name="XPGem3" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
+position = Vector2(103, 279)
+
 [node name="Enemy" parent="GameWorld/EntitiesContainer" instance=ExtResource("6_bq33v")]
 position = Vector2(150, 150)
 

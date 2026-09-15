@@ -94,7 +94,7 @@ func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	if not is_instance_valid(definition):
 		return
 		
-	if definition.tags.has(Tags.Type.INFUSION):
+	if definition.draft_behavior_tags.has(Tags.Type.INFUSION):
 		_process_elemental_infusion(choice)
 		return
 	if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER and not definition.global_modifier_tags.is_empty():
@@ -118,7 +118,7 @@ func _process_elemental_infusion(choice: UpgradeChoice) -> void:
 		return
 		
 	var picked_element: Tags.Type = Tags.Type.NONE
-	for tag in definition.tags:
+	for tag in definition.draft_behavior_tags:
 		if tag != Tags.Type.INFUSION:
 			picked_element = tag
 			break
@@ -209,22 +209,19 @@ func _process_structural_ability_mutation(choice: UpgradeChoice) -> void:
 	var existing_ability = ability_container.get_ability_by_slot(choice.target_slot_index)
 	
 	if not is_instance_valid(existing_ability):
-		# SCENARIO A: FIRST-TIME SLOT DEPLOYMENT
+		# SCENARIO A: FIRST-TIME SLOT DEPLOYMENT (Empty Slate Node)
+		# A brand new wrapper is generated, meaning we MUST apply active global cards right now
 		var new_ability = ability_container.add_ability_from_data(definition.ability_data_payload)
-		print("[UNLOCK] New ability mounted into static Slot: ", choice.target_slot_index)
+		print("[UNLOCK] New wrapper mounted into static Slot: ", choice.target_slot_index)
 		
 		if is_instance_valid(new_ability):
 			ability_container.apply_global_modifiers_to_ability(new_ability)
 	else:
-		# SCENARIO B: GEOMETRY SWAP EVOLUTION / OVERCLOCK VARIANT SCENE SWAP
-		# This single unified method now handles standard compound evolutions 
-		# AND Overclock variants identically! It harvests your element tracker levels,
-		# frees the old weapon node, mounts the new scene, and re-injects the history ledger.
-		var evolved_ability = ability_container.execute_ability_evolution(definition.ability_data_payload)
-		print("[MUTATION] Active slot morphed. State data migrated cleanly on Slot: ", choice.target_slot_index)
-		
-		if is_instance_valid(evolved_ability):
-			ability_container.apply_global_modifiers_to_ability(evolved_ability)
+		# SCENARIO B: STRATEGY GEOMETRY SWAP / OVERCLOCK VARIANT
+		# The core node wrapper is preserved. The mutate_base_profile() sequence 
+		# inside StatsContainer automatically saves and migrates our modifiers.
+		ability_container.execute_ability_evolution(definition.ability_data_payload)
+		print("[MUTATION] Active slot morphed. Strategy and profile swapped cleanly on Slot: ", choice.target_slot_index)
 
 
 func _on_payload_collected(payload: PickupPayload) -> void:

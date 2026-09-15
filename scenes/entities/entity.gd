@@ -13,6 +13,9 @@ signal died
 @export var status_effect_component: StatusEffectComponent
 @export var tag_component: TagComponent
 
+@export_group("Stats Profile")
+@export var stats_profile: StatsProfile
+
 
 func _ready() -> void:
 	var required_entity_components: Array[String] = [
@@ -32,6 +35,8 @@ func _ready() -> void:
 	
 	if is_instance_valid(stats_container):
 		stats_container.stat_updated.connect(_on_stat_updated)
+		if "stats_profile" in self and self.stats_profile:
+			stats_container.initialize_profile(self.stats_profile)
 	
 	if is_instance_valid(health_component) and is_instance_valid(stats_container):
 		var base_max_health = stats_container.get_stat_value(Stat.Type.MAX_HEALTH, 100.0)

@@ -24,6 +24,10 @@ func remove_tag(target_tag: Tags.Type) -> void:
 		tags_changed.emit(_active_tags)
 
 
+func clear_tags() -> void:
+	_active_tags.clear()
+
+
 func has_tag(tag_type: Tags.Type) -> bool:
 	return _active_tags.has(tag_type)
 

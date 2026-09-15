@@ -1,8 +1,0 @@
-[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=3 format=3 uid="uid://ceyf6lki7tu7y"]
-
-[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_7agp0"]
-[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_yt6av"]
-
-[resource]
-script = ExtResource("2_yt6av")
-metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

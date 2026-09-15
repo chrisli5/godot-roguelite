@@ -66,7 +66,6 @@ func _render_eligible_weapon_rows() -> void:
 			continue
 			
 		var is_allowed = true
-		print(_selected_element)
 		# --- DYNAMIC TYPE-SAFE CONSTRAINT AUDITING ---
 		# Poll the streamlined tracker module directly using the selected element enum
 		# Sibling reference parsing has been completely decoupled!
@@ -75,7 +74,6 @@ func _render_eligible_weapon_rows() -> void:
 			int(weapon.evolution_gate_component.current_state) if is_instance_valid(weapon.evolution_gate_component) else 0,
 			weapon.evolution_gate_component.is_permanently_overclocked if is_instance_valid(weapon.evolution_gate_component) else false
 		)
-		print("is_allowed: ", is_allowed)
 			
 		# --- LAYOUT INSTANTIATION ---
 		var row_instance = weapon_row_scene.instantiate()

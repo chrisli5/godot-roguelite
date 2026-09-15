@@ -14,7 +14,6 @@ script = ExtResource("1_00vtw")
 upgrade_id = "inf_fire"
 display_name = "Fire Infusion"
 description = "+15% Base Damage and inflicts Burning DoT stacks."
-tags = Array[int]([4, 18])
 stat_modifier_payload = SubResource("Resource_ppv0j")
 target_stat_type = 4
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

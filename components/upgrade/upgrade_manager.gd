@@ -138,8 +138,9 @@ func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
 	if not is_instance_valid(definition):
 		return
 
-	# --- 1. ELEMENTAL INFUSIONS TAXONOMY GATING ---
-	if definition.tags.has(Tags.Type.INFUSION):
+	# --- 1. OPTIMIZED ELEMENTAL INFUSIONS FILTERING ---
+	# Looks explicitly at draft filter categories, leaving recipe arrays clean
+	if definition.draft_behavior_tags.has(Tags.Type.INFUSION):
 		print("[INFUSION CHOSEN] Passing entire choice package to allocation panel...")
 		EventBus.infusion_allocation_requested.emit(chosen_choice)
 		_cached_full_pool.clear()

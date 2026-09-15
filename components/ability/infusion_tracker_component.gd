@@ -13,19 +13,9 @@ var last_calculated_total_infusions: int = 0
 var infusion_levels: Array[int] = [0, 0, 0, 0, 0]
 
 
-func get_index_from_element(element_tag: Tags.Type) -> int:
-	match element_tag:
-		Tags.Type.SOCKET_FIRE: return 0
-		Tags.Type.SOCKET_FROST: return 1
-		Tags.Type.SOCKET_LIGHTNING: return 2
-		Tags.Type.SOCKET_WIND: return 3
-		Tags.Type.SOCKET_EARTH: return 4
-		_: return -1
-
-
 ## Public Command Hook: Increments and updates levels locally string-free
 func record_socket_transaction(element_tag: Tags.Type) -> void:
-	var idx = get_index_from_element(element_tag)
+	var idx = Tags.get_index_from_element(element_tag)
 	if idx != -1:
 		infusion_levels[idx] += 1
 		_recalculate_totals()
@@ -45,8 +35,7 @@ func _recalculate_totals() -> void:
 
 ## Streamlined String-Free Gating Checker Pass
 func is_element_socket_allowed(selected_element: Tags.Type, state: int, is_overclocked: bool) -> bool:
-	var element_index = get_index_from_element(selected_element)
-	print("ele_index: ", element_index)
+	var element_index = Tags.get_index_from_element(selected_element)
 	if element_index == -1: 
 		return false
 		

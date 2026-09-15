@@ -33,6 +33,11 @@ func _ready() -> void:
 		if is_instance_valid(profile):
 			available_infusions.append_array(profile.generate_trackers())
 
+	if is_instance_valid(overclock_blueprint_profile):
+			var generated = overclock_blueprint_profile.generate_trackers()
+			if not generated.is_empty():
+				overclock_tracker = generated[0]
+
 
 func get_cached_upgrades() -> Array[UpgradeTracker]: return _cached_eligible_upgrades
 func get_cached_evolutions() -> Array[UpgradeTracker]: return _cached_eligible_evolutions
