@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dc7wya572xwgd"]
+
+[ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/vector_movement_strategy.gd" id="1_wwas8"]
+
+[node name="VectorMovementStrategy" type="Node"]
+script = ExtResource("1_wwas8")

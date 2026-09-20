@@ -19,7 +19,7 @@ func _ready() -> void:
 		"upgrade_ledger_component"
 	]
 	
-	if not ValidationUtility.validate_components(self, required_player_components):
+	if not ComponentValidator.validate_components(self, required_player_components):
 		set_physics_process(false)
 		return
 	
@@ -36,7 +36,7 @@ func _exit_tree() -> void:
 
 
 func _handle_movement_physics() -> void:
-	if not movement_component or not stats_container:
+	if not movement_strategy or not stats_container:
 		return
 	
 	var max_speed = stats_container.get_stat_value(Stat.Type.SPEED, 1.0)
@@ -49,7 +49,7 @@ func _handle_movement_physics() -> void:
 	
 	var target_velocity: Vector2 = direction.normalized()
 	
-	velocity = movement_component.calculate_velocity(velocity, target_velocity, max_speed, acceleration, friction)
+	velocity = movement_strategy.calculate_velocity(velocity, target_velocity, max_speed, acceleration, friction, 0.0)
 	move_and_slide()
 
 

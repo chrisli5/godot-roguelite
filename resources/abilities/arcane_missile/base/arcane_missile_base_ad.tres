@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=7 format=3 uid="uid://hpnvcetemvyg"]
+
+[ext_resource type="Script" uid="uid://cegijyh7qyyhp" path="res://components/ability/resources/ability_data.gd" id="1_gb47d"]
+[ext_resource type="PackedScene" uid="uid://djxjqolsa8r0" path="res://scenes/abilities/ability.tscn" id="1_urxro"]
+[ext_resource type="PackedScene" uid="uid://dx05rbr7k8aaw" path="res://components/ability/drivers/geometry/projectile_line_geometry.tscn" id="2_sqvbx"]
+[ext_resource type="PackedScene" uid="uid://de85o2am36jm5" path="res://components/ability/drivers/payload/missile_hit_payload.tscn" id="3_d4gnq"]
+[ext_resource type="Resource" uid="uid://rvdgfj80wi0p" path="res://resources/abilities/arcane_missile/profiles/am_base_stats.tres" id="4_d4gnq"]
+[ext_resource type="PackedScene" uid="uid://bcp1gda10rdhb" path="res://components/ability/drivers/targeting/nearest_target_strategy.tscn" id="5_d4gnq"]
+
+[resource]
+script = ExtResource("1_gb47d")
+display_name = "Arcane Missile"
+structural_tags = Array[int]([7])
+base_ability_scene = ExtResource("1_urxro")
+stats_profile = ExtResource("4_d4gnq")
+geometry_driver_scene = ExtResource("2_sqvbx")
+payload_driver_scene = ExtResource("3_d4gnq")
+targeting_strategy_scene = ExtResource("5_d4gnq")
+metadata/_custom_type_script = "uid://cegijyh7qyyhp"

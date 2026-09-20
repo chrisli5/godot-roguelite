@@ -1,5 +1,5 @@
 # res://components/utility/validation_utility.gd
-class_name ValidationUtility
+class_name ComponentValidator
 extends RefCounted
 
 ## Validates an array of property names on a given target object.

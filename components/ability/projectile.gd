@@ -3,15 +3,14 @@ extends Area2D
 
 signal collided(target: Node2D)
 
-@export var movement_component: MovementComponent
-
-@export var base_speed: float = 400.0
-@export var acceleration: float = 99999.0
-@export var friction: float = 0.0
-@export var lifetime: float = 5.0
+var movement_strategy: MovementStrategy = null
+var base_speed: float = 400.0
+var acceleration: float = 99999.0
+var friction: float = 0.0
+var lifetime: float = 5.0
 
 var hit_payload: HitPayload
-var direction: Vector2 = Vector2.RIGHT
+var direction: Vector2 = Vector2.RIGHT # Acts as the persistent static direction fallback
 var spawn_position: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
 var time_elapsed: float = 0.0
@@ -20,14 +19,17 @@ var time_elapsed: float = 0.0
 func _ready() -> void:
 	global_position = spawn_position
 	if direction != Vector2.ZERO:
-		rotation = direction.angle()
+		#rotation = direction.angle()
 		velocity = direction * base_speed
 	
 	area_entered.connect(_on_collision_detected)
 	
-	if not movement_component:
-		push_error("Projectile: Missing required MovementComponent child node.")
-		set_physics_process(false)
+	if is_instance_valid(hit_payload) and hit_payload.trajectory_movement_scene:
+		var move_inst = hit_payload.trajectory_movement_scene.instantiate() as MovementStrategy
+		if move_inst:
+			add_child(move_inst)
+			movement_strategy = move_inst
+
 
 func _physics_process(delta: float) -> void:
 	time_elapsed += delta
@@ -35,13 +37,33 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 
-	velocity = movement_component.calculate_velocity(
-		velocity,
-		direction,
-		base_speed,
-		acceleration,
-		friction
-	)
+	# --- UNIFIED TARGET DIRECTION MEDIATION ---
+	# Default to our static initial direction vector assigned at spawning
+	var current_frame_target_direction := direction
+	if not is_instance_valid(hit_payload):
+		return
+	
+	# If the passport holds a valid tracked enemy node, recalculate the vector dynamically
+	if hit_payload.target_tracking_mode == HitPayload.TargetTrackingMode.REALTIME_NODE:
+		if is_instance_valid(hit_payload.tracked_target_node):
+			var enemy: Node2D = hit_payload.tracked_target_node
+			current_frame_target_direction = (enemy.global_position - global_position).normalized()
+	# --- STRATEGY DELEGATION ---
+	if is_instance_valid(movement_strategy):
+		# Push-model parameter injection: Hand over the final processed vector context
+		velocity = movement_strategy.calculate_velocity(
+			velocity,
+			current_frame_target_direction, # Dynamically adjusted vector
+			base_speed,
+			acceleration,
+			friction,
+			time_elapsed
+		)
+		#if velocity != Vector2.ZERO:
+			#rotation = velocity.angle()
+	else:
+		# Standard fallback straight projectile path
+		velocity = current_frame_target_direction * base_speed
 
 	global_position += velocity * delta
 
@@ -49,13 +71,7 @@ func _physics_process(delta: float) -> void:
 func _on_collision_detected(incoming_node: Node2D) -> void:
 	if incoming_node == self or incoming_node.get_parent() == self:
 		return
-		
-	# Check if the object we overlapped is a valid hurtbox
 	if incoming_node is HurtboxComponent:
-		var hurtbox = incoming_node as HurtboxComponent
-		
-		# Deliver the payload context straight to the receiver!
-		hurtbox.take_hit(hit_payload)
-		
+		incoming_node.take_hit(hit_payload)
 	collided.emit(incoming_node)
 	queue_free()

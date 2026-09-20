@@ -9,9 +9,17 @@ extends Node2D
 @export var tag_component: TagComponent
 
 ## Reference to the active child element handling shape boundaries and targeting
-var geometry_driver: GeometryDriver = null
-## Reference to the active child element inserting element matrix behavior loops
+var geometry_driver: GeometryDriver = null:
+	set(value):
+		# Clean disconnect loops when hot-swapping strategy modules mid-run
+		if is_instance_valid(geometry_driver) and geometry_driver.delivery_finished.is_connected(_on_delivery_finished):
+			geometry_driver.delivery_finished.disconnect(_on_delivery_finished)
+		geometry_driver = value
+		if is_instance_valid(geometry_driver):
+			geometry_driver.delivery_finished.connect(_on_delivery_finished)
+
 var payload_driver: PayloadDriver = null
+var targeting_strategy: TargetingStrategy = null
 
 var display_name: String = ""
 var is_eligible_for_overclock: bool = false
@@ -27,11 +35,11 @@ func _ready() -> void:
 		"tag_component"
 	]
 	
-	if not ValidationUtility.validate_components(self, required_ability_components):
+	if not ComponentValidator.validate_components(self, required_ability_components):
 		set_physics_process(false)
 		return
 	
-	_setup_execution_clock()
+	_setup_cooldown_clock()
 	if is_instance_valid(stats_container):
 		stats_container.stat_updated.connect(_on_stat_updated)
 
@@ -118,39 +126,47 @@ func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
 
 	print("[SOCKET] %s successfully registered inside local module layers." % Tags.Type.keys()[element_tag])
 
-func _setup_execution_clock() -> void:
+func _setup_cooldown_clock() -> void:
 	_cooldown_timer = Timer.new()
-	var initial_cooldown: float = 0.8
-	if is_instance_valid(stats_container):
-		initial_cooldown = stats_container.get_stat_value(Stat.Type.COOLDOWN, 0.8)
-		
-	_cooldown_timer.wait_time = initial_cooldown
-	_cooldown_timer.autostart = true
-	_cooldown_timer.timeout.connect(_on_cooldown_execution_tick)
+	_cooldown_timer.one_shot = true # Enforce single-fire ticking
+	_cooldown_timer.timeout.connect(_trigger_ability_delivery)
 	add_child(_cooldown_timer)
+	_start_cooldown_phase()
+
+
+func _start_cooldown_phase() -> void:
+	var downtime: float = 4.0
+	if is_instance_valid(stats_container):
+		downtime = stats_container.get_stat_value(Stat.Type.COOLDOWN, 4.0)
+	_cooldown_timer.start(downtime)
 
 
 ## Centralized Execution Loop: Handles all Parent-Mediated parameter gathering
-func _on_cooldown_execution_tick() -> void:
+func _trigger_ability_delivery() -> void:
 	if not is_instance_valid(geometry_driver):
+		_start_cooldown_phase()
 		return
-		
-	# 1. Harvest physical metrics
-	var speed: float = 400.0
-	var aoe_scale: float = 1.0
-	if is_instance_valid(stats_container):
-		speed = stats_container.get_stat_value(Stat.Type.SPEED, 400.0)
-		aoe_scale = stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0) 
 
-	# 2. Compile transient baseline combat data from current state vectors
-	var running_payload: HitPayload = CombatCalculations.generate_hit_payload(owner, stats_container, tag_component)
+	var direction := Vector2.RIGHT
+	var tracked_enemy: Node2D = null
 	
-	# 3. Intercept & apply Evolved Infusion behaviors sequentially (Parent-Mediated Mediation)
+	if is_instance_valid(targeting_strategy):
+		var target_package := targeting_strategy.get_targeting_data(global_position)
+		direction = target_package.get("direction", Vector2.RIGHT)
+		tracked_enemy = target_package.get("target_node", null)
+
+	var speed := stats_container.get_stat_value(Stat.Type.SPEED, 400.0) if stats_container else 400.0
+	var aoe_scale := stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0) if stats_container else 1.0
+	var running_payload := CombatCalculations.generate_hit_payload(owner, stats_container, tag_component)
+
+	# If a straight projectile driver receives this, it uses 'direction' and ignores the node.
+	# If a homing projectile spawner receives this, it extracts the node to track it in real-time.
+	running_payload.tracked_target_node = tracked_enemy
+
 	if is_instance_valid(payload_driver) and payload_driver.has_method("intercept_payload"):
 		payload_driver.intercept_payload(running_payload)
 
-	# 4. Dispatch deployment command downward, handing off the finalized payload data asset
-	geometry_driver.execute_delivery(speed, aoe_scale, running_payload)
+	geometry_driver.execute_delivery(global_position, direction, speed, aoe_scale, running_payload)
 
 
 func swap_runtime_strategies(new_data: AbilityData) -> void:
@@ -163,6 +179,10 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 		payload_driver.queue_free()
 		payload_driver = null
 
+	if is_instance_valid(targeting_strategy):
+		targeting_strategy.queue_free()
+		targeting_strategy = null
+
 	if is_instance_valid(new_data.geometry_driver_scene):
 		var geom_inst = new_data.geometry_driver_scene.instantiate()
 		if geom_inst:
@@ -174,6 +194,11 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 		if payload_inst:
 			add_child(payload_inst)
 			payload_driver = payload_inst
+
+	if is_instance_valid(new_data.targeting_strategy_scene):
+		var target_inst = new_data.targeting_strategy_scene.instantiate()
+		add_child(target_inst)
+		targeting_strategy = target_inst
 
 	# --- 2. UNIFORM TAXONOMY OVERWRITE ---
 	if is_instance_valid(tag_component):
@@ -203,6 +228,12 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 	if is_instance_valid(evolution_gate_component):
 		if new_data.is_overclock_evolution:
 			evolution_gate_component.is_permanently_overclocked = true
+	_start_cooldown_phase()
+
+
+func _on_delivery_finished() -> void:
+	# Hand-off received! Safely return to recovery frames
+	_start_cooldown_phase()
 
 
 func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:

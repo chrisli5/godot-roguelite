@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b16rbth1bl0yo"]
+
+[ext_resource type="Script" uid="uid://eyf6vls2lcjh" path="res://components/movement/sine_wave_movement_strategy.gd" id="1_4ekn8"]
+
+[node name="SineWaveMovementStrategy" type="Node"]
+script = ExtResource("1_4ekn8")

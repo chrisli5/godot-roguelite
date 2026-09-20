@@ -1,30 +1,29 @@
-[gd_scene load_steps=13 format=3 uid="uid://cvyt2nvnh6xne"]
+[gd_scene load_steps=12 format=3 uid="uid://cvyt2nvnh6xne"]
 
 [ext_resource type="Script" uid="uid://i0tbekhtmw2d" path="res://scenes/entities/enemies/enemy.gd" id="1_essrt"]
 [ext_resource type="Script" uid="uid://666k74n4yr6j" path="res://components/collision/hurtbox_component.gd" id="2_c8ylr"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="3_c8ylr"]
 [ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="6_uu37f"]
-[ext_resource type="Resource" uid="uid://4o0fjb04cia6" path="res://scenes/entities/enemies/enemy_stats_profile.tres" id="6_wyqsp"]
 [ext_resource type="Script" uid="uid://hnkcyvsaierv" path="res://components/stat/health_component.gd" id="7_w6k81"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="7_wyqsp"]
-[ext_resource type="Script" uid="uid://b4k5mh44mhbgt" path="res://components/movement/velocity_movement_component.gd" id="8_fu215"]
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="9_27tcs"]
+[ext_resource type="PackedScene" uid="uid://dc7wya572xwgd" path="res://components/movement/vector_movement_strategy.tscn" id="9_uu37f"]
 [ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="10_mag4a"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pm80n"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_gflvi"]
 
-[node name="Enemy" type="CharacterBody2D" node_paths=PackedStringArray("ability_container", "stats_container", "health_component", "hurtbox_component", "movement_component", "status_effect_component", "tag_component")]
+[node name="Enemy" type="CharacterBody2D" node_paths=PackedStringArray("ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "movement_strategy")]
 motion_mode = 1
 script = ExtResource("1_essrt")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 health_component = NodePath("HealthComponent")
 hurtbox_component = NodePath("HurtboxComponent")
-movement_component = NodePath("MovementComponent")
 status_effect_component = NodePath("StatusEffectComponent")
 tag_component = NodePath("TagComponent")
+movement_strategy = NodePath("VectorMovementStrategy")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_pm80n")
@@ -46,16 +45,14 @@ script = ExtResource("6_uu37f")
 
 [node name="StatsContainer" type="Node" parent="."]
 script = ExtResource("7_wyqsp")
-stats_profile = ExtResource("6_wyqsp")
 
 [node name="HealthComponent" type="Node" parent="."]
 script = ExtResource("7_w6k81")
-
-[node name="MovementComponent" type="Node" parent="."]
-script = ExtResource("8_fu215")
 
 [node name="StatusEffectComponent" type="Node" parent="."]
 script = ExtResource("9_27tcs")
 
 [node name="TagComponent" type="Node" parent="."]
 script = ExtResource("10_mag4a")
+
+[node name="VectorMovementStrategy" parent="." instance=ExtResource("9_uu37f")]

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://wgc8by1qym0o"]
+
+[ext_resource type="Script" uid="uid://baaxrg3l1ohhy" path="res://components/movement/boomerang_movement_strategy.gd" id="1_pv221"]
+
+[node name="BoomerangMovementStrategy" type="Node"]
+script = ExtResource("1_pv221")

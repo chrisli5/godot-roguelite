@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bnt033h3lhqqt"]
+
+[ext_resource type="Script" uid="uid://cfv4ntnyfbjks" path="res://components/ability/drivers/geometry/fissure_geometry.gd" id="1_j3lap"]
+
+[node name="FissureGeometry" type="Node"]
+script = ExtResource("1_j3lap")

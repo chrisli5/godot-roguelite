@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c2y42mwkqudxr"]
+
+[ext_resource type="Script" uid="uid://bplqjk2csqr0w" path="res://components/ability/drivers/geometry/chain_link_geometry.gd" id="1_oaayu"]
+
+[node name="ChainLinkGeometry" type="Node"]
+script = ExtResource("1_oaayu")

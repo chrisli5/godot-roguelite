@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c070d6jsf4rp4"]
+
+[ext_resource type="Script" uid="uid://cbmvei641tyia" path="res://components/ability/drivers/geometry/orbiting_ring_geometry.gd" id="1_vywya"]
+
+[node name="OrbitingRingGeometry" type="Node"]
+script = ExtResource("1_vywya")

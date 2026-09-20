@@ -7,8 +7,6 @@ signal projectile_impacted(target: Node2D)
 
 
 func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: float, hit_payload: HitPayload) -> Projectile:
-	print("target_dir: ", target_dir)
-	print("speed_value: ", speed_value)
 	if projectile_scene == null:
 		push_error("ProjectileSpawnerComponent on '%s': Missing projectile scene reference." % get_parent().name)
 		return null

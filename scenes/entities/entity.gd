@@ -9,9 +9,9 @@ signal died
 @export var stats_container: StatsContainer
 @export var health_component: HealthComponent
 @export var hurtbox_component: HurtboxComponent
-@export var movement_component: MovementComponent
 @export var status_effect_component: StatusEffectComponent
 @export var tag_component: TagComponent
+@export var movement_strategy: MovementStrategy
 
 @export_group("Stats Profile")
 @export var stats_profile: StatsProfile
@@ -23,12 +23,12 @@ func _ready() -> void:
 		"stats_container",
 		"health_component",
 		"hurtbox_component",
-		"movement_component",
+		"movement_strategy",
 		"status_effect_component",
 		"tag_component"
 	]
 	
-	if not ValidationUtility.validate_components(self, required_entity_components):
+	if not ComponentValidator.validate_components(self, required_entity_components):
 		#set_physics_process(false)
 		return
 	

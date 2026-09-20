@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://uhuw0fhagmuw"]
+
+[ext_resource type="Script" uid="uid://cun53520d7t8x" path="res://components/movement/tornado_movement_strategy.gd" id="1_omq6o"]
+
+[node name="TornadoMovementStrategy" type="Node"]
+script = ExtResource("1_omq6o")

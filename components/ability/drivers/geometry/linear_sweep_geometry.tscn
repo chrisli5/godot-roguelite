@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://buaylgxysug2e"]
+
+[ext_resource type="Script" uid="uid://badqe2g5dcc7x" path="res://components/ability/drivers/geometry/linear_sweep_geometry.gd" id="1_wp7u8"]
+
+[node name="LinearSweepGeometry" type="Node"]
+script = ExtResource("1_wp7u8")

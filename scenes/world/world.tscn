@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://s03l0k7sk2u2"]
+[gd_scene load_steps=11 format=3 uid="uid://s03l0k7sk2u2"]
 
 [ext_resource type="Script" uid="uid://o5dxkbwae0sh" path="res://scenes/world/world_manager.gd" id="1_nc0nk"]
 [ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_ujq7m"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://scenes/entities/player/player.tscn" id="4_t5ptc"]
 [ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="5_t5ptc"]
 [ext_resource type="PackedScene" uid="uid://cvyt2nvnh6xne" path="res://scenes/entities/enemies/enemy.tscn" id="6_bq33v"]
+[ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://components/utility/debug_spatial_visualizer.gd" id="8_gb53w"]
 [ext_resource type="PackedScene" uid="uid://dd8t6wruc1tkv" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.tscn" id="9_1yooq"]
 
 [node name="World" type="Node2D" node_paths=PackedStringArray("entities_container", "projectiles_container", "pickups_container")]
@@ -49,6 +50,9 @@ position = Vector2(150, 150)
 [node name="ProjectilesContainer" type="Node2D" parent="GameWorld"]
 
 [node name="PickupsContainer" type="Node2D" parent="GameWorld"]
+
+[node name="DebugSpatialVisualizer" type="Node2D" parent="GameWorld"]
+script = ExtResource("8_gb53w")
 
 [node name="UpgradeScreenUI" parent="." instance=ExtResource("3_yvru8")]
 

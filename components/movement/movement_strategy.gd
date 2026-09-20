@@ -1,5 +1,5 @@
 @abstract
-class_name MovementComponent
+class_name MovementStrategy
 extends Node
 
 @abstract
@@ -8,5 +8,6 @@ func calculate_velocity(
 	target_velocity: Vector2,
 	max_speed: float, 
 	acceleration: float, 
-	friction: float
+	friction: float,
+	time_elapsed: float
 ) -> Vector2

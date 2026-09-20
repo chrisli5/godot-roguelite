@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://bcp1gda10rdhb"]
+
+[ext_resource type="Script" uid="uid://doq335oyqjwh1" path="res://components/ability/drivers/targeting/nearest_target_strategy.gd" id="1_2kkqt"]
+
+[node name="NearestTargetStrategy" type="Node"]
+script = ExtResource("1_2kkqt")
+enemy_collision_mask = 4

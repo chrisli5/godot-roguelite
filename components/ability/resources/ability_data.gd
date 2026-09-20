@@ -15,12 +15,10 @@ enum AbilityRole {
 @export var is_overclock_evolution: bool = false
 
 @export_group("Core Blueprint Packages")
-## Points to a single, completely uniform BaseAbility.tscn template
 @export var base_ability_scene: PackedScene
 @export var stats_profile: StatsProfile
 
 @export_group("Unified Wrapper Architecture Strategy Prefabs")
-## The spatial/delivery strategy component to inject (e.g., ProjectileLineDriver, AuraVortexDriver)
 @export var geometry_driver_scene: PackedScene
-## The secondary status modification layer to apply during execution ticks
 @export var payload_driver_scene: PackedScene
+@export var targeting_strategy_scene: PackedScene 
