@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://d23mkghb50m7a" path="res://ui/upgrade_screen/upgrade_screen_ui.tscn" id="3_yvru8"]
 [ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://scenes/entities/player/player.tscn" id="4_t5ptc"]
 [ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="5_t5ptc"]
-[ext_resource type="PackedScene" uid="uid://cvyt2nvnh6xne" path="res://scenes/entities/enemies/enemy.tscn" id="6_bq33v"]
+[ext_resource type="PackedScene" uid="uid://cvyt2nvnh6xne" path="res://scenes/entities/enemies/enemy.tscn" id="7_gb53w"]
 [ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://components/utility/debug_spatial_visualizer.gd" id="8_gb53w"]
 [ext_resource type="PackedScene" uid="uid://dd8t6wruc1tkv" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.tscn" id="9_1yooq"]
 
@@ -44,8 +44,8 @@ position = Vector2(102, 207)
 [node name="XPGem3" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
 position = Vector2(103, 279)
 
-[node name="Enemy" parent="GameWorld/EntitiesContainer" instance=ExtResource("6_bq33v")]
-position = Vector2(150, 150)
+[node name="Enemy" parent="GameWorld/EntitiesContainer" instance=ExtResource("7_gb53w")]
+position = Vector2(242, 96)
 
 [node name="ProjectilesContainer" type="Node2D" parent="GameWorld"]
 

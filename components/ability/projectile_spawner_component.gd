@@ -6,7 +6,12 @@ signal projectile_impacted(target: Node2D)
 @export var projectile_scene: PackedScene
 
 
-func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: float, hit_payload: HitPayload) -> Projectile:
+func spawn_projectile(
+	start_pos: Vector2, 
+	target_dir: Vector2, 
+	stats_source: StatsContainer,
+	hit_payload: HitPayload
+) -> Projectile:
 	if projectile_scene == null:
 		push_error("ProjectileSpawnerComponent on '%s': Missing projectile scene reference." % get_parent().name)
 		return null
@@ -18,19 +23,19 @@ func spawn_projectile(start_pos: Vector2, target_dir: Vector2, speed_value: floa
 		return null
 		
 	var projectile: Projectile = instance as Projectile
+	projectile.collided.connect(_on_projectile_collided)
+	projectile.hit_payload = hit_payload
 	
-	# 1. Assign physical movement vectors
-	projectile.base_speed = speed_value
 	projectile.spawn_position = start_pos
 	projectile.direction = target_dir.normalized()
 	
-	# 2. Directly inject the pre-packaged payload passed from the orchestrator
-	projectile.hit_payload = hit_payload
-	
-	# 3. Bubble up impact data safely via signals
-	projectile.collided.connect(func(target: Node2D) -> void:
-		projectile_impacted.emit(target)
-	)
+	projectile.movement_speed = stats_source.get_stat_value(Stat.Type.PROJECTILE_MOVEMENT_SPEED, 400.0)
+	projectile.collision_radius = stats_source.get_stat_value(Stat.Type.AOE_RADIUS, 10)
+
 	
 	get_tree().current_scene.add_child(projectile)
 	return projectile
+
+
+func _on_projectile_collided(target: Node2D) -> void:
+	projectile_impacted.emit(target)

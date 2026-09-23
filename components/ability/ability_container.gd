@@ -3,6 +3,11 @@ extends Node2D
 
 var max_slots: int = 4
 var abilities: Dictionary[int, Ability] = {}
+var _entity_root: Node2D = null
+
+
+func _ready() -> void:
+	_entity_root = get_parent() as Node2D
 
 
 func add_ability_from_data(ability_data: AbilityData) -> Ability:
@@ -15,7 +20,6 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 		push_error("AbilityContainer: Hotbar slot index %d is out of bounds." % slot_index)
 		return null
 		
-	# 1. Instantiate the completely generic blueprint wrapper template shell
 	var new_ability_instance: Node = ability_data.base_ability_scene.instantiate()
 	if not new_ability_instance is Ability:
 		push_error("AbilityContainer: Instantiated asset root is not of type 'Ability'.")
@@ -23,20 +27,17 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 		return null
 		
 	var ability: Ability = new_ability_instance as Ability
-	ability.display_name = ability_data.display_name
-	
-	# Initialize baseline numerical stat profiles
 	if ability_data.stats_profile and ability.stats_container:
 		ability.stats_container.initialize_profile(ability_data.stats_profile)
 	
-	# Clear out any residual node occupying this slot index before mounting
 	if abilities.has(slot_index):
 		remove_ability_by_slot(slot_index)
 		
 	add_child(ability)
 	abilities[slot_index] = ability
-	
-	# 2. Inject the initial starting runtime strategy drivers packed inside the ability_data file
+	if is_instance_valid(_entity_root):
+		ability.initialize_caster_context(_entity_root)
+
 	ability.swap_runtime_strategies(ability_data)
 	
 	return ability
@@ -53,8 +54,10 @@ func execute_ability_evolution(new_ability_data: AbilityData) -> Ability:
 	if not is_instance_valid(target_ability):
 		push_error("AbilityContainer: Target ability wrapper not found on slot index: " + str(slot_index))
 		return null
+	
+	if is_instance_valid(_entity_root):
+		target_ability.initialize_caster_context(_entity_root)
 		
-	# Pass the unified resource down to let the orchestrator handle sub-module state updates
 	target_ability.swap_runtime_strategies(new_ability_data)
 	
 	if is_instance_valid(target_ability.evolution_gate_component):

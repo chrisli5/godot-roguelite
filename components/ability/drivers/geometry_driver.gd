@@ -2,6 +2,7 @@
 class_name GeometryDriver
 extends Node
 
+@warning_ignore("unused_signal")
 signal delivery_finished
 
 ## Defines the geometric shape of an ability. Responsible for the initial execution of an ability. 
@@ -9,7 +10,6 @@ signal delivery_finished
 func execute_delivery(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	current_speed: float, 
-	current_aoe_scale: float, 
+	stats: StatsContainer,
 	final_payload: HitPayload
 ) -> void

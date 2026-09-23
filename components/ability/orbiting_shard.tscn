@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://c3y5676nvv8j6"]
+
+[ext_resource type="Script" uid="uid://cifcf2i1e1sag" path="res://components/ability/orbiting_shard.gd" id="1_rqnqu"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ytojn"]
+
+[node name="OrbitingShard" type="Area2D"]
+collision_layer = 0
+collision_mask = 4
+script = ExtResource("1_rqnqu")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_ytojn")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]

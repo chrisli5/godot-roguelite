@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=4 format=3 uid="uid://cydsvq1dqoh5x"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_exnai"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_8tpl8"]
+[ext_resource type="Resource" uid="uid://qie3l1knda0k" path="res://scenes/entities/player/upgrade_profile/player_movement_speed_def.tres" id="2_cyh77"]
+
+[resource]
+script = ExtResource("2_8tpl8")
+definition_bundle = Array[ExtResource("1_exnai")]([ExtResource("2_cyh77")])
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

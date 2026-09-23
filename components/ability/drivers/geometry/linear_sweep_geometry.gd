@@ -13,8 +13,7 @@ extends GeometryDriver
 func execute_delivery(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	_current_speed: float, 
-	current_aoe_scale: float, 
+	_stats: StatsContainer,
 	final_payload: HitPayload
 ) -> void:
 	
@@ -22,7 +21,7 @@ func execute_delivery(
 	if not space_state: return
 
 	# 1. Build procedural wedge directly facing the pre-calculated vector direction
-	var adjusted_length := strike_length * current_aoe_scale
+	var adjusted_length := strike_length
 	var half_arc_rad := deg_to_rad(cone_angle_degrees / 2.0)
 	var base_angle := target_direction.angle()
 

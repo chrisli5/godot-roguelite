@@ -39,10 +39,8 @@ func _ready() -> void:
 			stats_container.initialize_profile(self.stats_profile)
 	
 	if is_instance_valid(health_component) and is_instance_valid(stats_container):
-		var base_max_health = stats_container.get_stat_value(Stat.Type.MAX_HEALTH, 100.0)
-		health_component.update_max_health(base_max_health, false)
-		health_component.set_to_full()
 		health_component.health_depleted.connect(_on_health_depleted)
+		health_component.bind_to_stats(stats_container)
 			
 	if is_instance_valid(hurtbox_component):
 		hurtbox_component.hit_received.connect(_on_hit_received)

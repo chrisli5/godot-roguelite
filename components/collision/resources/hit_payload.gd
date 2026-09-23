@@ -6,10 +6,6 @@ enum TargetTrackingMode {
 	REALTIME_NODE
 }
 
-@export_group("Static Asset Tracking")
-## The definition asset that created this hit
-@export var source_definition: UpgradeDefinition
-
 @export_group("Static Combat Math")
 ## Raw damage calculation value configured in files
 @export var base_damage: float = 0.0
@@ -29,7 +25,7 @@ var tracked_target_direction: Vector2 = Vector2.RIGHT
 @export_group("Trajectory Strategy Overrides")
 ## Injected by the spawner card: the specific physics component used to steer this projectile
 @export var trajectory_movement_scene: PackedScene
-
+@export var base_texture: Texture2D
 var caster: Node2D
 
 ## The final computed damage after applying critical hits, global card buffs, 

@@ -39,7 +39,7 @@ func _handle_movement_physics() -> void:
 	if not movement_strategy or not stats_container:
 		return
 	
-	var max_speed = stats_container.get_stat_value(Stat.Type.SPEED, 1.0)
+	var max_speed = stats_container.get_stat_value(Stat.Type.MOVEMENT_SPEED, 1.0)
 	var acceleration = stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0)
 	var friction = stats_container.get_stat_value(Stat.Type.FRICTION, 1.0)
 	var direction: Vector2 = Vector2.ZERO

@@ -5,21 +5,15 @@ extends GeometryDriver
 @export_flags_2d_physics var enemy_collision_mask: int = 4
 @export var max_results_buffer: int = 32
 
-@export_group("Chain Metrics Configuration")
-## Base circle radius of the initial impact check zone before player AoE scaling applies
-@export var primary_strike_radius: float = 48.0
-## The maximum jump range radius between subsequent chaining targets in pixels
-@export var chain_jump_radius: float = 120.0
-## Total maximum number of bounce branches executed per cast tick (e.g., 4 jumps)
-@export var max_bounces: int = 4
+var primary_query_radius: float = 0.0
+var chain_jump_radius: float = 0.0
+var max_bounces: int = 4
 
 
-## Executes an instantaneous branching query tree pass across physics servers.
 func execute_delivery(
 	global_origin: Vector2, 
-	target_direction: Vector2, 
-	current_speed: float, 
-	current_aoe_scale: float, 
+	_target_direction: Vector2,
+	stats: StatsContainer,
 	final_payload: HitPayload
 ) -> void:
 	
@@ -34,9 +28,13 @@ func execute_delivery(
 	# Cache tracking array block holding onto instance IDs hit during THIS individual pass
 	var excluded_instance_ids: Array[int] = []
 	
+	var has_stats := is_instance_valid(stats)
+	primary_query_radius = stats.get_stat_value(Stat.Type.QUERY_RADIUS, 48.0) if has_stats else 48.0
+	chain_jump_radius = stats.get_stat_value(Stat.Type.CHAIN_RADIUS, 48.0) if has_stats else 48.0
+	
 	# Start tracking position registers from the cast center origin point
 	var active_search_position := global_origin
-	var current_radius := primary_strike_radius * current_aoe_scale
+	var current_radius := primary_query_radius
 	
 	# --- ITERATIVE BRANCHING SEARCH MATRICES ---
 	for bounce_index in range(max_bounces + 1):
@@ -82,7 +80,7 @@ func execute_delivery(
 			
 			# Shift coordinates over to branch forward out from this hit enemy position vector next!
 			active_search_position = next_target.global_position
-			current_radius = chain_jump_radius * current_aoe_scale
+			current_radius = chain_jump_radius
 		else:
 			break # Break sequence if all targets caught within bounds are already dead/excluded
 

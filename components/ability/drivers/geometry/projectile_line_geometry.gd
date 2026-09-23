@@ -1,50 +1,39 @@
-# res://components/ability/drivers/geometry/projectile_line_driver.gd
 class_name ProjectileLineDriver
 extends GeometryDriver
 
-@export_group("Sub-Component Isolation Links")
-## Blind factory module handling raw scene instantiation and scene tree mounting
+@export_group("Components")
 @export var spawner_component: ProjectileSpawnerComponent
 
-@export_group("Pattern Layout Overrides")
-## The total number of missiles spawned per execution tick (e.g., 1 for base, 3 for shotgun Overclock)
-@export var projectile_count: int = 1
-## The angular spread spread between splitting shots in degrees (e.g., 15.0)
-@export var spread_angle_degrees: float = 15.0
+var spread_angle_degrees: float = 15.0
 
 
-## Dictates the exact geometric arrangement of missiles fired, completely free of scene tree mounting logic
 func execute_delivery(
 	global_origin: Vector2, 
-	target_direction: Vector2, 
-	current_speed: float, 
-	current_aoe_scale: float, 
+	target_direction: Vector2,
+	stats: StatsContainer,
 	final_payload: HitPayload
 ) -> void:
-	
 	if not is_instance_valid(spawner_component):
 		push_error("ProjectileLineDriver: Required spawner sub-component configuration link is missing.")
 		return
 		
 	var base_direction := target_direction if target_direction != Vector2.ZERO else Vector2.RIGHT
 	var base_angle := base_direction.angle()
+	var has_stats := is_instance_valid(stats)
+	var projectile_amount: float = stats.get_stat_value(Stat.Type.PROJECTILE_AMOUNT, 1.0) if has_stats else 1.0
 	
-	# --- GEOMETRIC SHAPE ENFORCEMENT LOOP ---
-	# The driver calculates the spatial blueprint layout, passing the vectors down to the factory tool
-	for i in range(projectile_count):
+	for i in range(projectile_amount):
 		var final_direction := base_direction
-		
-		# If multi-shot layout parameters are active, compute the angular layout configuration splits
-		if projectile_count > 1:
-			var offset_step := i - (projectile_count - 1) / 2.0
+
+		if projectile_amount > 1:
+			var offset_step := i - (projectile_amount - 1) / 2.0
 			var angle_offset := deg_to_rad(offset_step * spread_angle_degrees)
 			final_direction = Vector2.from_angle(base_angle + angle_offset)
-			
-		# Delegate object allocation completely down to the isolated spawning module lane
+
 		spawner_component.spawn_projectile(
 			global_origin, 
 			final_direction, 
-			current_speed, 
+			stats,
 			final_payload
 		)
 		delivery_finished.emit()

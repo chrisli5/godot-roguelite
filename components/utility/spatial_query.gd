@@ -3,8 +3,8 @@ extends RefCounted
 
 
 const ENABLE_VISUAL_DEBUG: bool = true
-const DEBUG_COLOR_DEFAULT := Color(1.0, 0.3, 0.3, 1.0) # Vibrant coral neon split
-const DEBUG_FLASH_DURATION: float = 0.15 # Running flash time slice (roughly 9 engine frames)
+const DEBUG_COLOR_DEFAULT := Color(1.0, 0.3, 0.3, 1.0)
+const DEBUG_FLASH_DURATION: float = 0.05
 
 
 ## Executes a direct-space shape intersection check against Godot's physics hardware.

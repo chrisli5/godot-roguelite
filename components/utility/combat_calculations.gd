@@ -1,23 +1,19 @@
 class_name CombatCalculations
 extends RefCounted
 
-## Master pipeline function that builds a ready-to-use HitPayload.
-## [param caster]: The Entity or Node initiating the strike.
-## [param source_stats]: The StatsContainer of the specific weapon or entity.
-## [param source_tags]: The TagComponent of the specific weapon or entity.
-static func generate_hit_payload(caster: Node2D, source_stats: StatsContainer, source_tags: TagComponent) -> HitPayload:
+
+static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_tags: TagComponent) -> HitPayload:
 	var payload = HitPayload.new()
 	payload.caster = caster
-	
 	# 1. Harvest base tags from the source asset if they exist
 	if is_instance_valid(source_tags):
 		payload.damage_tags = source_tags.get_active_tags()
 		
 	# 2. Extract baseline attributes out of the stats container track
-	if is_instance_valid(source_stats):
-		var base_damage: float = source_stats.get_stat_value(Stat.Type.DAMAGE, 10.0)
-		var crit_chance: float = source_stats.get_stat_value(Stat.Type.CRIT_CHANCE, 0.05) # 5% baseline
-		var crit_mult: float = source_stats.get_stat_value(Stat.Type.CRIT_MULTIPLIER, 1.5)  # 150% baseline
+	if is_instance_valid(stats):
+		var base_damage: float = stats.get_stat_value(Stat.Type.BASE_DAMAGE, 10.0)
+		var crit_chance: float = stats.get_stat_value(Stat.Type.CRIT_CHANCE, 0.05) # 5% baseline
+		var crit_mult: float = stats.get_stat_value(Stat.Type.CRIT_MULTIPLIER, 1.5)  # 150% baseline
 		
 		# 3. Execute the Multiplier Calculation Equations
 		var is_critical_hit: bool = randf() < crit_chance

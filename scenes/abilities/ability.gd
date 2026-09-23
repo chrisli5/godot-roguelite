@@ -8,6 +8,7 @@ extends Node2D
 @export var evolution_gate_component: EvolutionGateComponent
 @export var tag_component: TagComponent
 
+var data: AbilityData = null
 ## Reference to the active child element handling shape boundaries and targeting
 var geometry_driver: GeometryDriver = null:
 	set(value):
@@ -20,8 +21,7 @@ var geometry_driver: GeometryDriver = null:
 
 var payload_driver: PayloadDriver = null
 var targeting_strategy: TargetingStrategy = null
-
-var display_name: String = ""
+var character_caster: Node2D = null
 var is_eligible_for_overclock: bool = false
 var _cooldown_timer: Timer
 
@@ -42,6 +42,10 @@ func _ready() -> void:
 	_setup_cooldown_clock()
 	if is_instance_valid(stats_container):
 		stats_container.stat_updated.connect(_on_stat_updated)
+
+
+func initialize_caster_context(caster_node: Node2D) -> void:
+	character_caster = caster_node
 
 
 func compile_eligible_pool(player_character_level: int) -> void:
@@ -149,58 +153,50 @@ func _trigger_ability_delivery() -> void:
 
 	var direction := Vector2.RIGHT
 	var tracked_enemy: Node2D = null
-	
+
 	if is_instance_valid(targeting_strategy):
-		var target_package := targeting_strategy.get_targeting_data(global_position)
+		var query_radius = stats_container.get_stat_value(Stat.Type.QUERY_RADIUS, 200.0)
+		var target_package := targeting_strategy.get_targeting_data(global_position, query_radius)
+		
 		direction = target_package.get("direction", Vector2.RIGHT)
 		tracked_enemy = target_package.get("target_node", null)
 
-	var speed := stats_container.get_stat_value(Stat.Type.SPEED, 400.0) if stats_container else 400.0
-	var aoe_scale := stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0) if stats_container else 1.0
-	var running_payload := CombatCalculations.generate_hit_payload(owner, stats_container, tag_component)
-
-	# If a straight projectile driver receives this, it uses 'direction' and ignores the node.
-	# If a homing projectile spawner receives this, it extracts the node to track it in real-time.
+	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
 	running_payload.tracked_target_node = tracked_enemy
+	
+	if is_instance_valid(data) and data.texture_prefab is Texture2D:
+		running_payload.base_texture = data.texture_prefab
 
 	if is_instance_valid(payload_driver) and payload_driver.has_method("intercept_payload"):
 		payload_driver.intercept_payload(running_payload)
 
-	geometry_driver.execute_delivery(global_position, direction, speed, aoe_scale, running_payload)
+	geometry_driver.execute_delivery(global_position, direction, stats_container, running_payload)
 
 
 func swap_runtime_strategies(new_data: AbilityData) -> void:
-	# --- 1. UNIFORM DRIVER HOT-SWAP ---
-	if is_instance_valid(geometry_driver):
-		geometry_driver.queue_free()
-		geometry_driver = null
+	if not is_instance_valid(new_data):
+		return
 		
-	if is_instance_valid(payload_driver):
-		payload_driver.queue_free()
-		payload_driver = null
+	data = new_data
 
-	if is_instance_valid(targeting_strategy):
-		targeting_strategy.queue_free()
-		targeting_strategy = null
+	if is_instance_valid(geometry_driver): geometry_driver.queue_free(); geometry_driver = null
+	if is_instance_valid(payload_driver): payload_driver.queue_free(); payload_driver = null
+	if is_instance_valid(targeting_strategy): targeting_strategy.queue_free(); targeting_strategy = null
 
-	if is_instance_valid(new_data.geometry_driver_scene):
-		var geom_inst = new_data.geometry_driver_scene.instantiate()
-		if geom_inst:
-			add_child(geom_inst)
-			geometry_driver = geom_inst
+	if is_instance_valid(data.geometry_driver_scene):
+		var geom_inst = data.geometry_driver_scene.instantiate()
+		if geom_inst: add_child(geom_inst); geometry_driver = geom_inst
 
-	if is_instance_valid(new_data.payload_driver_scene):
-		var payload_inst = new_data.payload_driver_scene.instantiate()
-		if payload_inst:
-			add_child(payload_inst)
-			payload_driver = payload_inst
+	if is_instance_valid(data.payload_driver_scene):
+		var payload_inst = data.payload_driver_scene.instantiate()
+		if payload_inst: add_child(payload_inst); payload_driver = payload_inst
 
-	if is_instance_valid(new_data.targeting_strategy_scene):
-		var target_inst = new_data.targeting_strategy_scene.instantiate()
-		add_child(target_inst)
-		targeting_strategy = target_inst
+	if is_instance_valid(data.targeting_strategy_scene):
+		var target_inst = data.targeting_strategy_scene.instantiate()
+		if target_inst: add_child(target_inst); targeting_strategy = target_inst
+		if targeting_strategy.has_method("bind_to_stats"):
+			targeting_strategy.bind_to_stats(stats_container)
 
-	# --- 2. UNIFORM TAXONOMY OVERWRITE ---
 	if is_instance_valid(tag_component):
 		var current_tags: Array[Tags.Type] = tag_component.get_active_tags()
 		var preserved_infusions: Array[Tags.Type] = []
@@ -212,22 +208,18 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 		tag_component._active_tags.clear()
 		for tag in preserved_infusions:
 			tag_component.add_tag(tag)
-		for tag in new_data.structural_tags:
+		for tag in data.structural_tags:
 			tag_component.add_tag(tag)
 			
 		tag_component.tags_changed.emit(tag_component._active_tags)
 
-	# --- 3. UNIFORM STAT OVERWRITE / MUTATION ---
-	# If the evolution asset includes an updated stats profile (common for Overclocks),
-	# we pass it down to re-initialize or augment base values smoothly.
-	if new_data.stats_profile and is_instance_valid(stats_container):
-		stats_container.mutate_base_profile(new_data.stats_profile)
+	if data.stats_profile and is_instance_valid(stats_container):
+		stats_container.mutate_base_profile(data.stats_profile)
 
-	# --- 4. UNIFORM OVERCLOCK FLAG GATING ---
-	# The EvolutionGateComponent evaluates state automatically using the data flag
 	if is_instance_valid(evolution_gate_component):
-		if new_data.is_overclock_evolution:
+		if data.is_overclock_evolution:
 			evolution_gate_component.is_permanently_overclocked = true
+			
 	_start_cooldown_phase()
 
 

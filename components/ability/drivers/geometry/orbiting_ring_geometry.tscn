@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://c070d6jsf4rp4"]
+[gd_scene load_steps=3 format=3 uid="uid://c070d6jsf4rp4"]
 
 [ext_resource type="Script" uid="uid://cbmvei641tyia" path="res://components/ability/drivers/geometry/orbiting_ring_geometry.gd" id="1_vywya"]
+[ext_resource type="PackedScene" uid="uid://c3y5676nvv8j6" path="res://components/ability/orbiting_shard.tscn" id="2_iygfx"]
 
 [node name="OrbitingRingGeometry" type="Node"]
 script = ExtResource("1_vywya")
+shard_scene_template = ExtResource("2_iygfx")

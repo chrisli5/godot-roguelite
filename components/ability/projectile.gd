@@ -3,28 +3,45 @@ extends Area2D
 
 signal collided(target: Node2D)
 
+@onready var sprite: Sprite2D = $Sprite2D
+@onready var collision_shape: CollisionShape2D = $CollisionShape2D
+
+var hit_payload: HitPayload
 var movement_strategy: MovementStrategy = null
-var base_speed: float = 400.0
+
+var movement_speed: float = 400.0
 var acceleration: float = 99999.0
 var friction: float = 0.0
 var lifetime: float = 5.0
 
-var hit_payload: HitPayload
 var direction: Vector2 = Vector2.RIGHT # Acts as the persistent static direction fallback
 var spawn_position: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
+var collision_radius: float = 10.0
 var time_elapsed: float = 0.0
 
 
 func _ready() -> void:
 	global_position = spawn_position
 	if direction != Vector2.ZERO:
-		#rotation = direction.angle()
-		velocity = direction * base_speed
+		rotation = direction.angle()
+		velocity = direction * movement_speed
 	
 	area_entered.connect(_on_collision_detected)
 	
-	if is_instance_valid(hit_payload) and hit_payload.trajectory_movement_scene:
+	if not is_instance_valid(hit_payload):
+		return
+	
+	if is_instance_valid(hit_payload.base_texture):
+		if is_instance_valid(sprite):
+			sprite.texture = hit_payload.base_texture
+
+	if is_instance_valid(collision_shape):
+		if collision_shape.shape is CircleShape2D:
+			collision_shape.shape = collision_shape.shape.duplicate()
+			(collision_shape.shape as CircleShape2D).radius = collision_radius
+			
+	if  hit_payload.trajectory_movement_scene is PackedScene:
 		var move_inst = hit_payload.trajectory_movement_scene.instantiate() as MovementStrategy
 		if move_inst:
 			add_child(move_inst)
@@ -54,16 +71,16 @@ func _physics_process(delta: float) -> void:
 		velocity = movement_strategy.calculate_velocity(
 			velocity,
 			current_frame_target_direction, # Dynamically adjusted vector
-			base_speed,
+			movement_speed,
 			acceleration,
 			friction,
 			time_elapsed
 		)
-		#if velocity != Vector2.ZERO:
-			#rotation = velocity.angle()
+		if velocity != Vector2.ZERO:
+			rotation = velocity.angle()
 	else:
 		# Standard fallback straight projectile path
-		velocity = current_frame_target_direction * base_speed
+		velocity = current_frame_target_direction * movement_speed
 
 	global_position += velocity * delta
 

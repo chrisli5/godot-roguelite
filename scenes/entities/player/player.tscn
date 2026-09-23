@@ -14,7 +14,7 @@
 [ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/player_level_profile.tres" id="8_wvtmh"]
 [ext_resource type="Script" uid="uid://digb326esho6n" path="res://components/upgrade/upgrade_ledger_component.gd" id="11_7wli1"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_xy2vv"]
-[ext_resource type="Resource" uid="uid://dy1ftkmydw16b" path="res://scenes/entities/player/upgrade_profile/player_speed_profile.tres" id="13_r4dfn"]
+[ext_resource type="Resource" uid="uid://cydsvq1dqoh5x" path="res://scenes/entities/player/upgrade_profile/player_movement_speed_blueprint.tres" id="15_w3p2j"]
 [ext_resource type="Resource" uid="uid://enkt04os3bdr" path="res://scenes/entities/player/infusion_profile/master_infusion_profile.tres" id="17_pcd0u"]
 [ext_resource type="PackedScene" uid="uid://dc7wya572xwgd" path="res://components/movement/vector_movement_strategy.tscn" id="18_knby6"]
 [ext_resource type="Resource" uid="uid://llhg26ek24t7" path="res://scenes/entities/player/upgrade_profile/start_abilities.tres" id="18_w3p2j"]
@@ -59,6 +59,8 @@ script = ExtResource("3_8fjmc")
 script = ExtResource("5_yywfu")
 
 [node name="HurtboxComponent" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 0
 script = ExtResource("6_pcd0u")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent"]
@@ -85,7 +87,7 @@ thresholds_profile = ExtResource("8_wvtmh")
 
 [node name="UpgradeLedgerComponent" type="Node" parent="."]
 script = ExtResource("11_7wli1")
-stat_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("13_r4dfn")])
+stat_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("15_w3p2j")])
 infusion_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("17_pcd0u")])
 evo_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("18_w3p2j")])
 

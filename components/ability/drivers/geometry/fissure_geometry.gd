@@ -16,7 +16,12 @@ extends GeometryDriver
 @export var expansion_rate_per_step: float = 15.0
 
 
-func execute_delivery(global_origin: Vector2, target_direction: Vector2, current_speed: float, current_aoe_scale: float, final_payload: HitPayload) -> void:
+func execute_delivery(
+	global_origin: Vector2, 
+	target_direction: Vector2,
+	_stats: StatsContainer,
+	final_payload: HitPayload
+) -> void:
 	var space_state := get_viewport().get_world_2d().direct_space_state
 	if not space_state:
 		delivery_finished.emit()
@@ -31,7 +36,7 @@ func execute_delivery(global_origin: Vector2, target_direction: Vector2, current
 		
 		# Compute the growing radius dimension properties
 		var growth_factor := step * expansion_rate_per_step
-		step_shape.radius = (starting_radius + growth_factor) * current_aoe_scale
+		step_shape.radius = (starting_radius + growth_factor)
 		
 		var intersections := SpatialQuery.query_shape_intersections(
 			space_state, step_shape, target_strike_point, enemy_collision_mask, max_results_buffer

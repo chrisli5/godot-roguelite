@@ -9,7 +9,16 @@ var current_health: float = 0.0
 var max_health: float = 10.0
 
 
-## Called exclusively by the parent node during initialization or stat updates.
+func bind_to_stats(stats: StatsContainer) -> void:
+	var has_stats := is_instance_valid(stats)
+	if has_stats:
+		stats.stat_updated.connect(_on_stat_updated)
+	
+	var initial_max = stats.get_stat_value(Stat.Type.MAX_HEALTH, 1.0) if has_stats else 1.0
+	update_max_health(initial_max)
+	set_to_full()
+
+
 func update_max_health(new_max: float, should_heal_difference: bool = false) -> void:
 	if new_max <= 0.0:
 		return
@@ -49,3 +58,8 @@ func heal(amount: float) -> void:
 		
 	current_health = clamp(current_health + amount, 0.0, max_health)
 	health_changed.emit(current_health, max_health)
+
+
+func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
+	if stat_type == Stat.Type.MAX_HEALTH:
+		update_max_health(new_value)
