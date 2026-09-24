@@ -7,7 +7,7 @@ extends GeometryDriver
 var spread_angle_degrees: float = 15.0
 
 
-func execute_delivery(
+func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
 	stats: StatsContainer,

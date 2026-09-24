@@ -10,7 +10,7 @@ var chain_jump_radius: float = 0.0
 var max_bounces: int = 4
 
 
-func execute_delivery(
+func execute_geometry(
 	global_origin: Vector2, 
 	_target_direction: Vector2,
 	stats: StatsContainer,

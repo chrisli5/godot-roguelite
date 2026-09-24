@@ -10,7 +10,7 @@ extends GeometryDriver
 @export var cone_angle_degrees: float = 60.0
 
 
-func execute_delivery(
+func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
 	_stats: StatsContainer,

@@ -170,7 +170,7 @@ func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
 func _on_infusion_allocation_confirmed(finalized_choice: UpgradeChoice) -> void:
 	# 1. Increment purchases on the player's core master element tracking card family
 	finalized_choice.source_tracker.current_purchases += 1
-	
+	print("_on_infusion_allocation_confirmed")
 	var current_player = EventBus.active_player
 	if is_instance_valid(current_player):
 		var player_ledger = current_player.upgrade_ledger_component

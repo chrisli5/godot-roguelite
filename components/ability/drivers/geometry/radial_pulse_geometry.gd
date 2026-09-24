@@ -13,7 +13,7 @@ func _ready() -> void:
 	_circle_shape.radius = 48.0
 
 
-func execute_delivery(
+func execute_geometry(
 	global_origin: Vector2, 
 	_target_direction: Vector2,
 	stats: StatsContainer,

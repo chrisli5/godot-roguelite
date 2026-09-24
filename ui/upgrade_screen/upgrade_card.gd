@@ -35,7 +35,6 @@ func select_card() -> void:
 	if is_instance_valid(current_choice):
 		disabled = true
 		EventBus.upgrade_selected.emit(current_choice)
-		
 
 
 func _on_gui_input(event: InputEvent) -> void:

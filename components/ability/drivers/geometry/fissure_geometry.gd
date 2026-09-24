@@ -16,7 +16,7 @@ extends GeometryDriver
 @export var expansion_rate_per_step: float = 15.0
 
 
-func execute_delivery(
+func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
 	_stats: StatsContainer,

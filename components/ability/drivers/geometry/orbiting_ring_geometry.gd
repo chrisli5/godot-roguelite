@@ -6,7 +6,7 @@ extends GeometryDriver
 var rotation_speed: float = 0.0
 var orbit_radius: float = 0.0
 var shard_radius: float = 0.0
-var shard_amount: int = 0  # Changed to int for clean loop tracking
+var shard_amount: int = 0 
 
 var _active_shards: Array[OrbitingShard] = []
 var _current_orbit_angle_rad: float = 0.0
@@ -18,7 +18,7 @@ func _ready() -> void:
 	set_physics_process(false)
 
 
-func execute_delivery(
+func execute_geometry(
 	_global_origin: Vector2, 
 	_target_direction: Vector2, 
 	stats: StatsContainer,
@@ -44,12 +44,12 @@ func execute_delivery(
 	_duration_left = stats.get_stat_value(Stat.Type.DURATION, 1.0) if has_stats else 1.0
 	
 	for i in range(shard_amount):
-		var shard_instance = shard_scene_template.instantiate() as OrbitingShard
-		if shard_instance:
-			shard_instance.hit_payload = _active_payload
-			shard_instance.collision_radius = shard_radius
-			add_child(shard_instance)
-			_active_shards.append(shard_instance)
+		var shard = shard_scene_template.instantiate() as OrbitingShard
+		if shard:
+			shard.hit_payload = _active_payload
+			shard.collision_radius = shard_radius
+			add_child(shard)
+			_active_shards.append(shard)
 	
 	_update_shard_positions()
 	set_physics_process(true)

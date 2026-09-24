@@ -29,7 +29,7 @@ func _on_allocation_requested(chosen_choice: UpgradeChoice) -> void:
 	_selected_element = Tags.Type.NONE
 	
 	# Harvest the core element tag on the fly out of the choice taxonomy list array
-	for tag in chosen_choice.definition.tags:
+	for tag in chosen_choice.definition.draft_behavior_tags:
 		if tag != Tags.Type.INFUSION:
 			_selected_element = tag
 			break

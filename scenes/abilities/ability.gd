@@ -10,6 +10,10 @@ extends Node2D
 
 var data: AbilityData = null
 ## Reference to the active child element handling shape boundaries and targeting
+var display_name: String:
+	get:
+		return data.display_name if is_instance_valid(data) else "ABILITY_DISPLAY_NAME"
+
 var geometry_driver: GeometryDriver = null:
 	set(value):
 		# Clean disconnect loops when hot-swapping strategy modules mid-run
@@ -170,7 +174,7 @@ func _trigger_ability_delivery() -> void:
 	if is_instance_valid(payload_driver) and payload_driver.has_method("intercept_payload"):
 		payload_driver.intercept_payload(running_payload)
 
-	geometry_driver.execute_delivery(global_position, direction, stats_container, running_payload)
+	geometry_driver.execute_geometry(global_position, direction, stats_container, running_payload)
 
 
 func swap_runtime_strategies(new_data: AbilityData) -> void:
