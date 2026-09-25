@@ -1,20 +1,19 @@
 class_name SineWaveMovementStrategy
 extends MovementStrategy
 
-@export_group("Sine Curve Tuning Parameters")
-## Adjusts the horizontal width of the wave curve trajectory
 @export var wave_amplitude: float = 25.0
 @export var wave_frequency: float = 16.0
 
 
 func calculate_velocity(
-	current_velocity: Vector2,
+	_current_velocity: Vector2,
 	target_direction: Vector2,
-	max_speed: float, 
-	acceleration: float, 
-	friction: float,
-	time_elapsed: float
+	max_speed: float,
+	_current_global_position: Vector2,
+	time_elapsed: float,
+	_target_node: Node2D = null
 ) -> Vector2:
+	
 	var forward_velocity := target_direction * max_speed
 	var perpendicular_direction := target_direction.orthogonal()
 	var cosine_wave := cos(time_elapsed * wave_frequency)

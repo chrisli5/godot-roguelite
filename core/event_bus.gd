@@ -2,6 +2,7 @@ extends Node
 
 @warning_ignore_start("unused_signal")
 signal player_leveled_up(new_level: int)
+signal ability_modification_completed(slot_index: int)
 
 signal infusion_allocation_requested(chosen_choice: UpgradeChoice)
 signal infusion_allocation_confirmed(chosen_choice: UpgradeChoice)

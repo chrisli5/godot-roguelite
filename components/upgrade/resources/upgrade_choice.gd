@@ -7,9 +7,6 @@ var target_slot_index: int = 0
 ## The scannable category name of the target being upgraded (e.g., "Character Core", "Arcane Missile").
 var target_display_name: String = ""
 
-# --- CLEAN DEFINITION PROXIES ---
-# Accessing these safely redirects traffic string-free straight down to the disk assets
-
 var definition: UpgradeDefinition:
 	get:
 		return source_tracker.definition if is_instance_valid(source_tracker) else null
@@ -17,6 +14,14 @@ var definition: UpgradeDefinition:
 var display_name: String:
 	get:
 		return definition.display_name if is_instance_valid(definition) else ""
+
+var is_infusion: bool:
+	get:
+		return definition.is_infusion() if is_instance_valid(definition) else false
+
+var infusion_element: Tags.Type:
+	get:
+		return definition.get_infusion_element() if is_instance_valid(definition) else Tags.Type.NONE
 
 var description: String:
 	get:

@@ -106,11 +106,10 @@ func _finalize_scene_swap() -> void:
 		
 		# --- DYNAMIC INJECTION CROSSING PIPELINES ---
 		# If we have an active map payload cached, inject it down to the WorldManager right now!
-		if _active_map_profile_payload != null and new_instance is WorldManager:
-			new_instance.map_profile = _active_map_profile_payload
-			
 		scene_container.add_child(new_instance)
-		
+		if _active_map_profile_payload != null and new_instance is WorldManager:
+			new_instance.initialize_world_settings(_active_map_profile_payload)
+
 	get_tree().paused = false
 	await get_tree().process_frame
 

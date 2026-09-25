@@ -154,27 +154,25 @@ func _trigger_ability_delivery() -> void:
 	if not is_instance_valid(geometry_driver):
 		_start_cooldown_phase()
 		return
+		
+	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
+	running_payload.stats_source = stats_container
+	
+	if is_instance_valid(data) and data.texture_prefab is Texture2D:
+		running_payload.base_texture = data.texture_prefab
 
 	var direction := Vector2.RIGHT
-	var tracked_enemy: Node2D = null
-
 	if is_instance_valid(targeting_strategy):
 		var query_radius = stats_container.get_stat_value(Stat.Type.QUERY_RADIUS, 200.0)
 		var target_package := targeting_strategy.get_targeting_data(global_position, query_radius)
 		
 		direction = target_package.get("direction", Vector2.RIGHT)
-		tracked_enemy = target_package.get("target_node", null)
-
-	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
-	running_payload.tracked_target_node = tracked_enemy
-	
-	if is_instance_valid(data) and data.texture_prefab is Texture2D:
-		running_payload.base_texture = data.texture_prefab
+		running_payload.tracked_target_node = target_package.get("target_node", null)
 
 	if is_instance_valid(payload_driver) and payload_driver.has_method("intercept_payload"):
 		payload_driver.intercept_payload(running_payload)
 
-	geometry_driver.execute_geometry(global_position, direction, stats_container, running_payload)
+	geometry_driver.execute_geometry(global_position, direction, running_payload)
 
 
 func swap_runtime_strategies(new_data: AbilityData) -> void:
@@ -217,12 +215,18 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 			
 		tag_component.tags_changed.emit(tag_component._active_tags)
 
+	if is_instance_valid(upgrade_ledger_component) and is_instance_valid(data):
+		upgrade_ledger_component.initialize_ledger(data.upgrade_blueprints)
+
 	if data.stats_profile and is_instance_valid(stats_container):
 		stats_container.mutate_base_profile(data.stats_profile)
 
 	if is_instance_valid(evolution_gate_component):
 		if data.is_overclock_evolution:
 			evolution_gate_component.is_permanently_overclocked = true
+	
+	if data.slot_index:
+		EventBus.ability_modification_completed.emit(data.slot_index)
 			
 	_start_cooldown_phase()
 

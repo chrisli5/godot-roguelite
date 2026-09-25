@@ -14,8 +14,11 @@ enum ContainerType { ENTITIES, PROJECTILES, PICKUPS }
 
 func _ready() -> void:
 	EventBus.spawn_requested.connect(_on_spawn_requested)
-	_instantiate_level_terrain()
 	#_run_automated_test_clear_clock()
+
+func initialize_world_settings(new_map_profile: MapProfile) -> void:
+	map_profile = new_map_profile
+	_instantiate_level_terrain()
 
 
 func _run_automated_test_clear_clock() -> void:

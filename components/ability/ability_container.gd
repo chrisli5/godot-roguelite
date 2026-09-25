@@ -7,6 +7,7 @@ var _entity_root: Node2D = null
 
 
 func _ready() -> void:
+	EventBus.ability_modification_completed.connect(_on_ability_modification_completed)
 	_entity_root = get_parent() as Node2D
 
 
@@ -29,6 +30,9 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 	var ability: Ability = new_ability_instance as Ability
 	if ability_data.stats_profile and ability.stats_container:
 		ability.stats_container.initialize_profile(ability_data.stats_profile)
+	
+	if is_instance_valid(ability.upgrade_ledger_component):
+		ability.upgrade_ledger_component.initialize_ledger(ability_data.upgrade_blueprints)
 	
 	if abilities.has(slot_index):
 		remove_ability_by_slot(slot_index)
@@ -125,35 +129,59 @@ func get_active_abilities() -> Array[Ability]:
 	return ordered_list
 
 
-func apply_global_modifiers_to_ability(ability: Ability) -> void:
+func sync_global_modifiers_for_slot(slot_index: int) -> void:
+	var ability = get_ability_by_slot(slot_index)
+	if not is_instance_valid(ability) or not is_instance_valid(ability.stats_container):
+		return
+		
 	var player = EventBus.active_player
-	if is_instance_valid(player) and is_instance_valid(player.upgrade_ledger_component):
-		var player_ledger = player.upgrade_ledger_component
-		var weapon_tags = ability.tag_component.get_active_tags() if is_instance_valid(ability.tag_component) else []
+	if not is_instance_valid(player) or not is_instance_valid(player.upgrade_ledger_component):
+		return
+		
+	var player_ledger = player.upgrade_ledger_component
+	var weapon_tags = ability.tag_component.get_active_tags() if is_instance_valid(ability.tag_component) else []
+	
+	# Loop through every upgrade card the player has acquired at the character core level
+	for tracker in player_ledger.available_upgrades:
+		var definition = tracker.definition
+		if not is_instance_valid(definition) or not definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
+			continue
+			
+		# Filter for cards that explicitly target passive broad tags (e.g., Tags.Type.PROJECTILE)
+		if not definition.global_modifier_tags.is_empty():
+			var player_purchased_tier = player_ledger.purchase_levels.get(definition.upgrade_id, 0)
+			
+			# If the player has actually invested cash/levels into this global passive card
+			if player_purchased_tier > 0:
+				var tag_match_found = false
+				for modifier_tag in definition.global_modifier_tags:
+					if weapon_tags.has(modifier_tag):
+						tag_match_found = true
+						break
+						
+				if tag_match_found:
+					# Generate a deterministic runtime ID to prevent duplicate stacking
+					var global_modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
+					
+					# Dynamic scaling rule: scale value symmetrically by the player's purchased card tier
+					global_modifier_instance.value = definition.stat_modifier_payload.value * player_purchased_tier
+					global_modifier_instance.id = ModifierFactory.generate_id(
+						ModifierFactory.OriginSource.GLOBAL_UPGRADE,
+						tracker,
+						ability,
+						"global_passive_broadcast"
+					)
+					
+					# Stitch it directly into the ability's active runtime stat memory
+					ability.stats_container.add_modifier(definition.target_stat_type, global_modifier_instance)
 
-		for tracker in player_ledger.available_upgrades:
-			var definition = tracker.definition
-			if not is_instance_valid(definition) or not definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
-				continue
 
-			if not definition.global_modifier_tags.is_empty():
-				var player_purchased_tier = player_ledger.purchase_levels.get(definition.upgrade_id, 0)
-				
-				# If the player has actually invested in this global modifier card
-				if player_purchased_tier > 0:
-					var tag_match_found = false
-					for modifier_tag in definition.global_modifier_tags:
-						if weapon_tags.has(modifier_tag):
-							tag_match_found = true
-							break
-							
-					# Symmetrically inject the historical global card straight into the new node!
-					if tag_match_found:
-						if is_instance_valid(ability.stats_container):
-							var global_modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
-							global_modifier_instance.id = ModifierFactory.generate_id(
-								ModifierFactory.OriginSource.GLOBAL_UPGRADE,
-								tracker,
-								ability
-							)
-							ability.stats_container.add_modifier(definition.target_stat_type, global_modifier_instance)
+func refresh_all_global_modifiers() -> void:
+	for i in range(max_slots):
+		sync_global_modifiers_for_slot(i)
+
+
+func _on_ability_modification_completed(slot_index: int) -> void:
+	if abilities.has(slot_index):
+		sync_global_modifiers_for_slot(slot_index)
+	

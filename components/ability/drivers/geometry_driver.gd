@@ -10,6 +10,5 @@ signal delivery_finished
 func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	stats: StatsContainer,
 	final_payload: HitPayload
 ) -> void

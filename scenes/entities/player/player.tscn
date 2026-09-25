@@ -1,7 +1,8 @@
-[gd_scene load_steps=22 format=3 uid="uid://dgoq3h4eqmvj"]
+[gd_scene load_steps=19 format=3 uid="uid://dgoq3h4eqmvj"]
 
 [ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://scenes/entities/player/player.gd" id="1_bls4j"]
 [ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://scenes/entities/player/player_stats_profile.tres" id="2_8fjmc"]
+[ext_resource type="Resource" uid="uid://5t08vhahmsdm" path="res://scenes/entities/player/upgrade_profile/player_data.tres" id="2_70kwc"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="2_fkugw"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="3_8fjmc"]
 [ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="5_bectd"]
@@ -13,11 +14,7 @@
 [ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="8_w3p2j"]
 [ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/player_level_profile.tres" id="8_wvtmh"]
 [ext_resource type="Script" uid="uid://digb326esho6n" path="res://components/upgrade/upgrade_ledger_component.gd" id="11_7wli1"]
-[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="12_xy2vv"]
-[ext_resource type="Resource" uid="uid://cydsvq1dqoh5x" path="res://scenes/entities/player/upgrade_profile/player_movement_speed_blueprint.tres" id="15_w3p2j"]
-[ext_resource type="Resource" uid="uid://enkt04os3bdr" path="res://scenes/entities/player/infusion_profile/master_infusion_profile.tres" id="17_pcd0u"]
 [ext_resource type="PackedScene" uid="uid://dc7wya572xwgd" path="res://components/movement/vector_movement_strategy.tscn" id="18_knby6"]
-[ext_resource type="Resource" uid="uid://llhg26ek24t7" path="res://scenes/entities/player/upgrade_profile/start_abilities.tres" id="18_w3p2j"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
@@ -34,6 +31,7 @@ script = ExtResource("1_bls4j")
 collector_component = NodePath("CollectorComponent")
 progression_component = NodePath("ProgressionComponent")
 upgrade_ledger_component = NodePath("UpgradeLedgerComponent")
+configuration_data = ExtResource("2_70kwc")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 health_component = NodePath("HealthComponent")
@@ -87,8 +85,5 @@ thresholds_profile = ExtResource("8_wvtmh")
 
 [node name="UpgradeLedgerComponent" type="Node" parent="."]
 script = ExtResource("11_7wli1")
-stat_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("15_w3p2j")])
-infusion_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("17_pcd0u")])
-evo_blueprint_profiles = Array[ExtResource("12_xy2vv")]([ExtResource("18_w3p2j")])
 
 [node name="VectorMovementStrategy" parent="." instance=ExtResource("18_knby6")]

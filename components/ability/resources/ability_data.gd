@@ -18,6 +18,7 @@ enum AbilityRole {
 @export_group("Core Blueprint Packages")
 @export var base_ability_scene: PackedScene
 @export var stats_profile: StatsProfile
+@export var upgrade_blueprints: Array[UpgradeBlueprintProfile] = [] 
 
 @export_group("Unified Wrapper Architecture Strategy Prefabs")
 @export var geometry_driver_scene: PackedScene

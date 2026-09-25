@@ -20,8 +20,7 @@ func _ready() -> void:
 
 func execute_geometry(
 	_global_origin: Vector2, 
-	_target_direction: Vector2, 
-	stats: StatsContainer,
+	_target_direction: Vector2,
 	final_payload: HitPayload
 ) -> void:
 	_terminate_active_delivery()
@@ -31,16 +30,17 @@ func execute_geometry(
 		return
 	
 	_active_payload = final_payload
-	
-	if not is_instance_valid(_active_payload.caster):
+	if not is_instance_valid(_active_payload) or not is_instance_valid(_active_payload.caster):
 		_terminate_active_delivery()
 		return
+
+	var has_stats := is_instance_valid(_active_payload.stats_source)
+	var stats = _active_payload.stats_source
 	
-	var has_stats := is_instance_valid(stats)
 	rotation_speed = stats.get_stat_value(Stat.Type.ORBIT_ROTATION_SPEED, 90.0) if has_stats else 90.0
 	orbit_radius = stats.get_stat_value(Stat.Type.ORBIT_RADIUS, 80.0) if has_stats else 80.0
 	shard_radius = stats.get_stat_value(Stat.Type.AOE_RADIUS, 10.0) if has_stats else 10.0
-	shard_amount = int(stats.get_stat_value(Stat.Type.PROJECTILE_AMOUNT, 1.0)) if has_stats else 1
+	shard_amount = int(stats.get_stat_value(Stat.Type.PROJECTILE_AMOUNT, 3.0)) if has_stats else 1
 	_duration_left = stats.get_stat_value(Stat.Type.DURATION, 1.0) if has_stats else 1.0
 	
 	for i in range(shard_amount):

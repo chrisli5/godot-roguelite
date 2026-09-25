@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://c070d6jsf4rp4" path="res://components/ability/drivers/geometry/orbiting_ring_geometry.tscn" id="2_d4gnq"]
 [ext_resource type="PackedScene" uid="uid://de85o2am36jm5" path="res://components/ability/drivers/payload/missile_hit_payload.tscn" id="3_d4gnq"]
 [ext_resource type="Resource" uid="uid://rvdgfj80wi0p" path="res://resources/abilities/arcane_missile/profiles/am_base_stats.tres" id="4_d4gnq"]
-[ext_resource type="PackedScene" uid="uid://bcp1gda10rdhb" path="res://components/ability/drivers/targeting/nearest_target_strategy.tscn" id="6_cgvge"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="7_1x7wt"]
 [ext_resource type="Texture2D" uid="uid://bntta8st7rlml" path="res://assets/entities/bullet.png" id="7_cgvge"]
 
 [resource]
@@ -17,5 +17,4 @@ base_ability_scene = ExtResource("1_urxro")
 stats_profile = ExtResource("4_d4gnq")
 geometry_driver_scene = ExtResource("2_d4gnq")
 payload_driver_scene = ExtResource("3_d4gnq")
-targeting_strategy_scene = ExtResource("6_cgvge")
 metadata/_custom_type_script = "uid://cegijyh7qyyhp"

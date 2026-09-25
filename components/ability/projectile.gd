@@ -8,16 +8,13 @@ signal collided(target: Node2D)
 
 var hit_payload: HitPayload
 var movement_strategy: MovementStrategy = null
-
 var movement_speed: float = 400.0
-var acceleration: float = 99999.0
-var friction: float = 0.0
+var collision_radius: float = 10.0
 var lifetime: float = 5.0
 
-var direction: Vector2 = Vector2.RIGHT # Acts as the persistent static direction fallback
+var direction: Vector2 = Vector2.RIGHT 
 var spawn_position: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
-var collision_radius: float = 10.0
 var time_elapsed: float = 0.0
 
 
@@ -54,35 +51,39 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 
-	# --- UNIFIED TARGET DIRECTION MEDIATION ---
-	# Default to our static initial direction vector assigned at spawning
-	var current_frame_target_direction := direction
-	if not is_instance_valid(hit_payload):
-		return
-	
-	# If the passport holds a valid tracked enemy node, recalculate the vector dynamically
-	if hit_payload.target_tracking_mode == HitPayload.TargetTrackingMode.REALTIME_NODE:
-		if is_instance_valid(hit_payload.tracked_target_node):
-			var enemy: Node2D = hit_payload.tracked_target_node
-			current_frame_target_direction = (enemy.global_position - global_position).normalized()
-	# --- STRATEGY DELEGATION ---
 	if is_instance_valid(movement_strategy):
-		# Push-model parameter injection: Hand over the final processed vector context
+		var tracking_target: Node2D = null
+		if is_instance_valid(hit_payload) and is_instance_valid(hit_payload.tracked_target_node):
+			tracking_target = hit_payload.tracked_target_node
+
 		velocity = movement_strategy.calculate_velocity(
 			velocity,
-			current_frame_target_direction, # Dynamically adjusted vector
+			direction, 
 			movement_speed,
-			acceleration,
-			friction,
-			time_elapsed
+			global_position,
+			time_elapsed,
+			tracking_target
 		)
 		if velocity != Vector2.ZERO:
 			rotation = velocity.angle()
 	else:
-		# Standard fallback straight projectile path
-		velocity = current_frame_target_direction * movement_speed
+		velocity = direction * movement_speed
 
 	global_position += velocity * delta
+
+
+func initialize_projectile(start_pos: Vector2, target_dir: Vector2, incoming_payload: HitPayload) -> void:
+	hit_payload = incoming_payload
+	spawn_position = start_pos
+	direction = target_dir.normalized()
+	
+	# Extract and scale metrics safely out of the passport's stats link
+	if is_instance_valid(hit_payload):
+		var stats = hit_payload.stats_source
+		if is_instance_valid(stats):
+			movement_speed = stats.get_stat_value(Stat.Type.PROJECTILE_MOVEMENT_SPEED, 400.0)
+			collision_radius = stats.get_stat_value(Stat.Type.AOE_RADIUS, 10.0)
+			lifetime = stats.get_stat_value(Stat.Type.DURATION, 5.0) # Pulled out of resource dynamically!
 
 
 func _on_collision_detected(incoming_node: Node2D) -> void:

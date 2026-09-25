@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PlayerData" load_steps=5 format=3 uid="uid://5t08vhahmsdm"]
+
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="1_nl3kb"]
+[ext_resource type="Script" uid="uid://bvdkqg3nmljjr" path="res://components/player/resources/player_data.gd" id="2_6pe4l"]
+[ext_resource type="Resource" uid="uid://cydsvq1dqoh5x" path="res://scenes/entities/player/upgrade_profile/player_movement_speed_blueprint.tres" id="2_g44fd"]
+[ext_resource type="Resource" uid="uid://llhg26ek24t7" path="res://scenes/entities/player/upgrade_profile/start_abilities.tres" id="3_g44fd"]
+
+[resource]
+script = ExtResource("2_6pe4l")
+player_core_blueprints = Array[ExtResource("1_nl3kb")]([ExtResource("2_g44fd"), ExtResource("3_g44fd")])
+metadata/_custom_type_script = "uid://bvdkqg3nmljjr"

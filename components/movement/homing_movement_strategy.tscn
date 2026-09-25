@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8ag6tt2w3gff"]
+
+[ext_resource type="Script" uid="uid://bunualurjw0dw" path="res://components/movement/homing_movement_strategy.gd" id="1_oxdoq"]
+
+[node name="HomingMovementStrategy" type="Node"]
+script = ExtResource("1_oxdoq")

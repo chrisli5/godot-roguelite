@@ -5,6 +5,7 @@ extends Entity
 @export var collector_component: CollectorComponent
 @export var progression_component: ProgressionComponent
 @export var upgrade_ledger_component: UpgradeLedgerComponent
+@export var configuration_data: PlayerData
 
 
 func _enter_tree() -> void:
@@ -24,6 +25,9 @@ func _ready() -> void:
 		return
 	
 	collector_component.payload_collected.connect(_on_payload_collected)
+	
+	if is_instance_valid(upgrade_ledger_component) and is_instance_valid(configuration_data):
+		upgrade_ledger_component.initialize_ledger(configuration_data.player_core_blueprints)
 
 
 func _physics_process(_delta: float) -> void:
@@ -40,8 +44,6 @@ func _handle_movement_physics() -> void:
 		return
 	
 	var max_speed = stats_container.get_stat_value(Stat.Type.MOVEMENT_SPEED, 1.0)
-	var acceleration = stats_container.get_stat_value(Stat.Type.ACCELERATION, 1.0)
-	var friction = stats_container.get_stat_value(Stat.Type.FRICTION, 1.0)
 	var direction: Vector2 = Vector2.ZERO
 	
 	direction.x = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
@@ -49,46 +51,15 @@ func _handle_movement_physics() -> void:
 	
 	var target_velocity: Vector2 = direction.normalized()
 	
-	velocity = movement_strategy.calculate_velocity(velocity, target_velocity, max_speed, acceleration, friction, 0.0)
+	velocity = movement_strategy.calculate_velocity(velocity, target_velocity, max_speed, global_position, 0.0, null)
 	move_and_slide()
 
 
-## UNIFIED SINGLE VALUE SCALING COMPILE:
 func compile_character_eligible_pool(player_character_level: int) -> void:	
-	var compiled_upgrades: Array[UpgradeTracker] = []
-	var compiled_unlocks: Array[UpgradeTracker] = []
-	
-	for tracker in upgrade_ledger_component.available_upgrades:
-		var definition = tracker.definition
-		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases:
-			continue
-			
-		# Dynamic level step gating calculation pass
-		var dynamic_req_level = tracker.required_character_level + (tracker.current_purchases * 2)
-		if player_character_level < dynamic_req_level:
-			continue
-			
-		if definition.payload_type == UpgradeDefinition.PayloadType.STAT_MODIFIER:
-			tracker.tier_index = tracker.current_purchases + 1
-			compiled_upgrades.append(tracker)
-					
-	for tracker in upgrade_ledger_component.available_evolutions:
-		var definition = tracker.definition
-		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases:
-			continue
-
-		if player_character_level < tracker.required_character_level:
-			continue
-			
-		if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
-			tracker.tier_index = tracker.current_purchases + 1
-			compiled_unlocks.append(tracker)
-
-	upgrade_ledger_component.clear_caches()
-	upgrade_ledger_component.overwrite_cached_pools(compiled_upgrades, compiled_unlocks)
+	if is_instance_valid(upgrade_ledger_component):
+		upgrade_ledger_component.compile_standard_eligible_pool(player_character_level)
 
 
-## Refactored Entry Point Router Passing Choice Data
 func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	var definition = choice.definition
 	if not is_instance_valid(definition):
@@ -171,34 +142,29 @@ func _process_local_stat_modifier(choice: UpgradeChoice) -> void:
 
 
 func _process_global_modifier(choice: UpgradeChoice) -> void:
+	# 1. Configuration Dependency Check
 	var definition = choice.definition
-	if not is_instance_valid(ability_container):
+	if not is_instance_valid(definition) or not is_instance_valid(ability_container):
 		return
-			
-	for slot_idx in range(1, 5):
-		var weapon = ability_container.get_ability_by_slot(slot_idx)
-		if not is_instance_valid(weapon):
-			continue
-				
-		var weapon_tags = weapon.tag_component.get_active_tags() if is_instance_valid(weapon.tag_component) else []
-		var match_found = false
-		for modifier_tag in definition.global_modifier_tags:
-			if weapon_tags.has(modifier_tag):
-				match_found = true
-				break
-						
-		if match_found and is_instance_valid(weapon.stats_container):
-			var global_modifier_instance: StatModifier = definition.stat_modifier_payload.duplicate()
-			var current_tier: int = choice.source_tracker.current_purchases
-			if current_tier == 0: current_tier = 1
-			global_modifier_instance.value = definition.stat_modifier_payload.value * current_tier
-			
-			global_modifier_instance.id = ModifierFactory.generate_id(
-				ModifierFactory.OriginSource.GLOBAL_UPGRADE,
-				choice.source_tracker,
-				weapon
-			)
-			weapon.stats_container.add_modifier(definition.target_stat_type, global_modifier_instance)
+		
+	# 2. Extract context out of our tracking registers
+	var base_upgrade_id: String = definition.upgrade_id
+	var player_ledger = upgrade_ledger_component
+	
+	if is_instance_valid(player_ledger):
+		# Log purchase entry in player memory if it hasn't been handled yet
+		player_ledger.log_purchase_entry(base_upgrade_id)
+		
+		# Compile the active tier level from player memory matrix logs
+		var purchased_tier: int = player_ledger.purchase_levels.get(base_upgrade_id, 0)
+		print("[GLOBAL PASSIVE PURCHASE] %s successfully leveled up to Tier %d." % [definition.display_name, purchased_tier])
+	else:
+		push_warning("[PLAYER LEGER] Missing player upgrade ledger sub-component reference on global passive purchase.")
+
+	if ability_container.has_method("refresh_all_global_modifiers"):
+		ability_container.refresh_all_global_modifiers()
+	else:
+		push_error("[ABILITYCONTAINER] Cannot synchronize global modifiers. Method 'refresh_all_global_modifiers' not found.")
 
 
 func _process_structural_ability_mutation(choice: UpgradeChoice) -> void:
@@ -215,7 +181,7 @@ func _process_structural_ability_mutation(choice: UpgradeChoice) -> void:
 		print("[UNLOCK] New wrapper mounted into static Slot: ", choice.target_slot_index)
 		
 		if is_instance_valid(new_ability):
-			ability_container.apply_global_modifiers_to_ability(new_ability)
+			ability_container.sync_global_modifiers_for_slot(choice.target_slot_index)
 	else:
 		# SCENARIO B: STRATEGY GEOMETRY SWAP / OVERCLOCK VARIANT
 		# The core node wrapper is preserved. The mutate_base_profile() sequence 

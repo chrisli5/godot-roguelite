@@ -12,6 +12,6 @@ base_stats = Dictionary[int, float]({
 11: 80.0,
 12: 100.0,
 13: 600.0,
-14: 100.0
+14: 400.0
 })
 metadata/_custom_type_script = "uid://dmq5w3j3r2g5r"

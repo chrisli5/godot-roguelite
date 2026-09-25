@@ -10,7 +10,6 @@ var spread_angle_degrees: float = 15.0
 func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	stats: StatsContainer,
 	final_payload: HitPayload
 ) -> void:
 	if not is_instance_valid(spawner_component):
@@ -19,6 +18,8 @@ func execute_geometry(
 		
 	var base_direction := target_direction if target_direction != Vector2.ZERO else Vector2.RIGHT
 	var base_angle := base_direction.angle()
+	
+	var stats = final_payload.stats_source
 	var has_stats := is_instance_valid(stats)
 	var projectile_amount: float = stats.get_stat_value(Stat.Type.PROJECTILE_AMOUNT, 1.0) if has_stats else 1.0
 	
@@ -32,8 +33,7 @@ func execute_geometry(
 
 		spawner_component.spawn_projectile(
 			global_origin, 
-			final_direction, 
-			stats,
+			final_direction,
 			final_payload
 		)
 		delivery_finished.emit()
