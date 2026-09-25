@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://dungwydncdee4"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_slsjl"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_ws74c"]
+
+[sub_resource type="Resource" id="Resource_8hi0i"]
+script = ExtResource("2_ws74c")
+value = 100.0
+metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
+
+[resource]
+script = ExtResource("1_slsjl")
+upgrade_id = "projectile_movement_speed"
+display_name = "Projectile Speed"
+stat_modifier_payload = SubResource("Resource_8hi0i")
+target_stat_type = 13
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

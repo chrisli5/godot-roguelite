@@ -19,8 +19,7 @@ extends GeometryDriver
 func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	_stats: StatsContainer,
-	final_payload: HitPayload
+	final_payload: CombatPayload
 ) -> void:
 	var space_state := get_viewport().get_world_2d().direct_space_state
 	if not space_state:

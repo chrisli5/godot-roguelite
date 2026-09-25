@@ -13,8 +13,7 @@ var max_bounces: int = 4
 func execute_geometry(
 	global_origin: Vector2, 
 	_target_direction: Vector2,
-	stats: StatsContainer,
-	final_payload: HitPayload
+	final_payload: CombatPayload
 ) -> void:
 	
 	var space_state := get_viewport().get_world_2d().direct_space_state
@@ -22,19 +21,20 @@ func execute_geometry(
 		delivery_finished.emit()
 		return
 
-	# Pre-allocate circle shapes to reduce allocations inside the query loops
-	var lookup_shape := CircleShape2D.new()
+	if not is_instance_valid(final_payload):
+		return
+		
+	var has_stats := is_instance_valid(final_payload.stats_source)
+	var stats = final_payload.stats_source
 	
-	# Cache tracking array block holding onto instance IDs hit during THIS individual pass
-	var excluded_instance_ids: Array[int] = []
-	
-	var has_stats := is_instance_valid(stats)
 	primary_query_radius = stats.get_stat_value(Stat.Type.QUERY_RADIUS, 48.0) if has_stats else 48.0
 	chain_jump_radius = stats.get_stat_value(Stat.Type.CHAIN_RADIUS, 48.0) if has_stats else 48.0
 	
 	# Start tracking position registers from the cast center origin point
 	var active_search_position := global_origin
 	var current_radius := primary_query_radius
+	var lookup_shape := CircleShape2D.new()
+	var excluded_instance_ids: Array[int] = []
 	
 	# --- ITERATIVE BRANCHING SEARCH MATRICES ---
 	for bounce_index in range(max_bounces + 1):

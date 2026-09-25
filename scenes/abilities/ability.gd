@@ -156,7 +156,6 @@ func _trigger_ability_delivery() -> void:
 		return
 		
 	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
-	running_payload.stats_source = stats_container
 	
 	if is_instance_valid(data) and data.texture_prefab is Texture2D:
 		running_payload.base_texture = data.texture_prefab

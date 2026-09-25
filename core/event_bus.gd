@@ -6,12 +6,11 @@ signal ability_modification_completed(slot_index: int)
 
 signal infusion_allocation_requested(chosen_choice: UpgradeChoice)
 signal infusion_allocation_confirmed(chosen_choice: UpgradeChoice)
-signal infusion_socket_confirmed(ability_id: int, element_tag: Tags.Type, upgrade_id: String)
 
 signal new_run_started(act_config: ActConfiguration)
 signal room_completion_confirmed
 signal map_node_selected
-signal spawn_requested(node_to_spawn: Node2D, container_type: WorldManager.ContainerType)
+signal spawn_requested(node_to_spawn: Node2D)
 
 signal upgrade_options_ready(options: Array[UpgradeChoice])
 signal upgrade_selected(chosen_choice: UpgradeChoice)

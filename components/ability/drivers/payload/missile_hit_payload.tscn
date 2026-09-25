@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://de85o2am36jm5"]
+[gd_scene load_steps=3 format=3 uid="uid://de85o2am36jm5"]
 
 [ext_resource type="Script" uid="uid://bbcstqgq6dqjy" path="res://components/ability/drivers/payload/missile_hit_payload.gd" id="1_dvbyx"]
+[ext_resource type="PackedScene" uid="uid://c8ag6tt2w3gff" path="res://components/movement/homing_movement_strategy.tscn" id="2_fi1gm"]
 
 [node name="MissileHitPayload" type="Node"]
 script = ExtResource("1_dvbyx")
+trajectory_movement_scene = ExtResource("2_fi1gm")

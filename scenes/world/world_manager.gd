@@ -1,10 +1,9 @@
 class_name WorldManager
 extends Node2D
 
-enum ContainerType { ENTITIES, PROJECTILES, PICKUPS }
-
 @export_group("Configuration")
 @export var map_profile: MapProfile
+@export var player_spawner: PlayerSpawner
 
 @export_group("Layer Containers")
 @export var entities_container: Node2D
@@ -14,23 +13,13 @@ enum ContainerType { ENTITIES, PROJECTILES, PICKUPS }
 
 func _ready() -> void:
 	EventBus.spawn_requested.connect(_on_spawn_requested)
-	#_run_automated_test_clear_clock()
+	if is_instance_valid(player_spawner):
+		player_spawner.spawn_player_character()
+
 
 func initialize_world_settings(new_map_profile: MapProfile) -> void:
 	map_profile = new_map_profile
 	_instantiate_level_terrain()
-
-
-func _run_automated_test_clear_clock() -> void:
-	print("[TEST] Welcome to ", map_profile.level_name, ". Auto-clearing room in 3 seconds...")
-	
-	# Create a temporary runtime scene timer
-	var test_timer = get_tree().create_timer(3.0)
-	await test_timer.timeout
-	
-	print("[TEST] Room objectives complete! Notifying MapGenerator...")
-	# Emit the macro completion signal back up to the persistent managers
-	EventBus.room_completion_confirmed.emit()
 
 
 func _instantiate_level_terrain() -> void:
@@ -45,16 +34,24 @@ func _instantiate_level_terrain() -> void:
 		move_child(tilemap_instance, 0) 
 
 
-func _on_spawn_requested(node_to_spawn: Node2D, container_type: ContainerType) -> void:
-	if not is_instance_valid(node_to_spawn): return
-	
-	match container_type:
-		ContainerType.PROJECTILES:
-			if is_instance_valid(projectiles_container):
-				projectiles_container.add_child(node_to_spawn)
-		ContainerType.ENTITIES:
-			if is_instance_valid(entities_container):
-				entities_container.add_child(node_to_spawn)
-		ContainerType.PICKUPS:
-			if is_instance_valid(pickups_container):
-				pickups_container.add_child(node_to_spawn)
+func _on_spawn_requested(node_to_spawn: Node2D) -> void:
+	if not is_instance_valid(node_to_spawn): 
+		return
+
+	if node_to_spawn is Entity:
+		if is_instance_valid(entities_container):
+			entities_container.add_child(node_to_spawn)
+			return
+
+	elif node_to_spawn is CombatVolume:
+		if is_instance_valid(projectiles_container):
+			projectiles_container.add_child(node_to_spawn)
+			return
+
+	elif node_to_spawn is XPGem or node_to_spawn.has_node("ExperiencePickupComponent"):
+		if is_instance_valid(pickups_container):
+			pickups_container.add_child(node_to_spawn)
+			return
+
+	push_warning("[WORLD MANAGER] Unclassified node '%s' spawned. Mounting to fallback root node." % node_to_spawn.name)
+	add_child(node_to_spawn)

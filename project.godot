@@ -30,6 +30,19 @@ window/stretch/scale_mode="integer"
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
+[file_customization]
+
+folder_colors={
+"res://addons/": "red",
+"res://assets/": "orange",
+"res://components/": "yellow",
+"res://core/": "green",
+"res://resources/": "teal",
+"res://scenes/": "blue",
+"res://test/": "purple",
+"res://ui/": "pink"
+}
+
 [input]
 
 move_up={

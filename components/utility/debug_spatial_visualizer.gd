@@ -39,13 +39,13 @@ func _process(delta: float) -> void:
 
 
 ## Public Request Hook: Adds a spatial shape query configuration data map straight into the render queue
-static func register_debug_draw(shape: Shape2D, position: Vector2, color: Color, duration: float) -> void:
+static func register_debug_draw(shape: Shape2D, new_position: Vector2, color: Color, duration: float) -> void:
 	if not OS.is_debug_build() or not is_instance_valid(instance):
 		return
 		
 	var package := {
 		"shape": shape.duplicate(), # Duplicate to protect against concurrent modification crashes
-		"position": position,
+		"position": new_position,
 		"color": color,
 		"lifetime": duration
 	}

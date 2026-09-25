@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=4 format=3 uid="uid://b0ig1qe1w42nj"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_4o1m5"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_htj4b"]
+[ext_resource type="Resource" uid="uid://dungwydncdee4" path="res://resources/abilities/arcane_missile/definitions/proj_movement_speed.tres" id="2_y552c"]
+
+[resource]
+script = ExtResource("2_htj4b")
+definition_bundle = Array[ExtResource("1_4o1m5")]([ExtResource("2_y552c")])
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

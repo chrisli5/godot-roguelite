@@ -1,10 +1,6 @@
-class_name HitPayload
+class_name CombatPayload
 extends Resource
 
-enum TargetTrackingMode {
-	STATIC_VECTOR,
-	REALTIME_NODE
-}
 
 @export_group("Static Combat Math")
 ## Active elemental/lifecycle tags bundled with this specific strike (e.g., FIRE, DOT)

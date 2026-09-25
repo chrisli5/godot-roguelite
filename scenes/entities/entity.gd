@@ -51,7 +51,7 @@ func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
 		health_component.update_max_health(new_value, true)
 
 
-func _on_hit_received(payload: HitPayload) -> void:
+func _on_hit_received(payload: CombatPayload) -> void:
 	if is_instance_valid(health_component):
 		health_component.take_damage(payload.final_damage)
 		

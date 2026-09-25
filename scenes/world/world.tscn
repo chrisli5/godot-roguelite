@@ -11,8 +11,9 @@
 [ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://components/utility/debug_spatial_visualizer.gd" id="8_gb53w"]
 [ext_resource type="PackedScene" uid="uid://dd8t6wruc1tkv" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.tscn" id="9_1yooq"]
 
-[node name="World" type="Node2D" node_paths=PackedStringArray("entities_container", "projectiles_container", "pickups_container")]
+[node name="World" type="Node2D" node_paths=PackedStringArray("player_spawner", "entities_container", "projectiles_container", "pickups_container")]
 script = ExtResource("1_nc0nk")
+player_spawner = NodePath("GameWorld/EntitiesContainer/PlayerSpawner")
 entities_container = NodePath("GameWorld/EntitiesContainer")
 projectiles_container = NodePath("GameWorld/ProjectilesContainer")
 pickups_container = NodePath("GameWorld/PickupsContainer")

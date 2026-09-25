@@ -6,7 +6,7 @@ signal projectile_impacted(target: Node2D)
 @export var projectile_scene: PackedScene
 
 
-func spawn_projectile(start_pos: Vector2, target_dir: Vector2, hit_payload: HitPayload) -> Projectile:
+func spawn_projectile(start_pos: Vector2, target_dir: Vector2, hit_payload: CombatPayload) -> Projectile:
 	if projectile_scene == null:
 		push_error("ProjectileSpawnerComponent: Missing projectile scene prefab configuration reference.")
 		return null
@@ -24,7 +24,7 @@ func spawn_projectile(start_pos: Vector2, target_dir: Vector2, hit_payload: HitP
 	projectile.collided.connect(_on_projectile_collided)
 	
 	# Add cleanly straight to the dynamic current active scene tree level pipeline
-	get_tree().current_scene.add_child(projectile)
+	EventBus.spawn_requested.emit(projectile)
 	return projectile
 
 

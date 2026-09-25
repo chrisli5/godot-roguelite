@@ -10,7 +10,7 @@ var spread_angle_degrees: float = 15.0
 func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	final_payload: HitPayload
+	final_payload: CombatPayload
 ) -> void:
 	if not is_instance_valid(spawner_component):
 		push_error("ProjectileLineDriver: Required spawner sub-component configuration link is missing.")

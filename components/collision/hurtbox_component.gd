@@ -2,9 +2,9 @@
 class_name HurtboxComponent
 extends Area2D
 
-signal hit_received(payload: HitPayload)
+signal hit_received(payload: CombatPayload)
 
-func take_hit(payload: HitPayload) -> void:
+func take_hit(payload: CombatPayload) -> void:
 	print("[HURTBOX] payload recieved.")
 	if not is_instance_valid(payload):
 		return

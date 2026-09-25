@@ -11,7 +11,7 @@ var shard_amount: int = 0
 var _active_shards: Array[OrbitingShard] = []
 var _current_orbit_angle_rad: float = 0.0
 var _duration_left: float = 0.0
-var _active_payload: HitPayload = null
+var _active_payload: CombatPayload = null
 
 
 func _ready() -> void:
@@ -21,7 +21,7 @@ func _ready() -> void:
 func execute_geometry(
 	_global_origin: Vector2, 
 	_target_direction: Vector2,
-	final_payload: HitPayload
+	final_payload: CombatPayload
 ) -> void:
 	_terminate_active_delivery()
 	if not is_instance_valid(shard_scene_template):
@@ -46,8 +46,7 @@ func execute_geometry(
 	for i in range(shard_amount):
 		var shard = shard_scene_template.instantiate() as OrbitingShard
 		if shard:
-			shard.hit_payload = _active_payload
-			shard.collision_radius = shard_radius
+			shard.initialize_volume(_global_origin, Vector2.ZERO, final_payload)
 			add_child(shard)
 			_active_shards.append(shard)
 	
@@ -67,7 +66,6 @@ func _physics_process(delta: float) -> void:
 	_update_shard_positions()
 
 func _update_shard_positions() -> void:
-	# 1. Filter out dead shards to dynamically adjust spacing if one breaks
 	_active_shards = _active_shards.filter(func(shard): return is_instance_valid(shard))
 	
 	var total_shards := _active_shards.size()

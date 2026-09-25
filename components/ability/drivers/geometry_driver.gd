@@ -10,5 +10,5 @@ signal delivery_finished
 func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
-	final_payload: HitPayload
+	final_payload: CombatPayload
 ) -> void

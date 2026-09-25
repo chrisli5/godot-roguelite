@@ -16,14 +16,17 @@ func _ready() -> void:
 func execute_geometry(
 	global_origin: Vector2, 
 	_target_direction: Vector2,
-	stats: StatsContainer,
-	final_payload: HitPayload
+	final_payload: CombatPayload
 ) -> void:
 	var space_state := get_viewport().get_world_2d().direct_space_state
 	if not space_state:
 		return
 		
-	var has_stats := is_instance_valid(stats)
+	if not is_instance_valid(final_payload):
+		return
+		
+	var has_stats := is_instance_valid(final_payload.stats_source)
+	var stats = final_payload.stats_source
 	var aoe_radius = stats.get_stat_value(Stat.Type.AOE_RADIUS, 48.0) if has_stats else 48.0
 	_circle_shape.radius = aoe_radius
 
