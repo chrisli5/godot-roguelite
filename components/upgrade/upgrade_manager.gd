@@ -27,9 +27,12 @@ func _try_process_next_level_up() -> void:
 		
 	_is_presenting_ui = true
 	get_tree().paused = true 
-	
+
+	var current_player: Player = null
+	if EventBus.active_player_id > 0:
+		current_player = instance_from_id(EventBus.active_player_id) as Player
+		
 	var next_level_to_process: int = _level_up_queue.pop_front()
-	var current_player = EventBus.active_player
 	
 	if is_instance_valid(current_player) and current_player.has_method("compile_character_eligible_pool"):
 		current_player.compile_character_eligible_pool(next_level_to_process)
@@ -40,8 +43,30 @@ func _try_process_next_level_up() -> void:
 		EventBus.upgrade_options_ready.emit(rolled_options)
 
 
+func trigger_initial_draft_event() -> void:
+	var current_player: Player = null
+	if EventBus.active_player_id > 0:
+		current_player = instance_from_id(EventBus.active_player_id) as Player
+		
+	if not is_instance_valid(current_player) or not is_instance_valid(current_player.upgrade_ledger_component):
+		return
+		
+	_is_presenting_ui = true
+	get_tree().paused = true
+	
+	var available_choices: Array[UpgradeChoice] = _generate_initial_ability_pool(current_player)
+	if available_choices.is_empty():
+		return
+
+	var rolled_options = _roll_random_subset(available_choices, 3)
+	EventBus.upgrade_options_ready.emit(rolled_options)
+
+
 func trigger_infusion_draft_event() -> void:
-	var current_player = EventBus.active_player
+	var current_player: Player = null
+	if EventBus.active_player_id > 0:
+		current_player = instance_from_id(EventBus.active_player_id) as Player
+		
 	if not is_instance_valid(current_player) or not is_instance_valid(current_player.upgrade_ledger_component):
 		return
 		
@@ -59,13 +84,30 @@ func trigger_infusion_draft_event() -> void:
 	EventBus.upgrade_options_ready.emit(rolled_options)
 
 
+func _generate_initial_ability_pool(target_player: Player) -> Array[UpgradeChoice]:
+	var ability_pool: Array[UpgradeChoice] = []
+	var player_ledger = target_player.upgrade_ledger_component
+	
+	for tracker in player_ledger.get_cached_evolutions():
+		var definition = tracker.definition
+		if not is_instance_valid(definition):
+			continue
+			
+		var choice = UpgradeChoice.new()
+		choice.source_tracker = tracker
+		choice.target_slot_index = 0
+		ability_pool.append(choice)
+		
+	return ability_pool
+
+
 func _generate_infusion_pool(target_player: Player) -> Array[UpgradeChoice]:
 	var infusion_pool: Array[UpgradeChoice] = []
 	var player_ledger = target_player.upgrade_ledger_component
-	
-	for tracker in player_ledger.available_infusions:
+
+	for tracker in player_ledger.get_cached_upgrades():
 		var definition = tracker.definition
-		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases:
+		if not is_instance_valid(definition) or not definition.is_infusion():
 			continue
 			
 		var choice = UpgradeChoice.new()
@@ -130,7 +172,10 @@ func _append_choices_from_ledger(pool: Array[UpgradeChoice], ledger: UpgradeLedg
 
 ## Stateless Tag-Based Click Intercept Resolution:
 func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
-	var current_player = EventBus.active_player
+	var current_player: Player = null
+	if EventBus.active_player_id > 0:
+		current_player = instance_from_id(EventBus.active_player_id) as Player
+		
 	if not is_instance_valid(chosen_choice) or not is_instance_valid(current_player):
 		return
 

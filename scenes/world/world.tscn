@@ -1,19 +1,23 @@
-[gd_scene load_steps=11 format=3 uid="uid://s03l0k7sk2u2"]
+[gd_scene load_steps=14 format=3 uid="uid://s03l0k7sk2u2"]
 
 [ext_resource type="Script" uid="uid://o5dxkbwae0sh" path="res://scenes/world/world_manager.gd" id="1_nc0nk"]
 [ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_ujq7m"]
 [ext_resource type="Script" uid="uid://d1p330wy1jvbj" path="res://components/utility/debug_infusion_trigger.gd" id="3_j2gmx"]
 [ext_resource type="Script" uid="uid://celujugebouvs" path="res://components/environment/player_spawner.gd" id="3_v5dby"]
 [ext_resource type="PackedScene" uid="uid://d23mkghb50m7a" path="res://ui/upgrade_screen/upgrade_screen_ui.tscn" id="3_yvru8"]
+[ext_resource type="Script" uid="uid://c7pysmse0q63t" path="res://components/world/enemy_spawner_component.gd" id="4_gb53w"]
 [ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://scenes/entities/player/player.tscn" id="4_t5ptc"]
-[ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="5_t5ptc"]
+[ext_resource type="Script" uid="uid://cw76aherq025s" path="res://components/world/resources/enemy_wave_profile.gd" id="5_dlabj"]
+[ext_resource type="Resource" uid="uid://dkyvrtfd3xlwo" path="res://resources/world/wave_profiles/wave_1.tres" id="6_srmg5"]
 [ext_resource type="PackedScene" uid="uid://cvyt2nvnh6xne" path="res://scenes/entities/enemies/enemy.tscn" id="7_gb53w"]
 [ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://components/utility/debug_spatial_visualizer.gd" id="8_gb53w"]
 [ext_resource type="PackedScene" uid="uid://dd8t6wruc1tkv" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.tscn" id="9_1yooq"]
+[ext_resource type="Resource" uid="uid://5t08vhahmsdm" path="res://scenes/entities/player/upgrade_profile/player_data.tres" id="10_srmg5"]
 
-[node name="World" type="Node2D" node_paths=PackedStringArray("player_spawner", "entities_container", "projectiles_container", "pickups_container")]
+[node name="World" type="Node2D" node_paths=PackedStringArray("player_spawner", "enemy_spawner", "entities_container", "projectiles_container", "pickups_container")]
 script = ExtResource("1_nc0nk")
 player_spawner = NodePath("GameWorld/EntitiesContainer/PlayerSpawner")
+enemy_spawner = NodePath("SystemControllers/EnemySpawner")
 entities_container = NodePath("GameWorld/EntitiesContainer")
 projectiles_container = NodePath("GameWorld/ProjectilesContainer")
 pickups_container = NodePath("GameWorld/PickupsContainer")
@@ -27,6 +31,11 @@ script = ExtResource("2_ujq7m")
 script = ExtResource("3_j2gmx")
 upgrade_manager = NodePath("../UpgradeManager")
 
+[node name="EnemySpawner" type="Node" parent="SystemControllers"]
+script = ExtResource("4_gb53w")
+enemy_scene = ExtResource("7_gb53w")
+wave_manifest = Array[ExtResource("5_dlabj")]([ExtResource("6_srmg5")])
+
 [node name="GameWorld" type="Node2D" parent="."]
 
 [node name="EntitiesContainer" type="Node2D" parent="GameWorld"]
@@ -35,18 +44,7 @@ upgrade_manager = NodePath("../UpgradeManager")
 position = Vector2(100, 100)
 script = ExtResource("3_v5dby")
 player_scene = ExtResource("4_t5ptc")
-
-[node name="XPGem" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
-position = Vector2(100, 150)
-
-[node name="XPGem2" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
-position = Vector2(102, 207)
-
-[node name="XPGem3" parent="GameWorld/EntitiesContainer" instance=ExtResource("5_t5ptc")]
-position = Vector2(103, 279)
-
-[node name="Enemy" parent="GameWorld/EntitiesContainer" instance=ExtResource("7_gb53w")]
-position = Vector2(242, 96)
+player_config = ExtResource("10_srmg5")
 
 [node name="ProjectilesContainer" type="Node2D" parent="GameWorld"]
 

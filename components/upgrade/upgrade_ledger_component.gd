@@ -1,6 +1,3 @@
-# ================================================
-# FILE: components/upgrade/upgrade_ledger_component.gd
-# ================================================
 class_name UpgradeLedgerComponent
 extends Node
 
@@ -43,6 +40,8 @@ func initialize_ledger(blueprints: Array[UpgradeBlueprintProfile]) -> void:
 					available_evolutions.append(tracker)
 			else:
 				available_upgrades.append(tracker)
+	
+	overwrite_cached_pools(available_upgrades, available_evolutions)
 
 
 func get_cached_upgrades() -> Array[UpgradeTracker]: return _cached_eligible_upgrades

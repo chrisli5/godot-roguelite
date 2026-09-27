@@ -12,10 +12,9 @@ signal died
 @export var status_effect_component: StatusEffectComponent
 @export var tag_component: TagComponent
 @export var movement_strategy: MovementStrategy
+@export var sprite_node: Sprite2D
 
-@export_group("Stats Profile")
-@export var stats_profile: StatsProfile
-
+var entity_data: EntityData = null
 
 func _ready() -> void:
 	var required_entity_components: Array[String] = [
@@ -23,20 +22,14 @@ func _ready() -> void:
 		"stats_container",
 		"health_component",
 		"hurtbox_component",
-		"movement_strategy",
 		"status_effect_component",
-		"tag_component"
+		"tag_component",
+		"sprite_node",
 	]
 	
 	if not ComponentValidator.validate_components(self, required_entity_components):
 		#set_physics_process(false)
 		return
-	
-	
-	if is_instance_valid(stats_container):
-		stats_container.stat_updated.connect(_on_stat_updated)
-		if "stats_profile" in self and self.stats_profile:
-			stats_container.initialize_profile(self.stats_profile)
 	
 	if is_instance_valid(health_component) and is_instance_valid(stats_container):
 		health_component.health_depleted.connect(_on_health_depleted)
@@ -44,6 +37,31 @@ func _ready() -> void:
 			
 	if is_instance_valid(hurtbox_component):
 		hurtbox_component.hit_received.connect(_on_hit_received)
+		hurtbox_component.owner_entity = self
+		
+	if is_instance_valid(entity_data):
+		_configure_base_entity_layers()
+
+
+func _configure_base_entity_layers() -> void:
+	if entity_data.sprite_texture and is_instance_valid(sprite_node):
+		sprite_node.texture = entity_data.sprite_texture
+
+	if entity_data.stats_profile and is_instance_valid(stats_container):
+		stats_container.initialize_profile(entity_data.stats_profile)
+
+	if entity_data.movement_strategy_scene is PackedScene:
+		if is_instance_valid(movement_strategy):
+			movement_strategy.queue_free()
+			
+		var move_inst = entity_data.movement_strategy_scene.instantiate() as MovementStrategy
+		if move_inst:
+			add_child(move_inst)
+			movement_strategy = move_inst
+
+
+func initialize_entity(incoming_data: EntityData) -> void:
+	entity_data = incoming_data
 
 
 func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:

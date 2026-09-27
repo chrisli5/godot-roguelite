@@ -5,11 +5,10 @@ extends Entity
 @export var collector_component: CollectorComponent
 @export var progression_component: ProgressionComponent
 @export var upgrade_ledger_component: UpgradeLedgerComponent
-@export var configuration_data: PlayerData
 
-
-func _enter_tree() -> void:
-	EventBus.active_player = self
+var player_data: PlayerData:
+	get:
+		return entity_data as PlayerData
 
 
 func _ready() -> void:
@@ -26,17 +25,19 @@ func _ready() -> void:
 	
 	collector_component.payload_collected.connect(_on_payload_collected)
 	
-	if is_instance_valid(upgrade_ledger_component) and is_instance_valid(configuration_data):
-		upgrade_ledger_component.initialize_ledger(configuration_data.player_core_blueprints)
-
+	if  is_instance_valid(player_data) and is_instance_valid(upgrade_ledger_component):
+		upgrade_ledger_component.initialize_ledger(player_data.player_core_blueprints)
+	else:
+		push_error("Player: Encounted invalid initialization passport type mapping.")
+	
+	EventBus.player_spawned.emit(self.get_instance_id())
 
 func _physics_process(_delta: float) -> void:
 	_handle_movement_physics()
 
 
 func _exit_tree() -> void:
-	if EventBus.active_player == self:
-		EventBus.active_player = null
+	EventBus.player_despawned.emit()
 
 
 func _handle_movement_physics() -> void:
@@ -51,7 +52,7 @@ func _handle_movement_physics() -> void:
 	
 	var target_velocity: Vector2 = direction.normalized()
 	
-	velocity = movement_strategy.calculate_velocity(velocity, target_velocity, max_speed, global_position, 0.0, null)
+	velocity = movement_strategy.calculate_velocity(velocity, target_velocity, max_speed, global_position, 0.0)
 	move_and_slide()
 
 

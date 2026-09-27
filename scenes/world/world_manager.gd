@@ -4,6 +4,7 @@ extends Node2D
 @export_group("Configuration")
 @export var map_profile: MapProfile
 @export var player_spawner: PlayerSpawner
+@export var enemy_spawner: EnemySpawner
 
 @export_group("Layer Containers")
 @export var entities_container: Node2D
@@ -15,6 +16,9 @@ func _ready() -> void:
 	EventBus.spawn_requested.connect(_on_spawn_requested)
 	if is_instance_valid(player_spawner):
 		player_spawner.spawn_player_character()
+	
+	if is_instance_valid(enemy_spawner):
+		enemy_spawner.start_spawn()
 
 
 func initialize_world_settings(new_map_profile: MapProfile) -> void:

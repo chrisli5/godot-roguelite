@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EnemyWaveProfile" load_steps=4 format=3 uid="uid://dkyvrtfd3xlwo"]
+
+[ext_resource type="Script" uid="uid://d35urcjf472o" path="res://components/entity/enemy/resources/enemy_data.gd" id="1_w87f5"]
+[ext_resource type="Script" uid="uid://cw76aherq025s" path="res://components/world/resources/enemy_wave_profile.gd" id="1_wtibj"]
+[ext_resource type="Resource" uid="uid://cde3kp8ywvabj" path="res://resources/entities/enemy/bat.tres" id="2_ikfom"]
+
+[resource]
+script = ExtResource("1_wtibj")
+enemy_data_pool = Array[ExtResource("1_w87f5")]([ExtResource("2_ikfom")])
+metadata/_custom_type_script = "uid://cw76aherq025s"

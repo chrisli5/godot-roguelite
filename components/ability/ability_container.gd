@@ -134,7 +134,10 @@ func sync_global_modifiers_for_slot(slot_index: int) -> void:
 	if not is_instance_valid(ability) or not is_instance_valid(ability.stats_container):
 		return
 		
-	var player = EventBus.active_player
+	var player: Player = null
+	if EventBus.active_player_id > 0:
+		player = instance_from_id(EventBus.active_player_id) as Player
+		
 	if not is_instance_valid(player) or not is_instance_valid(player.upgrade_ledger_component):
 		return
 		

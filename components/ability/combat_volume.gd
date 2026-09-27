@@ -16,9 +16,6 @@ func initialize_volume(start_pos: Vector2, target_dir: Vector2, incoming_payload
 	combat_payload = incoming_payload
 	spawn_position = start_pos
 	direction = target_dir.normalized()
-	
-	if is_instance_valid(combat_payload) and is_instance_valid(combat_payload.stats_source):
-		collision_radius = combat_payload.stats_source.get_stat_value(Stat.Type.AOE_RADIUS, 10.0)
 
 
 func _ready() -> void:
@@ -37,13 +34,17 @@ func _ready() -> void:
 	if is_instance_valid(collision_shape) and collision_shape.shape is CircleShape2D:
 		collision_shape.shape = collision_shape.shape.duplicate()
 		collision_shape.shape.radius = collision_radius
+	
+	var stats: Node = null
+	if combat_payload.stats_container_id > 0:
+		stats = instance_from_id(combat_payload.stats_container_id) as Node
+	
+	var has_stats := is_instance_valid(stats)
+	collision_radius = stats.get_stat_value(Stat.Type.AOE_RADIUS, 10.0) if has_stats else 10.0
 
 
-func _on_collision_detected(incoming_node: Node2D) -> void:
-	if incoming_node == self or incoming_node.get_parent() == self:
-		return
-		
-	if incoming_node is HurtboxComponent:
+func _on_collision_detected(incoming_node: Node2D) -> void:		
+	if incoming_node is HurtboxComponent and not incoming_node.is_player_hurtbox:
 		incoming_node.take_hit(combat_payload)
 		
 	collided.emit(incoming_node)

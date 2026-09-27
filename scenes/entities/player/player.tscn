@@ -1,9 +1,6 @@
-[gd_scene load_steps=19 format=3 uid="uid://dgoq3h4eqmvj"]
+[gd_scene load_steps=15 format=3 uid="uid://dgoq3h4eqmvj"]
 
 [ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://scenes/entities/player/player.gd" id="1_bls4j"]
-[ext_resource type="Resource" uid="uid://cxjqjo8nkxo86" path="res://scenes/entities/player/player_stats_profile.tres" id="2_8fjmc"]
-[ext_resource type="Resource" uid="uid://5t08vhahmsdm" path="res://scenes/entities/player/upgrade_profile/player_data.tres" id="2_70kwc"]
-[ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="2_fkugw"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="3_8fjmc"]
 [ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="5_bectd"]
 [ext_resource type="Script" uid="uid://hnkcyvsaierv" path="res://components/stat/health_component.gd" id="5_yywfu"]
@@ -14,7 +11,6 @@
 [ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="8_w3p2j"]
 [ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/player_level_profile.tres" id="8_wvtmh"]
 [ext_resource type="Script" uid="uid://digb326esho6n" path="res://components/upgrade/upgrade_ledger_component.gd" id="11_7wli1"]
-[ext_resource type="PackedScene" uid="uid://dc7wya572xwgd" path="res://components/movement/vector_movement_strategy.tscn" id="18_knby6"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
@@ -23,7 +19,7 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_bectd"]
 radius = 24.0
 
-[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("collector_component", "progression_component", "upgrade_ledger_component", "ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "movement_strategy")]
+[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("collector_component", "progression_component", "upgrade_ledger_component", "ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "sprite_node")]
 collision_layer = 2
 collision_mask = 0
 motion_mode = 1
@@ -31,18 +27,15 @@ script = ExtResource("1_bls4j")
 collector_component = NodePath("CollectorComponent")
 progression_component = NodePath("ProgressionComponent")
 upgrade_ledger_component = NodePath("UpgradeLedgerComponent")
-configuration_data = ExtResource("2_70kwc")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 health_component = NodePath("HealthComponent")
 hurtbox_component = NodePath("HurtboxComponent")
 status_effect_component = NodePath("StatusEffectComponent")
 tag_component = NodePath("TagComponent")
-movement_strategy = NodePath("VectorMovementStrategy")
-stats_profile = ExtResource("2_8fjmc")
+sprite_node = NodePath("Sprite2D")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2_fkugw")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_26q78")
@@ -57,7 +50,7 @@ script = ExtResource("3_8fjmc")
 script = ExtResource("5_yywfu")
 
 [node name="HurtboxComponent" type="Area2D" parent="."]
-collision_layer = 0
+collision_layer = 2
 collision_mask = 0
 script = ExtResource("6_pcd0u")
 
@@ -85,5 +78,3 @@ thresholds_profile = ExtResource("8_wvtmh")
 
 [node name="UpgradeLedgerComponent" type="Node" parent="."]
 script = ExtResource("11_7wli1")
-
-[node name="VectorMovementStrategy" parent="." instance=ExtResource("18_knby6")]

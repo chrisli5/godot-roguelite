@@ -1,9 +1,8 @@
-[gd_scene load_steps=13 format=3 uid="uid://cvyt2nvnh6xne"]
+[gd_scene load_steps=12 format=3 uid="uid://cvyt2nvnh6xne"]
 
 [ext_resource type="Script" uid="uid://i0tbekhtmw2d" path="res://scenes/entities/enemies/enemy.gd" id="1_essrt"]
 [ext_resource type="Script" uid="uid://666k74n4yr6j" path="res://components/collision/hurtbox_component.gd" id="2_c8ylr"]
-[ext_resource type="Resource" uid="uid://4o0fjb04cia6" path="res://scenes/entities/enemies/enemy_stats_profile.tres" id="2_wyqsp"]
-[ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="3_c8ylr"]
+[ext_resource type="Texture2D" uid="uid://sssi8vrlw1vt" path="res://assets/entities/oryx_16bit_fantasy_creatures_219.png" id="4_wyqsp"]
 [ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="6_uu37f"]
 [ext_resource type="Script" uid="uid://hnkcyvsaierv" path="res://components/stat/health_component.gd" id="7_w6k81"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="7_wyqsp"]
@@ -15,7 +14,9 @@
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_gflvi"]
 
-[node name="Enemy" type="CharacterBody2D" node_paths=PackedStringArray("ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "movement_strategy")]
+[node name="Enemy" type="CharacterBody2D" node_paths=PackedStringArray("ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "movement_strategy", "sprite_node")]
+collision_layer = 4
+collision_mask = 6
 motion_mode = 1
 script = ExtResource("1_essrt")
 ability_container = NodePath("AbilityContainer")
@@ -25,7 +26,7 @@ hurtbox_component = NodePath("HurtboxComponent")
 status_effect_component = NodePath("StatusEffectComponent")
 tag_component = NodePath("TagComponent")
 movement_strategy = NodePath("VectorMovementStrategy")
-stats_profile = ExtResource("2_wyqsp")
+sprite_node = NodePath("Sprite2D")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_pm80n")
@@ -40,7 +41,7 @@ script = ExtResource("2_c8ylr")
 shape = SubResource("CircleShape2D_gflvi")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("3_c8ylr")
+texture = ExtResource("4_wyqsp")
 
 [node name="AbilityContainer" type="Node2D" parent="."]
 script = ExtResource("6_uu37f")

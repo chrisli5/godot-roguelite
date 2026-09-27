@@ -19,7 +19,10 @@ func execute_geometry(
 	var base_direction := target_direction if target_direction != Vector2.ZERO else Vector2.RIGHT
 	var base_angle := base_direction.angle()
 	
-	var stats = final_payload.stats_source
+	var stats: Node = null
+	if final_payload.stats_container_id > 0:
+		stats = instance_from_id(final_payload.stats_container_id) as Node
+		
 	var has_stats := is_instance_valid(stats)
 	var projectile_amount: float = stats.get_stat_value(Stat.Type.PROJECTILE_AMOUNT, 1.0) if has_stats else 1.0
 	

@@ -4,8 +4,13 @@ extends Area2D
 
 signal hit_received(payload: CombatPayload)
 
+var owner_entity: Entity = null
+var is_player_hurtbox: bool:
+	get:
+		return owner_entity is Player
+
+
 func take_hit(payload: CombatPayload) -> void:
-	print("[HURTBOX] payload recieved.")
 	if not is_instance_valid(payload):
 		return
 

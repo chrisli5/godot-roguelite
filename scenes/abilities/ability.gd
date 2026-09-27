@@ -156,22 +156,26 @@ func _trigger_ability_delivery() -> void:
 		return
 		
 	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
-	
+
 	if is_instance_valid(data) and data.texture_prefab is Texture2D:
 		running_payload.base_texture = data.texture_prefab
 
-	var direction := Vector2.RIGHT
+	var target_list: Array[Dictionary] = []
 	if is_instance_valid(targeting_strategy):
 		var query_radius = stats_container.get_stat_value(Stat.Type.QUERY_RADIUS, 200.0)
-		var target_package := targeting_strategy.get_targeting_data(global_position, query_radius)
+		var target_capacity = int(stats_container.get_stat_value(Stat.Type.MAX_TARGETS, 1.0))
 		
-		direction = target_package.get("direction", Vector2.RIGHT)
-		running_payload.tracked_target_node = target_package.get("target_node", null)
+		target_list = targeting_strategy.get_targeting_data(global_position, query_radius, target_capacity)
 
-	if is_instance_valid(payload_driver) and payload_driver.has_method("intercept_payload"):
-		payload_driver.intercept_payload(running_payload)
-
-	geometry_driver.execute_geometry(global_position, direction, running_payload)
+	if not target_list.is_empty():
+		for target_data in target_list:
+			var unique_payload = running_payload.duplicate(true)
+			unique_payload.tracked_target_id = target_data["target_id"]
+			
+			payload_driver.intercept_payload(unique_payload)
+			geometry_driver.execute_geometry(global_position, target_data["direction"], unique_payload)
+	else:
+		_start_cooldown_phase()
 
 
 func swap_runtime_strategies(new_data: AbilityData) -> void:

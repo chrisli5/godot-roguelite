@@ -24,6 +24,7 @@ enum Type {
 	ORBIT_ROTATION_SPEED,
 	
 	PROJECTILE_AMOUNT,
+	MAX_TARGETS,
 }
 
 @export var type: Type = Type.MAX_HEALTH

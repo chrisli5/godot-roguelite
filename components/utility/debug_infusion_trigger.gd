@@ -10,5 +10,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if is_instance_valid(upgrade_manager) and upgrade_manager.has_method("trigger_infusion_draft_event"):
 				print("[DEBUG TRIGGER] 'I' key pressed. Dispatching standalone elemental infusion draft event...")
 				upgrade_manager.trigger_infusion_draft_event()
+		if event.keycode == KEY_F:
+			if is_instance_valid(upgrade_manager) and upgrade_manager.has_method("trigger_infusion_draft_event"):
+				print("[DEBUG TRIGGER] 'I' key pressed. Dispatching standalone elemental infusion draft event...")
+				upgrade_manager.trigger_initial_draft_event()
 			else:
 				push_warning("[DEBUG TRIGGER] Could not locate an active UpgradeManager node in the scene tree loop.")

@@ -9,7 +9,7 @@ enum PayloadType { STAT_MODIFIER, ABILITY_UNLOCK }
 @export_multiline var description: String = ""
 
 @export var draft_behavior_tags: Array[Tags.Type] = []
-@export var recipe_requirements: Array[Tags.Type]
+@export var recipe_requirements: Array[Tags.Type] = []
 @export var global_modifier_tags: Array[Tags.Type] = []
 
 @export_group("Payload Configuration")

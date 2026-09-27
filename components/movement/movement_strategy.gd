@@ -9,5 +9,5 @@ func calculate_velocity(
 	max_speed: float,
 	current_global_position: Vector2,
 	time_elapsed: float,
-	target_node: Node2D = null
+	target_node_id: int = 0,
 ) -> Vector2

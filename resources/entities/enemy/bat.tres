@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=5 format=3 uid="uid://cde3kp8ywvabj"]
+
+[ext_resource type="PackedScene" uid="uid://c8ag6tt2w3gff" path="res://components/movement/homing_movement_strategy.tscn" id="1_3w1a0"]
+[ext_resource type="Script" uid="uid://d35urcjf472o" path="res://components/entity/enemy/resources/enemy_data.gd" id="1_ayf5j"]
+[ext_resource type="Texture2D" uid="uid://sssi8vrlw1vt" path="res://assets/entities/oryx_16bit_fantasy_creatures_219.png" id="3_4mqqx"]
+[ext_resource type="Resource" uid="uid://ds2b8il0p4fow" path="res://resources/entities/enemy/bat_stats.tres" id="4_a2j1k"]
+
+[resource]
+script = ExtResource("1_ayf5j")
+display_name = "Bat"
+sprite_texture = ExtResource("3_4mqqx")
+stats_profile = ExtResource("4_a2j1k")
+movement_strategy_scene = ExtResource("1_3w1a0")
+metadata/_custom_type_script = "uid://d35urcjf472o"
