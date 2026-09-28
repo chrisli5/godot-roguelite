@@ -30,7 +30,7 @@ func _ready() -> void:
 	else:
 		push_error("Player: Encounted invalid initialization passport type mapping.")
 	
-	EventBus.player_spawned.emit(self.get_instance_id())
+	EventBus.player_spawned.emit(get_instance_id())
 
 func _physics_process(_delta: float) -> void:
 	_handle_movement_physics()

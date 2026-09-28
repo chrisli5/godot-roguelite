@@ -134,14 +134,12 @@ func sync_global_modifiers_for_slot(slot_index: int) -> void:
 	if not is_instance_valid(ability) or not is_instance_valid(ability.stats_container):
 		return
 		
-	var player: Player = null
-	if EventBus.active_player_id > 0:
-		player = instance_from_id(EventBus.active_player_id) as Player
+	var current_player: Player = instance_from_id(EventBus.active_player_instance_id)
 		
-	if not is_instance_valid(player) or not is_instance_valid(player.upgrade_ledger_component):
+	if not is_instance_valid(current_player) or not is_instance_valid(current_player.upgrade_ledger_component):
 		return
 		
-	var player_ledger = player.upgrade_ledger_component
+	var player_ledger = current_player.upgrade_ledger_component
 	var weapon_tags = ability.tag_component.get_active_tags() if is_instance_valid(ability.tag_component) else []
 	
 	# Loop through every upgrade card the player has acquired at the character core level

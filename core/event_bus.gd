@@ -23,13 +23,13 @@ signal scene_transition_started
 signal scene_transition_finished
 @warning_ignore_restore("unused_signal")
 
-var active_player_id: int
+var active_player_instance_id: int = 0
 
 func _ready() -> void:
 	player_spawned.connect(_on_player_spawned)
 
-func _on_player_spawned(target_player_id: int):
-	active_player_id = target_player_id
+func _on_player_spawned(instance_id: int):
+	active_player_instance_id = instance_id
 
 func _on_player_despawned():
-	active_player_id = 0
+	active_player_instance_id = 0
