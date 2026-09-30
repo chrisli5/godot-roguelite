@@ -15,13 +15,10 @@ func calculate_velocity(
 	max_speed: float,
 	current_global_position: Vector2,
 	_time_elapsed: float,
-	target_node_id: int = 0,
+	target_instance_id: int = 0,
 ) -> Vector2:
 	
-	var target_node: Node2D = null
-	if target_node_id > 0:
-		target_node = instance_from_id(target_node_id) as Node2D
-
+	var target_node: Node2D = instance_from_id(target_instance_id) as Node2D
 	if not is_instance_valid(target_node):
 		var fallback_heading = _cached_homing_direction if _cached_homing_direction != Vector2.ZERO else target_direction
 		return current_velocity.lerp(fallback_heading * max_speed, steering_force)

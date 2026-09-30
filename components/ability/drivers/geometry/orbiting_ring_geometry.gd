@@ -12,6 +12,7 @@ var _active_shards: Array[OrbitingShard] = []
 var _current_orbit_angle_rad: float = 0.0
 var _duration_left: float = 0.0
 var _active_payload: CombatPayload = null
+var _cached_caster: Node2D = null
 
 
 func _ready() -> void:
@@ -21,6 +22,7 @@ func _ready() -> void:
 func execute_geometry(
 	_global_origin: Vector2, 
 	_target_direction: Vector2,
+	target_instance_id: int,
 	final_payload: CombatPayload
 ) -> void:
 	_terminate_active_delivery()
@@ -30,7 +32,12 @@ func execute_geometry(
 		return
 	
 	_active_payload = final_payload
-	if not is_instance_valid(_active_payload) or not is_instance_valid(_active_payload.caster):
+	if not is_instance_valid(_active_payload):
+		delivery_finished.emit()
+		return
+
+	_cached_caster = instance_from_id(_active_payload.caster_instance_id) as Node2D
+	if not is_instance_valid(_cached_caster):
 		_terminate_active_delivery()
 		return
 
@@ -46,7 +53,7 @@ func execute_geometry(
 	for i in range(shard_amount):
 		var shard = shard_scene_template.instantiate() as OrbitingShard
 		if shard:
-			shard.initialize_volume(_global_origin, Vector2.ZERO, final_payload)
+			shard.initialize_volume(_global_origin, Vector2.ZERO, target_instance_id, final_payload)
 			add_child(shard)
 			_active_shards.append(shard)
 	
@@ -56,7 +63,7 @@ func execute_geometry(
 
 func _physics_process(delta: float) -> void:
 	_duration_left -= delta
-	if _duration_left <= 0.0:
+	if _duration_left <= 0.0 or not is_instance_valid(_cached_caster):
 		_terminate_active_delivery()
 		return
 
@@ -69,7 +76,7 @@ func _update_shard_positions() -> void:
 	_active_shards = _active_shards.filter(func(shard): return is_instance_valid(shard))
 	
 	var total_shards := _active_shards.size()
-	if total_shards == 0 or not is_instance_valid(_active_payload.caster):
+	if total_shards == 0 or not is_instance_valid(_cached_caster):
 		_terminate_active_delivery()
 		return
 		
@@ -80,7 +87,7 @@ func _update_shard_positions() -> void:
 		var target_angle := _current_orbit_angle_rad + (i * angle_step)
 		var offset_vector := Vector2.from_angle(target_angle) * orbit_radius
 		
-		shard.global_position = offset_vector + _active_payload.caster.global_position
+		shard.global_position = offset_vector + _cached_caster.global_position
 		shard.scale = Vector2.ONE
 
 
@@ -93,5 +100,5 @@ func _terminate_active_delivery() -> void:
 			
 	_active_shards.clear()
 	_active_payload = null
-	
+	_cached_caster = null
 	delivery_finished.emit()

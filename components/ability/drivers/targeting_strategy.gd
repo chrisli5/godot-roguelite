@@ -7,6 +7,6 @@ extends Node
 @abstract
 ## { "direction": Vector2, "target_node": Node2D }
 func get_targeting_data(
-	global_origin: Vector2, 
+	query_origin: Vector2, 
 	query_radius: float, 
 	max_targets: int = 1) -> Array[Dictionary]

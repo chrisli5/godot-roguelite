@@ -1,3 +1,4 @@
+# res://components/ability/drivers/geometry/chain_link_geometry.gd
 class_name ChainLinkDriver
 extends GeometryDriver
 
@@ -5,42 +6,39 @@ extends GeometryDriver
 @export_flags_2d_physics var enemy_collision_mask: int = 4
 @export var max_results_buffer: int = 32
 
-var primary_query_radius: float = 0.0
 var chain_jump_radius: float = 0.0
 var max_bounces: int = 4
 
 
 func execute_geometry(
-	global_origin: Vector2, 
+	_global_origin: Vector2, 
 	_target_direction: Vector2,
+	target_instance_id: int,
 	final_payload: CombatPayload
 ) -> void:
-	
 	var space_state := get_viewport().get_world_2d().direct_space_state
-	if not space_state:
+	if not space_state or not is_instance_valid(final_payload):
 		delivery_finished.emit()
 		return
 
-	if not is_instance_valid(final_payload):
+	var initial_target: HurtboxComponent = instance_from_id(target_instance_id)
+	if not is_instance_valid(initial_target):
+		delivery_finished.emit()
 		return
-		
-	var has_stats := is_instance_valid(final_payload.stats_source)
-	var stats = final_payload.stats_source
-	
-	primary_query_radius = stats.get_stat_value(Stat.Type.QUERY_RADIUS, 48.0) if has_stats else 48.0
-	chain_jump_radius = stats.get_stat_value(Stat.Type.CHAIN_RADIUS, 48.0) if has_stats else 48.0
-	
-	# Start tracking position registers from the cast center origin point
-	var active_search_position := global_origin
-	var current_radius := primary_query_radius
+
+	var stats = instance_from_id(final_payload.stats_container_id)
+	var has_stats := is_instance_valid(stats)
+	chain_jump_radius = stats.get_stat_value(Stat.Type.CHAIN_RADIUS, 400.0) if has_stats else 400.0
+
+	initial_target.take_hit(final_payload)
+
+	var active_search_position := initial_target.global_position
 	var lookup_shape := CircleShape2D.new()
-	var excluded_instance_ids: Array[int] = []
-	
-	# --- ITERATIVE BRANCHING SEARCH MATRICES ---
-	for bounce_index in range(max_bounces + 1):
-		lookup_shape.radius = current_radius
+	var excluded_instance_ids: Array[int] = [initial_target.get_instance_id()]
+
+	for bounce_index in range(max_bounces):
+		lookup_shape.radius = chain_jump_radius
 		
-		# 1. Execute direct-space shape query
 		var intersections := SpatialQuery.query_shape_intersections(
 			space_state,
 			lookup_shape,
@@ -50,18 +48,16 @@ func execute_geometry(
 		)
 		
 		if intersections.is_empty():
-			break # Chain breaks early if no viable targets sit within radius bounds
+			break
 
-		# 2. Parse out the single closest target that has NOT been hit on this pass yet
 		var next_target: HurtboxComponent = null
-		var shortest_dist_sq := current_radius * current_radius
+		var shortest_dist_sq := chain_jump_radius * chain_jump_radius
 		
 		for result in intersections:
 			var target_collider = result.get("collider") as Node2D
 			if is_instance_valid(target_collider) and target_collider is HurtboxComponent:
 				var instance_id := target_collider.get_instance_id()
 				
-				# Block double-striking targets inside the active chain execution line
 				if excluded_instance_ids.has(instance_id):
 					continue
 					
@@ -70,20 +66,11 @@ func execute_geometry(
 					shortest_dist_sq = dist_sq
 					next_target = target_collider
 
-		# 3. Handle strike evaluation step
 		if is_instance_valid(next_target):
-			# Log target to prevent infinite loops
 			excluded_instance_ids.append(next_target.get_instance_id())
-			
-			# Deliver the parent-mediated combat package directly to the target lane
 			next_target.take_hit(final_payload)
-			
-			# Shift coordinates over to branch forward out from this hit enemy position vector next!
 			active_search_position = next_target.global_position
-			current_radius = chain_jump_radius
 		else:
-			break # Break sequence if all targets caught within bounds are already dead/excluded
+			break 
 
-	# --- IMMEDIATE-MODE RESOLUTION HANDOFF ---
-	# Alert the parent Ability wrapper that the cascading branch pass completed instantly
 	delivery_finished.emit()

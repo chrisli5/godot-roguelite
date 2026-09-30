@@ -15,7 +15,6 @@ extends Resource
 ## Injected by the spawning Ability: Points to the live Enemy Node2D locked by the hotbar strategy
 @export var caster_instance_id: int = 0
 @export var stats_container_id: int = 0
-@export var tracked_target_id: int = 0
 
 @export_group("Trajectory Strategy Overrides")
 ## Injected by the spawner card: the specific physics component used to steer this projectile

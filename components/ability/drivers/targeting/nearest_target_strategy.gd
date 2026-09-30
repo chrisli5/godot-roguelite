@@ -14,7 +14,7 @@ func _ready() -> void:
 	_circle_shape.radius = max_query_radius
 
 
-func get_targeting_data(global_origin: Vector2, query_radius: float, max_targets: int = 1) -> Array[Dictionary]:
+func get_targeting_data(query_origin: Vector2, query_radius: float, max_targets: int = 1) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
 	
 	var space_state := get_viewport().get_world_2d().direct_space_state
@@ -26,7 +26,7 @@ func get_targeting_data(global_origin: Vector2, query_radius: float, max_targets
 		max_query_radius = query_radius
 		
 	var intersections := SpatialQuery.query_shape_intersections(
-		space_state, _circle_shape, global_origin, enemy_collision_mask, max_results_buffer
+		space_state, _circle_shape, query_origin, enemy_collision_mask, max_results_buffer
 	)
 	
 	if intersections.is_empty():
@@ -36,7 +36,7 @@ func get_targeting_data(global_origin: Vector2, query_radius: float, max_targets
 	for result in intersections:
 		var target = result.get("collider") as Node2D
 		if is_instance_valid(target) and target is HurtboxComponent:
-			var dist_squared := global_origin.distance_squared_to(target.global_position)
+			var dist_squared := query_origin.distance_squared_to(target.global_position)
 			valid_candidates.append({
 				"node": target,
 				"dist_sq": dist_squared
@@ -55,11 +55,11 @@ func get_targeting_data(global_origin: Vector2, query_radius: float, max_targets
 	for i in range(limit):
 		var candidate = valid_candidates[i]
 		var target_collider: Node2D = candidate["node"]
-		var target_vector := (target_collider.global_position - global_origin).normalized()
+		var target_vector := (target_collider.global_position - query_origin).normalized()
 		
 		results.append({
+			"target_id": target_collider.get_instance_id(),
+			"target_position": target_collider.global_position,
 			"direction": target_vector,
-			"target_id": target_collider.get_instance_id()
 		})
-		
 	return results

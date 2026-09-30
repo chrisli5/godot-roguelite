@@ -11,7 +11,7 @@ func calculate_velocity(
 	max_speed: float,
 	_current_global_position: Vector2,
 	time_elapsed: float,
-	_target_node_id: int = 0,
+	_target_instance_id: int = 0,
 ) -> Vector2:
 	
 	var forward_velocity := target_direction * max_speed

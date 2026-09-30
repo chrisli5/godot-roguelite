@@ -18,7 +18,7 @@ func calculate_velocity(
 	max_speed: float,
 	current_global_position: Vector2,
 	time_elapsed: float,
-	target_node_id: int = 0,
+	target_instance_id: int = 0,
 ) -> Vector2:
 
 	var fixed_delta := get_physics_process_delta_time()
@@ -34,20 +34,18 @@ func calculate_velocity(
 			is_returning = true
 			return_phase_entered.emit()
 
-			if target_node_id > 0:
-				var target_node: Node2D = instance_from_id(target_node_id)
-				if is_instance_valid(target_node):
-					return (target_node.global_position - current_global_position).normalized() * 50.0
+			var target_node: Node2D = instance_from_id(target_instance_id)
+			if is_instance_valid(target_node):
+				return (target_node.global_position - current_global_position).normalized() * 50.0
 			return -_cached_outward_heading * 50.0
 			
 		return _cached_outward_heading * next_speed
 		
 	else:
 		var return_heading := -_cached_outward_heading
-		if target_node_id > 0:
-			var target_node: Node2D = instance_from_id(target_node_id)
-			if is_instance_valid(target_node):
-				return_heading = (target_node.global_position - current_global_position).normalized()
+		var target_node: Node2D = instance_from_id(target_instance_id)
+		if is_instance_valid(target_node):
+			return_heading = (target_node.global_position - current_global_position).normalized()
 			
 		var current_speed := current_velocity.length()
 		var approach_speed := current_speed + (return_acceleration * fixed_delta)

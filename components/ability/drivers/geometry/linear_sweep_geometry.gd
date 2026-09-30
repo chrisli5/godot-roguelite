@@ -13,6 +13,7 @@ extends GeometryDriver
 func execute_geometry(
 	global_origin: Vector2, 
 	target_direction: Vector2,
+	_target_instance_id: int,
 	final_payload: CombatPayload
 ) -> void:
 	

@@ -10,11 +10,13 @@ var combat_payload: CombatPayload
 var collision_radius: float = 10.0
 var spawn_position: Vector2 = Vector2.ZERO
 var direction: Vector2 = Vector2.RIGHT
+var tracked_target_instance_id: int = 0
 
 
-func initialize_volume(start_pos: Vector2, target_dir: Vector2, incoming_payload: CombatPayload) -> void:
+func initialize_volume(start_pos: Vector2, target_dir: Vector2, target_instance_id: int, incoming_payload: CombatPayload) -> void:
 	combat_payload = incoming_payload
 	spawn_position = start_pos
+	tracked_target_instance_id = target_instance_id
 	direction = target_dir.normalized()
 
 
@@ -35,11 +37,9 @@ func _ready() -> void:
 		collision_shape.shape = collision_shape.shape.duplicate()
 		collision_shape.shape.radius = collision_radius
 	
-	var stats: Node = null
-	if combat_payload.stats_container_id > 0:
-		stats = instance_from_id(combat_payload.stats_container_id) as Node
-	
+	var stats: Node = instance_from_id(combat_payload.stats_container_id)
 	var has_stats := is_instance_valid(stats)
+	
 	collision_radius = stats.get_stat_value(Stat.Type.AOE_RADIUS, 10.0) if has_stats else 10.0
 
 

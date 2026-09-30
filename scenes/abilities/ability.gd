@@ -149,7 +149,6 @@ func _start_cooldown_phase() -> void:
 	_cooldown_timer.start(downtime)
 
 
-## Centralized Execution Loop: Handles all Parent-Mediated parameter gathering
 func _trigger_ability_delivery() -> void:
 	if not is_instance_valid(geometry_driver):
 		_start_cooldown_phase()
@@ -164,16 +163,34 @@ func _trigger_ability_delivery() -> void:
 	if is_instance_valid(targeting_strategy):
 		var query_radius = stats_container.get_stat_value(Stat.Type.QUERY_RADIUS, 200.0)
 		var target_capacity = int(stats_container.get_stat_value(Stat.Type.MAX_TARGETS, 1.0))
+		var query_origin := global_position
 		
-		target_list = targeting_strategy.get_targeting_data(global_position, query_radius, target_capacity)
+		if data.query_origin == AbilityData.QueryOrigin.CASTER_POSITION:
+			query_origin = global_position
+		if data.query_origin == AbilityData.QueryOrigin.MOUSE_POSITION:
+			query_origin = get_global_mouse_position()
+			
+		target_list = targeting_strategy.get_targeting_data(query_origin, query_radius, target_capacity)
 
 	if not target_list.is_empty():
+		var cast_origin: Vector2 = Vector2.ZERO
+		payload_driver.intercept_payload(running_payload)
+		
+		if data.cast_origin == AbilityData.CastOrigin.CASTER_POSITION:
+			cast_origin = global_position
+		if data.cast_origin == AbilityData.CastOrigin.MOUSE_POSITION:
+			cast_origin = get_global_mouse_position()
+		
 		for target_data in target_list:
-			var unique_payload = running_payload.duplicate(true)
-			unique_payload.tracked_target_id = target_data["target_id"]
+			if data.cast_origin == AbilityData.CastOrigin.TARGET_POSITION:
+				cast_origin = target_data["target_position"]
 			
-			payload_driver.intercept_payload(unique_payload)
-			geometry_driver.execute_geometry(global_position, target_data["direction"], unique_payload)
+			geometry_driver.execute_geometry(
+				cast_origin, 
+				target_data["direction"], 
+				target_data["target_id"],
+				running_payload,
+			)
 	else:
 		_start_cooldown_phase()
 

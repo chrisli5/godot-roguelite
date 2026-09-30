@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://be4i7rxexyuax"]
+
+[ext_resource type="Script" uid="uid://dnkl2cq7ugr4n" path="res://components/ability/drivers/geometry/converging_vortex_geometry.gd" id="1_vg1or"]
+
+[node name="ConvergingVortexGeometry" type="Node"]
+script = ExtResource("1_vg1or")

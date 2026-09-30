@@ -6,7 +6,12 @@ signal projectile_impacted(target: Node2D)
 @export var projectile_scene: PackedScene
 
 
-func spawn_projectile(start_pos: Vector2, target_dir: Vector2, hit_payload: CombatPayload) -> Projectile:
+func spawn_projectile(
+	start_pos: Vector2, 
+	target_dir: Vector2, 
+	target_instance_id: int,
+	hit_payload: CombatPayload
+	) -> Projectile:
 	if projectile_scene == null:
 		push_error("ProjectileSpawnerComponent: Missing projectile scene prefab configuration reference.")
 		return null
@@ -20,7 +25,7 @@ func spawn_projectile(start_pos: Vector2, target_dir: Vector2, hit_payload: Comb
 	var projectile: Projectile = instance as Projectile
 	
 	# Clean, single-line contract handoff. No leaking internal parameters!
-	projectile.initialize_volume(start_pos, target_dir, hit_payload)
+	projectile.initialize_volume(start_pos, target_dir, target_instance_id, hit_payload)
 	projectile.collided.connect(_on_projectile_collided)
 	
 	# Add cleanly straight to the dynamic current active scene tree level pipeline

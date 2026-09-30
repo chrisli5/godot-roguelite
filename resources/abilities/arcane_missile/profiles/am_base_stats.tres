@@ -5,10 +5,10 @@
 [resource]
 script = ExtResource("1_800ih")
 base_stats = Dictionary[int, float]({
-4: 5.0,
+4: 0.0,
 5: 1.0,
 8: 3.0,
-13: 600.0,
+13: 300.0,
 15: 1.0
 })
 metadata/_custom_type_script = "uid://dmq5w3j3r2g5r"

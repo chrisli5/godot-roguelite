@@ -29,7 +29,7 @@ func calculate_velocity(
 	max_speed: float,
 	_current_global_position: Vector2,
 	time_elapsed: float,
-	_target_node_id: int = 0,
+	_target_instance_id: int = 0,
 ) -> Vector2:
 	
 	# LAYER 1: THE VORTEX REVOLUTION
