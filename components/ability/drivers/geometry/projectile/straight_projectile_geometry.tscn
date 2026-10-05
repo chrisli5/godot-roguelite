@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://dieo8akakeisw"]
+
+[ext_resource type="Script" uid="uid://btn2v7h5lhldh" path="res://components/ability/drivers/geometry/projectile/straight_projectile_geometry.gd" id="1_vx56p"]
+[ext_resource type="Script" uid="uid://ckcqe2bew2lbo" path="res://components/ability/projectile_spawner_component.gd" id="2_8du0t"]
+[ext_resource type="PackedScene" uid="uid://c4wd6nk63btt1" path="res://components/ability/projectile.tscn" id="3_l7mql"]
+
+[node name="StraightProjectileGeometry" type="Node" node_paths=PackedStringArray("spawner_component")]
+script = ExtResource("1_vx56p")
+spawner_component = NodePath("ProjectileSpawnerComponent")
+
+[node name="ProjectileSpawnerComponent" type="Node" parent="."]
+script = ExtResource("2_8du0t")
+projectile_scene = ExtResource("3_l7mql")

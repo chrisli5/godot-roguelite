@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8ukay570vqey"]
-
-[ext_resource type="Script" uid="uid://djck1djwubm0l" path="res://components/ability/drivers/targeting/player_facing_target_strategy.gd" id="1_ufvdh"]
-
-[node name="PlayerFacingTargetStrategy" type="Node"]
-script = ExtResource("1_ufvdh")

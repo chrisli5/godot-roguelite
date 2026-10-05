@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://jll6kr5o1agi"]
+
+[ext_resource type="Script" uid="uid://b631re2wx5pv1" path="res://components/ability/drivers/geometry/projectile/mouse_aim_projectile_geometry.gd" id="1_2wexh"]
+[ext_resource type="Script" uid="uid://ckcqe2bew2lbo" path="res://components/ability/projectile_spawner_component.gd" id="2_hpdwf"]
+[ext_resource type="PackedScene" uid="uid://c4wd6nk63btt1" path="res://components/ability/projectile.tscn" id="3_auklr"]
+
+[node name="MouseAimProjectileGeometry" type="Node" node_paths=PackedStringArray("spawner_component")]
+script = ExtResource("1_2wexh")
+spawner_component = NodePath("ProjectileSpawnerComponent")
+
+[node name="ProjectileSpawnerComponent" type="Node" parent="."]
+script = ExtResource("2_hpdwf")
+projectile_scene = ExtResource("3_auklr")

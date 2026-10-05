@@ -8,17 +8,6 @@ enum Role {
 	ULTIMATE_CORE = 4      # Hotbar Slot 4 (Dash Utility)
 }
 
-enum CastOrigin {
-	CASTER_POSITION,
-	MOUSE_POSITION,
-	TARGET_POSITION,
-}
-
-enum QueryOrigin {
-	CASTER_POSITION,
-	MOUSE_POSITION,
-}
-
 @export_group("Identification")
 @export var display_name: String = ""
 @export var texture_prefab: Texture2D
@@ -30,12 +19,8 @@ enum QueryOrigin {
 @export var stats_profile: StatsProfile
 @export var upgrade_blueprints: Array[UpgradeBlueprintProfile] = [] 
 
-@export_group("Spatial Deployment Settings")
-@export var cast_origin: CastOrigin = CastOrigin.CASTER_POSITION
-@export var query_origin: QueryOrigin = QueryOrigin.CASTER_POSITION
-
 @export_group("Unified Wrapper Architecture Strategy Prefabs")
-@export var base_ability_scene: PackedScene
+@export var deployment_anchor_scene: PackedScene
 @export var geometry_driver_scene: PackedScene
 @export var payload_driver_scene: PackedScene
-@export var targeting_strategy_scene: PackedScene 
+@export var custom_sort_rule_script: Script

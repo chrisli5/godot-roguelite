@@ -16,7 +16,7 @@ func _handle_movement_physics() -> void:
 	if not movement_strategy or not stats_container:
 		return
 	
-	var max_speed = stats_container.get_stat_value(Stat.Type.MOVEMENT_SPEED, 100.0)
+	var max_speed = stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
 	var look_direction = Vector2.RIGHT.rotated(rotation)
 	
 	if EventBus.active_player_instance_id > 0:

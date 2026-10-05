@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://d1fg4h7s30nlx"]
+
+[ext_resource type="Script" uid="uid://libefrw7mjle" path="res://components/ability/drivers/deployment/mouse_position_anchor.gd" id="1_b3rfm"]
+
+[node name="MousePositionAnchor" type="Node"]
+script = ExtResource("1_b3rfm")

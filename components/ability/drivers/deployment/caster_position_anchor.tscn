@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://6jk74hf7wetr"]
+
+[ext_resource type="Script" uid="uid://t413047ek7o1" path="res://components/ability/drivers/deployment/caster_position_anchor.gd" id="1_6jt53"]
+
+[node name="CasterPositionAnchor" type="Node"]
+script = ExtResource("1_6jt53")

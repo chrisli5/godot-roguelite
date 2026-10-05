@@ -1,7 +1,8 @@
-[gd_scene load_steps=15 format=3 uid="uid://dgoq3h4eqmvj"]
+[gd_scene load_steps=16 format=3 uid="uid://dgoq3h4eqmvj"]
 
 [ext_resource type="Script" uid="uid://cd0cuu4xx0274" path="res://scenes/entities/player/player.gd" id="1_bls4j"]
 [ext_resource type="Script" uid="uid://cuba820mlfid4" path="res://components/stat/stats_container.gd" id="3_8fjmc"]
+[ext_resource type="PackedScene" uid="uid://djxjqolsa8r0" path="res://scenes/abilities/ability.tscn" id="3_j0oqr"]
 [ext_resource type="Script" uid="uid://b58wwjfbmpb20" path="res://components/ability/ability_container.gd" id="5_bectd"]
 [ext_resource type="Script" uid="uid://hnkcyvsaierv" path="res://components/stat/health_component.gd" id="5_yywfu"]
 [ext_resource type="Script" uid="uid://b6b6gqeb5wik8" path="res://components/progression/progression_component.gd" id="6_8fjmc"]
@@ -10,7 +11,7 @@
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
 [ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="8_w3p2j"]
 [ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/player_level_profile.tres" id="8_wvtmh"]
-[ext_resource type="Script" uid="uid://digb326esho6n" path="res://components/upgrade/upgrade_ledger_component.gd" id="11_7wli1"]
+[ext_resource type="Script" uid="uid://lpbdhop2gke5" path="res://components/upgrade/run_ledger_component.gd" id="12_j0oqr"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
 
@@ -19,14 +20,14 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_bectd"]
 radius = 24.0
 
-[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("collector_component", "progression_component", "upgrade_ledger_component", "ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "sprite_node")]
+[node name="Player" type="CharacterBody2D" node_paths=PackedStringArray("collector_component", "progression_component", "run_ledger_component", "ability_container", "stats_container", "health_component", "hurtbox_component", "status_effect_component", "tag_component", "sprite_node")]
 collision_layer = 2
 collision_mask = 0
 motion_mode = 1
 script = ExtResource("1_bls4j")
 collector_component = NodePath("CollectorComponent")
 progression_component = NodePath("ProgressionComponent")
-upgrade_ledger_component = NodePath("UpgradeLedgerComponent")
+run_ledger_component = NodePath("RunLedgerComponent")
 ability_container = NodePath("AbilityContainer")
 stats_container = NodePath("StatsContainer")
 health_component = NodePath("HealthComponent")
@@ -42,6 +43,7 @@ shape = SubResource("CircleShape2D_26q78")
 
 [node name="AbilityContainer" type="Node2D" parent="."]
 script = ExtResource("5_bectd")
+base_ability_scene = ExtResource("3_j0oqr")
 
 [node name="StatsContainer" type="Node" parent="."]
 script = ExtResource("3_8fjmc")
@@ -76,5 +78,5 @@ shape = SubResource("CircleShape2D_bectd")
 script = ExtResource("6_8fjmc")
 thresholds_profile = ExtResource("8_wvtmh")
 
-[node name="UpgradeLedgerComponent" type="Node" parent="."]
-script = ExtResource("11_7wli1")
+[node name="RunLedgerComponent" type="Node" parent="."]
+script = ExtResource("12_j0oqr")

@@ -12,11 +12,10 @@ func spawn_player_character() -> void:
 		
 	# 1. Instantiate the dynamic Player actor from disk data
 	var player_instance = player_scene.instantiate()
-	
 	if player_instance is Player:
 		# 2. Set the player's initial position to match this spawner's spatial coordinates
-		player_instance.global_position = global_position
 		player_instance.initialize_entity(player_config)
+		player_instance.global_position = global_position
 		
 		# 3. Flashing the node into the global highway stream instead of hacking parent node calls
 		EventBus.spawn_requested.emit(player_instance)

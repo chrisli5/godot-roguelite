@@ -14,7 +14,7 @@ func bind_to_stats(stats: StatsContainer) -> void:
 	if has_stats:
 		stats.stat_updated.connect(_on_stat_updated)
 	
-	var initial_max = stats.get_stat_value(Stat.Type.MAX_HEALTH, 1.0) if has_stats else 1.0
+	var initial_max = stats.get_final_stat_value(Stat.Type.MAX_HEALTH) if has_stats else 1.0
 	update_max_health(initial_max)
 	set_to_full()
 

@@ -1,6 +1,10 @@
 class_name UpgradeManager
 extends Node
 
+## Holds the raw full collection of available run upgrades that can be rolled.
+## Typically seeded from a master Act database resource or individual player configuration arrays.
+@export var master_upgrade_pool: Array[UpgradeBlueprintProfile] = []
+
 var _cached_full_pool: Array[UpgradeChoice] = []
 var _level_up_queue: Array[int] = []
 var _is_presenting_ui: bool = false
@@ -28,21 +32,19 @@ func _try_process_next_level_up() -> void:
 	_is_presenting_ui = true
 	get_tree().paused = true 
 
-	var current_player: Player = instance_from_id(EventBus.active_player_instance_id)		
+	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
 	var next_level_to_process: int = _level_up_queue.pop_front()
 	
-	if is_instance_valid(current_player) and current_player.has_method("compile_character_eligible_pool"):
-		current_player.compile_character_eligible_pool(next_level_to_process)
-
 	if is_instance_valid(current_player):
+		# Pass the central player reference and level context to compile our subset pool
 		_cached_full_pool = generate_selection_pool(current_player, next_level_to_process)
 		var rolled_options = _roll_random_subset(_cached_full_pool, 3)
 		EventBus.upgrade_options_ready.emit(rolled_options)
 
 
 func trigger_initial_draft_event() -> void:
-	var current_player: Player = instance_from_id(EventBus.active_player_instance_id)
-	if not is_instance_valid(current_player) or not is_instance_valid(current_player.upgrade_ledger_component):
+	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
+	if not is_instance_valid(current_player):
 		return
 		
 	_is_presenting_ui = true
@@ -50,6 +52,8 @@ func trigger_initial_draft_event() -> void:
 	
 	var available_choices: Array[UpgradeChoice] = _generate_initial_ability_pool(current_player)
 	if available_choices.is_empty():
+		get_tree().paused = false
+		_is_presenting_ui = false
 		return
 
 	var rolled_options = _roll_random_subset(available_choices, 3)
@@ -57,8 +61,8 @@ func trigger_initial_draft_event() -> void:
 
 
 func trigger_infusion_draft_event() -> void:
-	var current_player: Player = instance_from_id(EventBus.active_player_instance_id)
-	if not is_instance_valid(current_player) or not is_instance_valid(current_player.upgrade_ledger_component):
+	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
+	if not is_instance_valid(current_player):
 		return
 		
 	_is_presenting_ui = true
@@ -75,151 +79,147 @@ func trigger_infusion_draft_event() -> void:
 	EventBus.upgrade_options_ready.emit(rolled_options)
 
 
-func _generate_initial_ability_pool(target_player: Player) -> Array[UpgradeChoice]:
+func _generate_initial_ability_pool(_target_player: Player) -> Array[UpgradeChoice]:
 	var ability_pool: Array[UpgradeChoice] = []
-	var player_ledger = target_player.upgrade_ledger_component
 	
-	for tracker in player_ledger.get_cached_evolutions():
-		var definition = tracker.definition
-		if not is_instance_valid(definition):
-			continue
-			
-		var choice = UpgradeChoice.new()
-		choice.source_tracker = tracker
-		choice.target_slot_index = 0
-		ability_pool.append(choice)
-		
+	for profile in master_upgrade_pool:
+		if not is_instance_valid(profile): continue
+		for definition in profile.definition_bundle:
+			if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
+				var choice = UpgradeChoice.new()
+				
+				# Wrap into a dummy template tracker for UI consumption cards
+				var tracker := UpgradeTracker.new()
+				tracker.definition = definition
+				
+				choice.source_tracker = tracker
+				choice.target_slot_index = 0
+				ability_pool.append(choice)
+				
 	return ability_pool
 
 
 func _generate_infusion_pool(target_player: Player) -> Array[UpgradeChoice]:
 	var infusion_pool: Array[UpgradeChoice] = []
-	var player_ledger = target_player.upgrade_ledger_component
 
-	for tracker in player_ledger.get_cached_upgrades():
-		var definition = tracker.definition
-		if not is_instance_valid(definition) or not definition.is_infusion():
-			continue
-			
-		var choice = UpgradeChoice.new()
-		choice.source_tracker = tracker
-		choice.target_slot_index = 0
-		choice.target_display_name = "Global Elements"
-		infusion_pool.append(choice)
+	for profile in master_upgrade_pool:
+		if not is_instance_valid(profile): continue
+		for definition in profile.definition_bundle:
+			if definition.is_infusion():
+				var current_tier = target_player.run_ledger.purchase_registry.get(definition.upgrade_id, 0)
+				if current_tier >= profile.total_tiers: continue
+				
+				var choice = UpgradeChoice.new()
+				var tracker := UpgradeTracker.new()
+				tracker.definition = definition
+				tracker.current_purchases = current_tier
+				tracker.max_purchases = profile.total_tiers
+				
+				choice.source_tracker = tracker
+				choice.target_slot_index = 0
+				choice.target_display_name = "Global Elements"
+				infusion_pool.append(choice)
 		
 	return infusion_pool
 
 
+## MASTER COMPILED SELECTION POOL:
+## Evaluates the player's single central ledger, looks up max ceilings from profiles,
+## and contextually routes appropriate targets dynamically.
 func generate_selection_pool(target_player: Player, processing_level: int) -> Array[UpgradeChoice]:
 	var full_pool: Array[UpgradeChoice] = []
-	if not is_instance_valid(target_player) or not is_instance_valid(target_player.ability_container):
-		return full_pool
+	var ledger := target_player.run_ledger_component
+	var container := target_player.ability_container
+	
+	for profile in master_upgrade_pool:
+		if not is_instance_valid(profile): continue
 		
-	var container = target_player.ability_container
-
-	for slot_idx in range(1, 5):
-		var ability = container.get_ability_by_slot(slot_idx)
-		if not is_instance_valid(ability): 
-			continue
-
-		ability.compile_eligible_pool(processing_level)
-		_append_choices_from_ledger(full_pool, ability.upgrade_ledger_component, slot_idx, ability.display_name)
-
-	var player_ledger = target_player.upgrade_ledger_component
-	if is_instance_valid(player_ledger):
-		_append_choices_from_ledger(full_pool, player_ledger, 0, "Character Core")
+		for definition in profile.definition_bundle:
+			var current_tier = ledger.purchase_registry.get(definition.upgrade_id, 0)
 			
+			# Ceiling Gating: Skip if player has already maxed out this card's tiers
+			var max_allowed = 1 if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK else profile.total_tiers
+			if current_tier >= max_allowed:
+				continue
+				
+			# Level Gating: Dynamic scale calculation pass
+			var dynamic_req_level = profile.initial_unlock_level + (current_tier * profile.levels_per_tier)
+			if processing_level < dynamic_req_level:
+				continue
+
+			# Build core tracking instance container
+			var tracker := UpgradeTracker.new()
+			tracker.definition = definition
+			tracker.current_purchases = current_tier
+			tracker.max_purchases = max_allowed
+
+			# --- CONTEXTUAL ROUTING MATRIX ---
+			match definition.scope:
+				UpgradeDefinition.ScopeType.CHARACTER_CORE:
+					var choice = UpgradeChoice.new()
+					choice.source_tracker = tracker
+					choice.target_slot_index = 0
+					choice.target_display_name = "Character Core"
+					full_pool.append(choice)
+					
+				UpgradeDefinition.ScopeType.LOCAL_SLOT:
+					# Direct Weapon Upgrade: Link context specifically to the target slot index lane
+					var target_ability = container.get_ability_by_slot(definition.restrict_to_slot)
+					if is_instance_valid(target_ability):
+						var choice = UpgradeChoice.new()
+						choice.source_tracker = tracker
+						choice.target_slot_index = definition.restrict_to_slot
+						choice.target_display_name = target_ability.display_name
+						full_pool.append(choice)
+						
+				UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
+					# Broad Passive: Loops through active weapons to see if ANY match the requested taxonomy tags
+					var match_found := false
+					for slot_idx in range(1, 5):
+						var ability = container.get_ability_by_slot(slot_idx)
+						if is_instance_valid(ability) and is_instance_valid(ability.tag_component):
+							for req_tag in definition.target_tags:
+								if ability.tag_component.has_tag(req_tag):
+									match_found = true
+									break
+									
+					if match_found:
+						var choice = UpgradeChoice.new()
+						choice.source_tracker = tracker
+						choice.target_slot_index = 0
+						choice.target_display_name = "Matching Active Tags"
+						full_pool.append(choice)
+						
 	return full_pool
 
 
-func _append_choices_from_ledger(pool: Array[UpgradeChoice], ledger: UpgradeLedgerComponent, source_slot: int, target_name: String) -> void:
-	for tracker in ledger.get_cached_upgrades():
-		var choice = UpgradeChoice.new()
-		choice.source_tracker = tracker
-		choice.target_slot_index = source_slot 
-		choice.target_display_name = target_name
-		pool.append(choice)
-		
-	for tracker in ledger.get_cached_evolutions():
-		var choice = UpgradeChoice.new()
-		choice.source_tracker = tracker
-		choice.target_display_name = target_name
-		
-		var definition = tracker.definition
-		if source_slot == 0 and definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
-			var target_role_slot: int = definition.ability_data_payload.slot_index
-			var container = EventBus.active_player.ability_container
-			
-			if is_instance_valid(container) and is_instance_valid(container.get_ability_by_slot(target_role_slot)):
-				continue
-				
-			choice.target_slot_index = target_role_slot
-			choice.target_display_name = "Unlock " + definition.ability_data_payload.display_name
-		else:
-			choice.target_slot_index = source_slot
-			
-		pool.append(choice)
-
-
-## Stateless Tag-Based Click Intercept Resolution:
 func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
-	var current_player: Player = instance_from_id(EventBus.active_player_instance_id)		
+	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
 	if not is_instance_valid(chosen_choice) or not is_instance_valid(current_player):
 		return
 
-	var definition = chosen_choice.definition
-	if not is_instance_valid(definition):
-		return
-
-	# --- 1. OPTIMIZED ELEMENTAL INFUSIONS FILTERING ---
-	# Looks explicitly at draft filter categories, leaving recipe arrays clean
+	# --- ELEMENTAL INFUSION RE-ROUTING ---
 	if chosen_choice.is_infusion:
-		print("[INFUSION CHOSEN] Passing entire choice package to allocation panel...")
+		print("[INFUSION DRAFT] Rerouting choices straight to the element allocation screen layout...")
 		EventBus.infusion_allocation_requested.emit(chosen_choice)
 		_cached_full_pool.clear()
 		return 
 
-	# --- 2. REGULAR PROGRESSION & UNLOCK RESOLUTION ---
-	chosen_choice.source_tracker.current_purchases += 1
-	var base_upgrade_id = definition.upgrade_id
-	var current_level = current_player.progression_component.current_level if is_instance_valid(current_player.progression_component) else 1
-	
-	if chosen_choice.target_slot_index > 0:
-		var ability = current_player.ability_container.get_ability_by_slot(chosen_choice.target_slot_index)
-		if is_instance_valid(ability) and is_instance_valid(ability.upgrade_ledger_component):
-			ability.upgrade_ledger_component.log_purchase_entry(base_upgrade_id)
-			ability.compile_eligible_pool(current_level)
-	else:
-		var player_ledger = current_player.upgrade_ledger_component
-		if is_instance_valid(player_ledger):
-			player_ledger.log_purchase_entry(base_upgrade_id)
-	
+	# Forward transaction package directly to the central Player RunLedger
 	current_player.apply_contextual_upgrade(chosen_choice)
 	
 	_cached_full_pool.clear()
+	# Resolve coroutine tree updates on the next process frame tick cleanly
 	get_tree().process_frame.connect(_try_process_next_level_up, CONNECT_ONE_SHOT)
 
 
 func _on_infusion_allocation_confirmed(finalized_choice: UpgradeChoice) -> void:
-	# 1. Increment purchases on the player's core master element tracking card family
-	finalized_choice.source_tracker.current_purchases += 1
-	print("_on_infusion_allocation_confirmed")
-	var current_player: Player = instance_from_id(EventBus.active_player_instance_id)
+	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
 	
 	if is_instance_valid(current_player):
-		var player_ledger = current_player.upgrade_ledger_component
-		if is_instance_valid(player_ledger):
-			# Log purchase inside the single source of truth player memory ledger
-			player_ledger.log_purchase_entry(finalized_choice.definition.upgrade_id)
-		
-		print("[UPGRADE MANAGER] Infusion placement locked. Forwarding finalized package to Player...")
-		
-		# --- THE CRITICAL FIX: INVOKE THE MUTATION PIPELINE ---
-		# This routes the choice straight to Player._process_elemental_infusion() 
-		# where the tags are updated and the Single Value Scaling stats are injected!
+		# Forward finalized placement data safely down to player mutation channels
 		current_player.apply_contextual_upgrade(finalized_choice)
 		
-	# 2. Clear out menu choice variable caches to prepare for subsequent queued transactions
 	_is_presenting_ui = false
 	_try_process_next_level_up()
 
@@ -228,7 +228,7 @@ func reroll_current_options() -> void:
 	if not _is_presenting_ui or _cached_full_pool.is_empty():
 		return
 
-	var fresh_rolled_options: Array[UpgradeChoice] = _roll_random_subset(_cached_full_pool, 3)
+	var fresh_rolled_options := _roll_random_subset(_cached_full_pool, 3)
 	EventBus.upgrade_options_ready.emit(fresh_rolled_options)
 
 

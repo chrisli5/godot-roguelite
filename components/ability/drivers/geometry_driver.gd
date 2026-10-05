@@ -7,9 +7,13 @@ signal delivery_finished
 
 ## Defines the geometric shape of an ability. Responsible for the initial execution of an ability. 
 @abstract
-func execute_geometry(
-	global_origin: Vector2, 
-	target_direction: Vector2,
-	target_instance_id: int,
-	final_payload: CombatPayload
-) -> void
+func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -> void
+
+
+func get_query_shape(stats: StatsContainer) -> Shape2D:
+	var circle := CircleShape2D.new()
+	if is_instance_valid(stats):
+		circle.radius = stats.get_final_stat_value(Stat.Type.QUERY_RADIUS)
+	else:
+		circle.radius = 200.0
+	return circle

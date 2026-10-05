@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=8 format=3 uid="uid://c2elthr0loqo3"]
+
+[ext_resource type="Script" uid="uid://cegijyh7qyyhp" path="res://components/ability/resources/ability_data.gd" id="1_4isvk"]
+[ext_resource type="PackedScene" uid="uid://6jk74hf7wetr" path="res://components/ability/drivers/deployment/caster_position_anchor.tscn" id="1_205il"]
+[ext_resource type="PackedScene" uid="uid://dcioqhlwdnxy5" path="res://components/ability/drivers/geometry/projectile/targeted_projectile_geometry.tscn" id="2_205il"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_tdmd0"]
+[ext_resource type="Resource" uid="uid://bylpdjvaty1hi" path="res://resources/abilities/arcane_bolt/arcane_bolt_stats.tres" id="2_yajfj"]
+[ext_resource type="PackedScene" uid="uid://de85o2am36jm5" path="res://components/ability/drivers/payload/missile_hit_payload.tscn" id="3_lo4qq"]
+[ext_resource type="Texture2D" uid="uid://bntta8st7rlml" path="res://assets/entities/bullet.png" id="3_rachv"]
+
+[resource]
+script = ExtResource("1_4isvk")
+display_name = "Arcane Bolt"
+texture_prefab = ExtResource("3_rachv")
+stats_profile = ExtResource("2_yajfj")
+deployment_anchor_scene = ExtResource("1_205il")
+geometry_driver_scene = ExtResource("2_205il")
+payload_driver_scene = ExtResource("3_lo4qq")
+metadata/_custom_type_script = "uid://cegijyh7qyyhp"

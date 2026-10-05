@@ -1,42 +1,38 @@
+# res://scenes/abilities/ability.gd
 class_name Ability
 extends Node2D
 
 @export_group("Components")
 @export var stats_container: StatsContainer
-@export var upgrade_ledger_component: UpgradeLedgerComponent
 @export var infusion_tracker_component: InfusionTrackerComponent
 @export var evolution_gate_component: EvolutionGateComponent
 @export var tag_component: TagComponent
+@export var spatial_query_component: SpatialQueryComponent
 
 var data: AbilityData = null
-## Reference to the active child element handling shape boundaries and targeting
-var display_name: String:
-	get:
-		return data.display_name if is_instance_valid(data) else "ABILITY_DISPLAY_NAME"
 
-var geometry_driver: GeometryDriver = null:
-	set(value):
-		# Clean disconnect loops when hot-swapping strategy modules mid-run
-		if is_instance_valid(geometry_driver) and geometry_driver.delivery_finished.is_connected(_on_delivery_finished):
-			geometry_driver.delivery_finished.disconnect(_on_delivery_finished)
-		geometry_driver = value
-		if is_instance_valid(geometry_driver):
-			geometry_driver.delivery_finished.connect(_on_delivery_finished)
-
+# Live execution strategy handles
+var deployment_anchor: DeploymentAnchor = null
+var geometry_driver: GeometryDriver = null
 var payload_driver: PayloadDriver = null
-var targeting_strategy: TargetingStrategy = null
+
 var character_caster: Node2D = null
 var is_eligible_for_overclock: bool = false
 var _cooldown_timer: Timer
 
+var display_name: String:
+	get:
+		return data.display_name if is_instance_valid(data) else "ABILITY_DISPLAY_NAME"
+
 
 func _ready() -> void:
+	# Cleaned completely of legacy local ledger component checks!
 	var required_ability_components: Array[String] = [
 		"stats_container",
-		"upgrade_ledger_component",
 		"infusion_tracker_component",
 		"evolution_gate_component",
-		"tag_component"
+		"tag_component",
+		"spatial_query_component"
 	]
 	
 	if not ComponentValidator.validate_components(self, required_ability_components):
@@ -52,198 +48,89 @@ func initialize_caster_context(caster_node: Node2D) -> void:
 	character_caster = caster_node
 
 
-func compile_eligible_pool(player_character_level: int) -> void:
-	if not is_instance_valid(upgrade_ledger_component):
-		return
-		
-	var compiled_upgrades: Array[UpgradeTracker] = []
-	var compiled_evolutions: Array[UpgradeTracker] = []
-	
-	var raw_evo_blueprints: Array[UpgradeTracker] = upgrade_ledger_component.available_evolutions
-	var active_tags: Array[Tags.Type] = tag_component.get_active_tags() if is_instance_valid(tag_component) else []
-	
-	# Reset the state flag before evaluating the current frame pass
-	is_eligible_for_overclock = false
-
-	# --- PHASE 1: EVALUATE STRUCTURAL RECIPES THROUGH THE EVO ENGINE ---
-	if is_instance_valid(evolution_gate_component) and is_instance_valid(infusion_tracker_component):
-		# SYNCED PASS: Evaluates hand-crafted recipes passing the type-safe integer array directly
-		compiled_evolutions = evolution_gate_component.evaluate_evolution_recipes(
-			raw_evo_blueprints, 
-			infusion_tracker_component.infusion_levels, 
-			active_tags
-		)
-		
-		# --- DATA-DRIVEN OVERCLOCK ELIGIBILITY STATE AUDIT ---
-		# Determine if the weapon's socket arrays have collectively arrived at a soft cap ceiling
-		var active_sockets: int = 0
-		var capped_elements: int = 0
-		var soft_cap_target = 3 if evolution_gate_component.current_state == EvolutionGateComponent.EvolutionState.TIER_1_BASE else 5
-		
-		for level in infusion_tracker_component.infusion_levels:
-			if level > 0:
-				active_sockets += 1
-				if level >= soft_cap_target:
-					capped_elements += 1
-					
-		var is_at_soft_cap = (active_sockets >= 2 and capped_elements >= 2) if evolution_gate_component.current_state == EvolutionGateComponent.EvolutionState.TIER_1_BASE else (active_sockets >= 3 and capped_elements >= 3)
-		
-		# Expose the boolean state flag; if true, the UpgradeManager injects the disk-based Overclock tracker
-		if is_at_soft_cap and not evolution_gate_component.is_permanently_overclocked:
-			is_eligible_for_overclock = true
-			
-			# Pull the persistent Overclock variant scene swap tracker straight from disk storage configurations
-			var ovr_track = upgrade_ledger_component.overclock_tracker
-			if is_instance_valid(ovr_track) and ovr_track.current_purchases < ovr_track.max_purchases:
-				compiled_evolutions.append(ovr_track)
-		
-	# --- PHASE 2: COMPILE LINEAR WEAPON STAT MODIFIERS ---
-	for tracker in upgrade_ledger_component.available_upgrades:
-		var definition = tracker.definition
-		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases: 
-			continue
-		
-		# Dynamic level step gating calculation pass (Single Value Scaling integration)
-		var dynamic_req_level = tracker.required_character_level + (tracker.current_purchases * 2)
-		if player_character_level < dynamic_req_level: 
-			continue
-			
-		# Synchronize card text tier number display properties smoothly (e.g., Cooldown Rate III)
-		tracker.tier_index = tracker.current_purchases + 1
-		compiled_upgrades.append(tracker)
-
-	# --- PHASE 3: WRITE BACK TO THE LOCAL VIEW CACHE REGISTERS ---
-	upgrade_ledger_component.clear_caches()
-	upgrade_ledger_component.overwrite_cached_pools(compiled_upgrades, compiled_evolutions)
-
-
-func apply_evolution_mutation(_choice: UpgradeChoice) -> void:
-	if is_instance_valid(evolution_gate_component):
-		evolution_gate_component.advance_evolution_state()
-
-
-func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
-	# 1. Update strict identity categorization rules safely via tag component
-	if is_instance_valid(tag_component):
-		tag_component.add_tag(element_tag)
-		tag_component.add_tag(Tags.Type.INFUSION)
-
-	# 2. Directly instruct the independent module to record progress levels string-free
-	if is_instance_valid(infusion_tracker_component):
-		infusion_tracker_component.record_socket_transaction(element_tag)
-
-	print("[SOCKET] %s successfully registered inside local module layers." % Tags.Type.keys()[element_tag])
-
-func _setup_cooldown_clock() -> void:
-	_cooldown_timer = Timer.new()
-	_cooldown_timer.one_shot = true # Enforce single-fire ticking
-	_cooldown_timer.timeout.connect(_trigger_ability_delivery)
-	add_child(_cooldown_timer)
-	_start_cooldown_phase()
-
-
-func _start_cooldown_phase() -> void:
-	var downtime: float = 4.0
-	if is_instance_valid(stats_container):
-		downtime = stats_container.get_stat_value(Stat.Type.COOLDOWN, 4.0)
-	_cooldown_timer.start(downtime)
-
-
 func _trigger_ability_delivery() -> void:
-	if not is_instance_valid(geometry_driver):
+	if not is_instance_valid(geometry_driver) or not is_instance_valid(character_caster):
 		_start_cooldown_phase()
 		return
 		
+	# Gather our active taxonomy tags to pass down through the layered calculation layers
+	var active_tags := tag_component.get_active_tags() if is_instance_valid(tag_component) else []
+		
 	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
-
 	if is_instance_valid(data) and data.texture_prefab is Texture2D:
 		running_payload.base_texture = data.texture_prefab
 
-	var target_list: Array[Dictionary] = []
-	if is_instance_valid(targeting_strategy):
-		var query_radius = stats_container.get_stat_value(Stat.Type.QUERY_RADIUS, 200.0)
-		var target_capacity = int(stats_container.get_stat_value(Stat.Type.MAX_TARGETS, 1.0))
-		var query_origin := global_position
-		
-		if data.query_origin == AbilityData.QueryOrigin.CASTER_POSITION:
-			query_origin = global_position
-		if data.query_origin == AbilityData.QueryOrigin.MOUSE_POSITION:
-			query_origin = get_global_mouse_position()
-			
-		target_list = targeting_strategy.get_targeting_data(query_origin, query_radius, target_capacity)
-
-	if not target_list.is_empty():
-		var cast_origin: Vector2 = Vector2.ZERO
+	if is_instance_valid(payload_driver):
 		payload_driver.intercept_payload(running_payload)
-		
-		if data.cast_origin == AbilityData.CastOrigin.CASTER_POSITION:
-			cast_origin = global_position
-		if data.cast_origin == AbilityData.CastOrigin.MOUSE_POSITION:
-			cast_origin = get_global_mouse_position()
-		
-		for target_data in target_list:
-			if data.cast_origin == AbilityData.CastOrigin.TARGET_POSITION:
-				cast_origin = target_data["target_position"]
-			
-			geometry_driver.execute_geometry(
-				cast_origin, 
-				target_data["direction"], 
-				target_data["target_id"],
-				running_payload,
-			)
-	else:
-		_start_cooldown_phase()
+
+	# 1. Resolve where this ability initiates from space coordinates
+	var spawn_pos := deployment_anchor.get_anchor_position(character_caster)
+
+	# 2. Polymorphically extract the precise shape required directly from the geometry driver
+	var custom_shape := geometry_driver.get_query_shape(stats_container)
+
+	# 3. Fire the unified query pass (SpatialQueryDriver handles ALL physics queries)
+	var query_results := spatial_query_component.execute_spatial_query(spawn_pos, custom_shape)
+
+	# 4. Hand off the pre-sorted physics dataset cleanly to the geometry layer
+	geometry_driver.execute_geometry(query_results, running_payload)
 
 
 func swap_runtime_strategies(new_data: AbilityData) -> void:
-	if not is_instance_valid(new_data):
+	if not is_instance_valid(new_data): 
 		return
-		
 	data = new_data
 
-	if is_instance_valid(geometry_driver): geometry_driver.queue_free(); geometry_driver = null
-	if is_instance_valid(payload_driver): payload_driver.queue_free(); payload_driver = null
-	if is_instance_valid(targeting_strategy): targeting_strategy.queue_free(); targeting_strategy = null
+	# Wiped out local ledger initialization blocks completely!
+	spatial_query_component.reset_to_defaults()
+	
+	if new_data.custom_sort_rule_script:
+		var custom_rule_instance = new_data.custom_sort_rule_script.new()
+		if custom_rule_instance.has_method("get_sort_callable"):
+			spatial_query_component.active_sort_rule = custom_rule_instance.get_sort_callable()
 
+	# Free highly volatile visual/mechanical strategy nodes
+	for driver in [geometry_driver, payload_driver, deployment_anchor]:
+		if is_instance_valid(driver): 
+			driver.queue_free()
+			
+	geometry_driver = null
+	payload_driver = null
+	deployment_anchor = null
+
+	# Instantiate the Deployment Anchor Strategy
+	if is_instance_valid(data.deployment_anchor_scene):
+		var anchor_inst = data.deployment_anchor_scene.instantiate()
+		if anchor_inst is DeploymentAnchor:
+			add_child(anchor_inst)
+			deployment_anchor = anchor_inst
+			
+	if not is_instance_valid(deployment_anchor):
+		deployment_anchor = CasterPositionAnchor.new()
+		add_child(deployment_anchor)
+
+	# Instantiate the Geometry Driver Strategy
 	if is_instance_valid(data.geometry_driver_scene):
 		var geom_inst = data.geometry_driver_scene.instantiate()
-		if geom_inst: add_child(geom_inst); geometry_driver = geom_inst
+		if geom_inst is GeometryDriver:
+			add_child(geom_inst)
+			geometry_driver = geom_inst
+			geometry_driver.delivery_finished.connect(_on_delivery_finished)
 
+	# Instantiate the Payload Driver Strategy
 	if is_instance_valid(data.payload_driver_scene):
 		var payload_inst = data.payload_driver_scene.instantiate()
-		if payload_inst: add_child(payload_inst); payload_driver = payload_inst
+		if payload_inst is PayloadDriver:
+			add_child(payload_inst)
+			payload_driver = payload_inst
 
-	if is_instance_valid(data.targeting_strategy_scene):
-		var target_inst = data.targeting_strategy_scene.instantiate()
-		if target_inst: add_child(target_inst); targeting_strategy = target_inst
-		if targeting_strategy.has_method("bind_to_stats"):
-			targeting_strategy.bind_to_stats(stats_container)
-
-	if is_instance_valid(tag_component):
-		var current_tags: Array[Tags.Type] = tag_component.get_active_tags()
-		var preserved_infusions: Array[Tags.Type] = []
-		
-		for tag in current_tags:
-			if Tags.get_index_from_element(tag) >= 0:
-				preserved_infusions.append(tag)
-				
-		tag_component._active_tags.clear()
-		for tag in preserved_infusions:
-			tag_component.add_tag(tag)
-		for tag in data.structural_tags:
-			tag_component.add_tag(tag)
-			
-		tag_component.tags_changed.emit(tag_component._active_tags)
-
-	if is_instance_valid(upgrade_ledger_component) and is_instance_valid(data):
-		upgrade_ledger_component.initialize_ledger(data.upgrade_blueprints)
-
+	_sync_ability_tags()
+	
 	if data.stats_profile and is_instance_valid(stats_container):
 		stats_container.mutate_base_profile(data.stats_profile)
 
-	if is_instance_valid(evolution_gate_component):
-		if data.is_overclock_evolution:
-			evolution_gate_component.is_permanently_overclocked = true
+	if is_instance_valid(evolution_gate_component) and data.is_overclock_evolution:
+		evolution_gate_component.is_permanently_overclocked = true
 	
 	if data.slot_index:
 		EventBus.ability_modification_completed.emit(data.slot_index)
@@ -251,8 +138,54 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 	_start_cooldown_phase()
 
 
+func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
+	if is_instance_valid(tag_component):
+		tag_component.add_tag(element_tag)
+		tag_component.add_tag(Tags.Type.INFUSION)
+
+	if is_instance_valid(infusion_tracker_component):
+		infusion_tracker_component.record_socket_transaction(element_tag)
+
+	print("[SOCKET] %s successfully registered inside local module layers." % Tags.Type.keys()[element_tag])
+	
+	# Force an immediate stat calculation update pass right now since tags changed
+	if is_instance_valid(stats_container) and is_instance_valid(tag_component):
+		stats_container.get_final_stat_value(Stat.Type.BASE_DAMAGE, tag_component.get_active_tags())
+
+
+func _sync_ability_tags() -> void:
+	if not is_instance_valid(tag_component): 
+		return
+	var preserved_infusions: Array[Tags.Type] = []
+	for tag in tag_component.get_active_tags():
+		if Tags.get_index_from_element(tag) >= 0:
+			preserved_infusions.append(tag)
+			
+	tag_component._active_tags.clear()
+	for tag in preserved_infusions: 
+		tag_component.add_tag(tag)
+	for tag in data.structural_tags: 
+		tag_component.add_tag(tag)
+		
+	tag_component.tags_changed.emit(tag_component._active_tags)
+
+
+func _setup_cooldown_clock() -> void:
+	_cooldown_timer = Timer.new()
+	_cooldown_timer.one_shot = true 
+	_cooldown_timer.timeout.connect(_trigger_ability_delivery)
+	add_child(_cooldown_timer)
+	_start_cooldown_phase()
+
+
+func _start_cooldown_phase() -> void:
+	var downtime: float = 4.0
+	if is_instance_valid(stats_container) and is_instance_valid(tag_component):
+		downtime = stats_container.get_final_stat_value(Stat.Type.COOLDOWN, tag_component.get_active_tags())
+	_cooldown_timer.start(downtime)
+
+
 func _on_delivery_finished() -> void:
-	# Hand-off received! Safely return to recovery frames
 	_start_cooldown_phase()
 
 

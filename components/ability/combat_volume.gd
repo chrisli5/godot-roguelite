@@ -40,7 +40,7 @@ func _ready() -> void:
 	var stats: Node = instance_from_id(combat_payload.stats_container_id)
 	var has_stats := is_instance_valid(stats)
 	
-	collision_radius = stats.get_stat_value(Stat.Type.AOE_RADIUS, 10.0) if has_stats else 10.0
+	collision_radius = stats.get_final_stat_value(Stat.Type.AOE_RADIUS) if has_stats else 10.0
 
 
 func _on_collision_detected(incoming_node: Node2D) -> void:		
