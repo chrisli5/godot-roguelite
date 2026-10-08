@@ -1,4 +1,3 @@
-# res://scenes/entities/player/player.gd
 class_name Player
 extends Entity
 
@@ -71,28 +70,42 @@ func _handle_movement_physics() -> void:
 	move_and_slide()
 
 
-## UNIFIED UPGRADE INGESTION CHANNEL: 
-## Triggered directly by the UpgradeManager when a choice card is finalized
 func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	var definition = choice.definition
 	if not is_instance_valid(definition): 
 		return
 		
-	# 1. Log the purchase inside the single centralized ledger vault
-	run_ledger_component.log_purchase(definition)
-	print("[CENTRAL LEDGER LOGGED] Unification success for upgrade: %s | Active Tier: %d" % [
-		definition.display_name, 
-		run_ledger_component.purchase_registry[definition.upgrade_id]
-	])
+	# --- INTELLIGENT OVERLOAD ROUTING PASS ---
+	if choice.is_infusion and choice.target_slot_index > 0:
+		# Scenario A: Player-allocated elemental socket card.
+		# We dynamically bake the chosen slot index straight into the tracking registry key.
+		run_ledger_component.log_slot_specific_purchase(definition, choice.target_slot_index)
+		
+		# Force a manual recalculation pass on the chosen weapon lane immediately
+		var targeted_weapon = ability_container.get_ability_by_slot(choice.target_slot_index)
+		if is_instance_valid(targeted_weapon):
+			targeted_weapon.apply_infusion_socket(choice.infusion_element, definition.upgrade_id)
+			
+		print("[CENTRAL LEDGER LOGGED] Dynamic Infusion allocated to Slot %d for upgrade: %s" % [
+			choice.target_slot_index, 
+			definition.display_name
+		])
+	else:
+		# Scenario B: Standard hard-coded scope cards (Core, Global Passives, Pre-Restricted Slots)
+		run_ledger_component.log_purchase(definition)
+		print("[CENTRAL LEDGER LOGGED] Standard upgrade logged: %s | Active Tier: %d" % [
+			definition.display_name, 
+			run_ledger_component.purchase_registry[definition.upgrade_id]
+		])
 
-	# 2. Execute context routing based on the card payload type
+	# 2. Execute downstream structural unlocks/mutations contextually
 	match definition.payload_type:
 		UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
 			_process_structural_ability_unlock(choice)
 		UpgradeDefinition.PayloadType.STAT_MODIFIER:
-			# If it's a character core stat modification, force a recalculation pass on ourselves instantly
 			if definition.scope == UpgradeDefinition.ScopeType.CHARACTER_CORE:
-				stats_container.get_final_stat_value(definition.target_stat_type)
+				if is_instance_valid(definition.stat_modifier_payload):
+					stats_container.get_final_stat_value(definition.stat_modifier_payload.target_stat_type)
 
 
 func _process_structural_ability_unlock(choice: UpgradeChoice) -> void:

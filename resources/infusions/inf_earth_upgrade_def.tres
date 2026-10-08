@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3 uid="uid://brvxpwgcyttpp"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_liq48"]
+
+[resource]
+script = ExtResource("1_liq48")
+upgrade_id = "inf_earth"
+display_name = "Earth Infusion"
+description = "Earth"
+target_tags = Array[int]([13])
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

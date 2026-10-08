@@ -23,21 +23,16 @@ enum ScopeType {
 ## Only evaluated if scope is set to GLOBAL_TAG_MATCH. (e.g., applying to any weapon featuring Tags.Type.FIRE)
 @export var target_tags: Array[Tags.Type] = []
 
-@export_group("Draft Behavior Legacy Properties")
-@export var draft_behavior_tags: Array[Tags.Type] = []
-@export var recipe_requirements: Array[Tags.Type] = []
-@export var global_modifier_tags: Array[Tags.Type] = []
-
 @export_group("Payload Configuration")
 @export var payload_type: PayloadType = PayloadType.STAT_MODIFIER
 @export var stat_modifier_payload: StatModifier
-@export var target_stat_type: Stat.Type
 @export var ability_data_payload: AbilityData
 
 
 ## Helper utility checking if this card behaves as an elemental socket infusion
 func is_infusion() -> bool:
-	return draft_behavior_tags.has(Tags.Type.INFUSION)
+	# Cleaned constraint: Checked contextually against target tags or a direct ID string mapping
+	return upgrade_id.begins_with("inf_")
 
 
 ## Extracted element positioning slot lookup pass matching rigid enum flags
@@ -45,7 +40,8 @@ func get_infusion_element() -> Tags.Type:
 	if not is_infusion():
 		return Tags.Type.NONE
 	
-	for tag in draft_behavior_tags:
+	# Scans target_tags directly to figure out what element this infusion maps to
+	for tag in target_tags:
 		if Tags.get_index_from_element(tag) != -1:
 			return tag
 			

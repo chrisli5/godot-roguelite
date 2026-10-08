@@ -1,3 +1,4 @@
+# res://components/stat/tag_component.gd
 class_name TagComponent
 extends Node
 
@@ -5,46 +6,69 @@ signal tags_changed(active_tags: Array[Tags.Type])
 
 @export var base_tags: Array[Tags.Type] = []
 
-var _active_tags: Array[Tags.Type] = []
+## The Active Cache Pool: Read out of RAM instantly by external subsystems
+var _cached_active_tags: Array[Tags.Type] = []
+var _is_dirty: bool = true
+var _slot_owner_index: int = 0
 
 
 func _ready() -> void:
-	_active_tags = base_tags.duplicate()
+	_cached_active_tags = base_tags.duplicate()
 
 
-func add_tag(new_tag: Tags.Type) -> void:
-	if not _active_tags.has(new_tag):
-		_active_tags.append(new_tag)
-		tags_changed.emit(_active_tags)
+func configure_slot_context(slot_idx: int) -> void:
+	_slot_owner_index = slot_idx
+	_connect_to_ledger_broadcast()
 
 
-func remove_tag(target_tag: Tags.Type) -> void:
-	if _active_tags.has(target_tag):
-		_active_tags.erase(target_tag)
-		tags_changed.emit(_active_tags)
+func _connect_to_ledger_broadcast() -> void:
+	var current_player = instance_from_id(EventBus.active_player_instance_id) as Player
+	if is_instance_valid(current_player) and is_instance_valid(current_player.run_ledger_component):
+		current_player.run_ledger_component.stats_invalidated.connect(_on_stats_invalidated)
 
 
-func clear_tags() -> void:
-	_active_tags.clear()
+## THE LAZY TAXONOMY ENGINE: 
+## 99.9% of the time, this returns a pre-compiled array cleanly out of RAM.
+## It updates exactly ONCE the next time an engine system or driver queries it.
+func get_active_tags() -> Array[Tags.Type]:
+	if _is_dirty:
+		_recompile_tags()
+	return _cached_active_tags.duplicate()
 
 
 func has_tag(tag_type: Tags.Type) -> bool:
-	return _active_tags.has(tag_type)
+	if _is_dirty:
+		_recompile_tags()
+	return _cached_active_tags.has(tag_type)
 
 
-func has_any_tags(tags_to_check: Array[Tags.Type]) -> bool:
-	for tag in tags_to_check:
-		if _active_tags.has(tag):
-			return true
-	return false
+func _recompile_tags() -> void:
+	# LAYER 1: Re-seed the baseline designer identity tags from the current weapon blueprint
+	_cached_active_tags = base_tags.duplicate()
+	
+	# LAYER 2: Pull dynamic upgrades from the player's centralized ledger vault
+	var current_player = instance_from_id(EventBus.active_player_instance_id) as Player
+	if is_instance_valid(current_player) and is_instance_valid(current_player.run_ledger_component):
+		var ledger = current_player.run_ledger_component
+		
+		for def in ledger.active_upgrades:
+			if def.is_infusion():
+				# Procedurally compile the exact key schema representing OUR slot index
+				var specialized_key := "%s::slot_%d" % [def.upgrade_id, _slot_owner_index]
+				
+				# Query the single source of truth: Did the player allocate this element to our lane?
+				var tier = ledger.purchase_registry.get(specialized_key, 0)
+				
+				if tier > 0:
+					# Merge the infusion element tags seamlessly into our active taxonomy profile!
+					for tag in def.target_tags:
+						if not _cached_active_tags.has(tag):
+							_cached_active_tags.append(tag)
+							
+	_is_dirty = false
+	tags_changed.emit(_cached_active_tags)
 
 
-func has_all_tags(tags_to_check: Array[Tags.Type]) -> bool:
-	for tag in tags_to_check:
-		if not _active_tags.has(tag):
-			return false
-	return true
-
-
-func get_active_tags() -> Array[Tags.Type]:
-	return _active_tags.duplicate() # Return duplicate to prevent external data mutation
+func _on_stats_invalidated(_definition: UpgradeDefinition) -> void:
+	# Instant, zero-overhead flag toggle. The physics/math engine continues running uninterrupted.
+	_is_dirty = true

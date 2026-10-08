@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://cs1w7optrqxml"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_ndf0n"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_ya3ss"]
+
+[sub_resource type="Resource" id="Resource_638xv"]
+script = ExtResource("2_ya3ss")
+type = 1
+value = 0.5
+target_stat_type = 13
+metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
+
+[resource]
+script = ExtResource("1_ndf0n")
+upgrade_id = "arcane_bolt_speed"
+display_name = "Projectile Speed"
+description = "15% increased projectile speed."
+scope = 1
+restrict_to_slot = 1
+stat_modifier_payload = SubResource("Resource_638xv")
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

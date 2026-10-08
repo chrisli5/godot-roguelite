@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3 uid="uid://fbyx4dj2rt7g"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_oi27b"]
+
+[resource]
+script = ExtResource("1_oi27b")
+upgrade_id = "inf_frost"
+display_name = "Frost Infusion"
+description = "Frost"
+target_tags = Array[int]([10])
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

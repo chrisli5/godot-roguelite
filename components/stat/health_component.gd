@@ -41,6 +41,7 @@ func set_to_full() -> void:
 
 ## Process health reductions programmatically.
 func take_damage(amount: float) -> void:
+	print(amount)
 	if amount <= 0.0 or current_health <= 0.0:
 		return
 		

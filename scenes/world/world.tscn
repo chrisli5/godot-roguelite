@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://s03l0k7sk2u2"]
+[gd_scene load_steps=21 format=3 uid="uid://s03l0k7sk2u2"]
 
 [ext_resource type="Script" uid="uid://o5dxkbwae0sh" path="res://scenes/world/world_manager.gd" id="1_nc0nk"]
 [ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_ujq7m"]
@@ -7,14 +7,24 @@
 [ext_resource type="Script" uid="uid://celujugebouvs" path="res://components/environment/player_spawner.gd" id="3_v5dby"]
 [ext_resource type="PackedScene" uid="uid://d23mkghb50m7a" path="res://ui/upgrade_screen/upgrade_screen_ui.tscn" id="3_yvru8"]
 [ext_resource type="Script" uid="uid://c7pysmse0q63t" path="res://components/world/enemy_spawner_component.gd" id="4_gb53w"]
-[ext_resource type="Resource" uid="uid://llhg26ek24t7" path="res://scenes/entities/player/upgrade_profile/start_abilities.tres" id="4_m114p"]
 [ext_resource type="PackedScene" uid="uid://dgoq3h4eqmvj" path="res://scenes/entities/player/player.tscn" id="4_t5ptc"]
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="4_wbwoo"]
 [ext_resource type="Script" uid="uid://cw76aherq025s" path="res://components/world/resources/enemy_wave_profile.gd" id="5_dlabj"]
+[ext_resource type="Resource" uid="uid://dq1b4yxwe6q2y" path="res://resources/infusions/inf_blueprint.tres" id="5_m114p"]
+[ext_resource type="Resource" uid="uid://dfqji4d3m5xi1" path="res://resources/abilities/arcane_bolt/arcane_bolt_upgrade_def.tres" id="5_tytul"]
+[ext_resource type="Resource" uid="uid://e13hr42hwx8a" path="res://resources/abilities/arcane_bolt/arcane_bolt_speed_blueprint.tres" id="6_bt7bg"]
 [ext_resource type="Resource" uid="uid://dkyvrtfd3xlwo" path="res://resources/world/wave_profiles/wave_1.tres" id="6_srmg5"]
 [ext_resource type="PackedScene" uid="uid://cvyt2nvnh6xne" path="res://scenes/entities/enemies/enemy.tscn" id="7_gb53w"]
 [ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://components/utility/debug_spatial_visualizer.gd" id="8_gb53w"]
 [ext_resource type="PackedScene" uid="uid://dd8t6wruc1tkv" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.tscn" id="9_1yooq"]
 [ext_resource type="Resource" uid="uid://bqmssuaanw7ud" path="res://resources/entities/player/player.tres" id="10_srmg5"]
+[ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="15_wbwoo"]
+
+[sub_resource type="Resource" id="Resource_t634p"]
+script = ExtResource("3_mxkvs")
+definition_bundle = Array[ExtResource("4_wbwoo")]([ExtResource("5_tytul")])
+total_tiers = 1
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"
 
 [node name="World" type="Node2D" node_paths=PackedStringArray("player_spawner", "enemy_spawner", "entities_container", "projectiles_container", "pickups_container")]
 script = ExtResource("1_nc0nk")
@@ -28,7 +38,7 @@ pickups_container = NodePath("GameWorld/PickupsContainer")
 
 [node name="UpgradeManager" type="Node" parent="SystemControllers"]
 script = ExtResource("2_ujq7m")
-master_upgrade_pool = Array[ExtResource("3_mxkvs")]([ExtResource("4_m114p"), null])
+master_upgrade_pool = Array[ExtResource("3_mxkvs")]([SubResource("Resource_t634p"), ExtResource("5_m114p"), ExtResource("6_bt7bg")])
 
 [node name="DebugInfusionTrigger" type="Node" parent="SystemControllers" node_paths=PackedStringArray("upgrade_manager")]
 script = ExtResource("3_j2gmx")
@@ -52,6 +62,12 @@ player_config = ExtResource("10_srmg5")
 [node name="ProjectilesContainer" type="Node2D" parent="GameWorld"]
 
 [node name="PickupsContainer" type="Node2D" parent="GameWorld"]
+
+[node name="XPGem" parent="GameWorld/PickupsContainer" instance=ExtResource("15_wbwoo")]
+position = Vector2(100, 150)
+
+[node name="XPGem2" parent="GameWorld/PickupsContainer" instance=ExtResource("15_wbwoo")]
+position = Vector2(100, 200)
 
 [node name="DebugSpatialVisualizer" type="Node2D" parent="GameWorld"]
 script = ExtResource("8_gb53w")

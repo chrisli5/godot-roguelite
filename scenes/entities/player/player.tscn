@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://dc4rbfirm60nk" path="res://components/interaction/collector_component.gd" id="6_wvtmh"]
 [ext_resource type="Script" uid="uid://bw4lt07q24mcb" path="res://components/status_effect/status_effect_component.gd" id="8_7thud"]
 [ext_resource type="Script" uid="uid://ccayltnf2l3jo" path="res://components/stat/tag_component.gd" id="8_w3p2j"]
-[ext_resource type="Resource" uid="uid://ch47sl0dooves" path="res://scenes/entities/player/player_level_profile.tres" id="8_wvtmh"]
+[ext_resource type="Resource" uid="uid://dgwinge67q22c" path="res://resources/entities/player/player_xp.tres" id="11_j0oqr"]
 [ext_resource type="Script" uid="uid://lpbdhop2gke5" path="res://components/upgrade/run_ledger_component.gd" id="12_j0oqr"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_26q78"]
@@ -76,7 +76,7 @@ shape = SubResource("CircleShape2D_bectd")
 
 [node name="ProgressionComponent" type="Node" parent="."]
 script = ExtResource("6_8fjmc")
-thresholds_profile = ExtResource("8_wvtmh")
+thresholds_profile = ExtResource("11_j0oqr")
 
 [node name="RunLedgerComponent" type="Node" parent="."]
 script = ExtResource("12_j0oqr")

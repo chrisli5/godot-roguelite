@@ -1,26 +1,24 @@
+# res://ui/infusion_allocation_screen/ability_row_ui.gd
 class_name AbilityRowUI
 extends Button
 
 @export_group("Internal UI Labels Layout")
-## Label display box rendering the target ability name (e.g., "Arcane Missile")
 @export var weapon_name_label: Label
-## Label display box rendering the level overview strings (e.g., "Fire: Lvl 3 | Frost: Lvl 1")
 @export var level_details_label: Label
 
 
-## Setup and render the row contents using the type-safe integer array sent by the allocation panel
+## Setup and render the row contents using data packets sent directly by the allocation panel
 func setup_row_display(ability_name: String, infusion_levels: Array[int], is_allowed: bool) -> void:
 	# 1. Update the display name layout
 	if is_instance_valid(weapon_name_label):
 		weapon_name_label.text = ability_name
 	else:
-		text = ability_name # Fallback text format if nested labels are unassigned
+		text = ability_name 
 		
 	# 2. Compile active element levels text string via direct array indexing maps
 	var status_fragments: Array[String] = []
 	
-	# Symmetrically extract element depth tracking metrics based on array slot positioning
-	# (Index 0 = Fire, 1 = Frost, 2 = Lightning, 3 = Wind, 4 = Earth)
+	# Position 0 = Fire, 1 = Frost, 2 = Lightning, 3 = Wind, 4 = Earth
 	if infusion_levels.size() >= 5:
 		var fire_lvl: int = infusion_levels[0]
 		var frost_lvl: int = infusion_levels[1]
@@ -43,12 +41,12 @@ func setup_row_display(ability_name: String, infusion_levels: Array[int], is_all
 		else:
 			level_details_label.text = " | ".join(status_fragments)
 			
-	# 4. Dynamic Visual Gating: Disable and dim the button frame container node if the infusion is blocked
+	# 4. Dynamic Visual Gating
 	disabled = not is_allowed
 	
 	if disabled:
 		modulate = Color(0.4, 0.4, 0.4, 1.0) # Dimmed slate locked color
-		tooltip_text = "Socket Soft Cap / Constraints Reached for this Ability Slot Index."
+		tooltip_text = "Socket Soft Cap or Constraint limits reached for this Ability Slot."
 	else:
 		modulate = Color(1.0, 1.0, 1.0, 1.0) # Full brightness default
 		tooltip_text = "Click to allocate selected elemental infusion into this weapon slot DNA."

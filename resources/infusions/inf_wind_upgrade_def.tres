@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3 uid="uid://cfa2o0pm6bmib"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_6g077"]
+
+[resource]
+script = ExtResource("1_6g077")
+upgrade_id = "inf_wind"
+display_name = "Wind Infusion"
+description = "Wind"
+target_tags = Array[int]([12])
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

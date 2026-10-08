@@ -70,6 +70,7 @@ func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
 
 
 func _on_hit_received(payload: CombatPayload) -> void:
+	print(payload)
 	if is_instance_valid(health_component):
 		health_component.take_damage(payload.final_damage)
 		

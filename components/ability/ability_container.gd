@@ -47,6 +47,9 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 		ability.stats_container.configure_slot_context(slot_index)
 		ability.stats_container.initialize_profile(ability_data.stats_profile)
 
+	if is_instance_valid(ability.tag_component):
+		ability.tag_component.configure_slot_context(slot_index)
+
 	# --- UNIFIED STRATEGY CONTRACT HANDOFF ---
 	# Automatically configures spatial query parameters and custom sorting hooks contextually
 	ability.swap_runtime_strategies(ability_data)
@@ -94,7 +97,7 @@ func get_ability_by_slot(slot_index: int) -> Ability:
 	return abilities.get(slot_index, null)
 
 
-func add_stat_modifier_to_slot(slot_index: int, stat_type: Stat.Type, modifier: StatModifier) -> void:
+func add_stat_modifier_to_slot(slot_index: int, modifier: StatModifier) -> void:
 	var ability: Ability = get_ability_by_slot(slot_index)
 	if ability == null:
 		push_error("[ABILITYCONTAINER] Cannot add modifier. Ability on slot index %d not found." % slot_index)
@@ -105,15 +108,15 @@ func add_stat_modifier_to_slot(slot_index: int, stat_type: Stat.Type, modifier: 
 		return
 		
 	# Adds cleanly into the local transient pool (equipment, local status effects, etc.)
-	ability.stats_container.add_modifier(stat_type, modifier)
+	ability.stats_container.add_modifier(modifier)
 
 
-func remove_stat_modifier_from_slot(slot_index: int, stat_type: Stat.Type, modifier_id: String) -> void:
+func remove_stat_modifier_from_slot(slot_index: int, modifier: StatModifier) -> void:
 	var ability: Ability = get_ability_by_slot(slot_index)
 	if ability == null or ability.stats_container == null:
 		return
 		
-	ability.stats_container.remove_modifier(stat_type, modifier_id)
+	ability.stats_container.remove_modifier(modifier)
 
 
 func add_infusion_tags_to_ability(slot_index: int, tags_to_add: Array[Tags.Type]) -> void:

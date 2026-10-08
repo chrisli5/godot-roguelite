@@ -106,7 +106,8 @@ func _generate_infusion_pool(target_player: Player) -> Array[UpgradeChoice]:
 		if not is_instance_valid(profile): continue
 		for definition in profile.definition_bundle:
 			if definition.is_infusion():
-				var current_tier = target_player.run_ledger.purchase_registry.get(definition.upgrade_id, 0)
+				print("infusion")
+				var current_tier = target_player.run_ledger_component.purchase_registry.get(definition.upgrade_id, 0)
 				if current_tier >= profile.total_tiers: continue
 				
 				var choice = UpgradeChoice.new()

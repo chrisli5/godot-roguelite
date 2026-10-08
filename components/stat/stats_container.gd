@@ -20,18 +20,15 @@ func _connect_to_ledger_broadcast() -> void:
 
 
 ## THE LAZY READ GATING ENGINE:
-## Performs a true O(1) float read 99.9% of the time. 
-## Recalculates ONLY on the single frame pass where the cache was flagged as dirty.
+## Performs a true O(1) float read 99.9% of the time out of primitive RAM.
+## Recalculates ONLY on the frame pass where the cache was flagged as dirty.
 func get_final_stat_value(stat_type: Stat.Type, active_tags: Array[Tags.Type] = []) -> float:
 	var tracking_stat := stats.get(stat_type, null) as Stat
 	if not tracking_stat:
-		return 10.0
+		return 0.0
 		
-	# Synchronize active tags cache for compilation passes
 	_cached_tags = active_tags
 	
-	# THE LAZY EVALUATION GATE:
-	# If the flag is dirty, we run a single compilation pass right now before returning the total
 	if tracking_stat.is_dirty:
 		_calculate_stat(stat_type)
 		
@@ -44,12 +41,12 @@ func invalidate_all_caches() -> void:
 		stats[stat_type].is_dirty = true
 
 
-## REFACTORED LIGHTWEIGHT LISTENERS:
-## This event now costs almost ZERO performance overhead. It simply toggles boolean flags.
+## REACTIVELY TOGGLES FLAGS INSTANTLY WITHOUT RUNNING HEAVY BACKGROUND MATH
 func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
-	if not is_instance_valid(definition): 
+	if not is_instance_valid(definition) or not is_instance_valid(definition.stat_modifier_payload): 
 		return
 		
+	var target_stat := definition.stat_modifier_payload.target_stat_type
 	var is_impacted := false
 
 	match definition.scope:
@@ -72,19 +69,17 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 								is_impacted = true
 								break
 
-	# LAZY INVALIDATION: Turn the flag to dirty instantly without running any heavy math
 	if is_impacted:
-		var tracking_stat = stats.get(definition.target_stat_type, null)
+		var tracking_stat = stats.get(target_stat, null)
 		if tracking_stat:
 			tracking_stat.is_dirty = true
-			# Print verification indicator to track lazy behaviors
 			print("[STAT FLAGGED DIRTY] Slot %d marked '%s' as stale." % [
 				_slot_owner_index, 
-				Stat.Type.keys()[definition.target_stat_type]
+				Stat.Type.keys()[target_stat]
 			])
 
 
-## Internal Calculator: Executed strictly on demand when a fresh read arrives
+## Internal Calculator: Executed strictly on demand when a fresh read arrives or transients mutate
 func _calculate_stat(stat_type: Stat.Type) -> void:
 	var tracking_stat := stats[stat_type]
 	var calculated_baseline := tracking_stat.base_value
@@ -106,33 +101,54 @@ func _calculate_stat(stat_type: Stat.Type) -> void:
 		calculated_baseline = flat_progression * (1.0 + percent_progression)
 
 	var final_computed_value = tracking_stat.recalculate_runtime_value(calculated_baseline)
+	
+	# THE CENTRALIZED SIGNAL EMISSION PASS:
+	# Fired uniformly right here whenever numbers are recalculated from the ground up!
 	stat_updated.emit(stat_type, final_computed_value)
 
 
-# --- REAL-TIME COMBAT INTERFACES (Toggles flags to force fresh evaluations upon status ticks) ---
+# --- REAL-TIME COMBAT INTERFACES (Autonomous, single-argument API signatures) ---
 
-func add_modifier(stat_type: Stat.Type, modifier: StatModifier) -> void:
-	var tracking_stat := stats.get(stat_type, null) as Stat
+func add_modifier(modifier: StatModifier) -> void:
+	if not is_instance_valid(modifier): 
+		return
+		
+	var tracking_stat := stats.get(modifier.target_stat_type, null) as Stat
 	if tracking_stat:
 		tracking_stat.add_transient_modifier(modifier)
-		stat_updated.emit(stat_type, get_final_stat_value(stat_type, _cached_tags))
+		# Instantly forces a calculation run to process the freeze debuff/buff and trigger updates
+		_calculate_stat(modifier.target_stat_type)
 
 
-func remove_modifier(stat_type: Stat.Type, modifier_id: String) -> void:
-	var tracking_stat := stats.get(stat_type, null) as Stat
+func remove_modifier(modifier: StatModifier) -> void:
+	if not is_instance_valid(modifier): 
+		return
+		
+	var tracking_stat := stats.get(modifier.target_stat_type, null) as Stat
 	if tracking_stat:
-		tracking_stat.remove_transient_modifier(modifier_id)
-		stat_updated.emit(stat_type, get_final_stat_value(stat_type, _cached_tags))
+		tracking_stat.remove_transient_modifier(modifier.id)
+		# Instantly forces a calculation run upon status expiration and trigger updates
+		_calculate_stat(modifier.target_stat_type)
 
 
 func initialize_profile(profile: StatsProfile) -> void:
-	if not profile: return
+	if not profile: 
+		return
+		
 	for stat_type in profile.base_stats.keys():
 		var runtime_stat = Stat.new()
 		runtime_stat.type = stat_type
 		runtime_stat.base_value = profile.base_stats[stat_type]
 		stats[stat_type] = runtime_stat
+	
+	# 1. Flag everything as dirty to establish the lazy-eval state
 	invalidate_all_caches()
+	
+	# 2. THE CRITICAL INITIALIZATION FIX:
+	# Force an immediate calculation pass across all registered baseline types right now!
+	# This guarantees that things like starting health and velocity limits build their initial values out of 0.0.
+	for stat_type in stats.keys():
+		get_final_stat_value(stat_type)
 
 
 func mutate_base_profile(new_profile: StatsProfile) -> void:

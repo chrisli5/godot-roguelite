@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=8 format=3 uid="uid://dq1b4yxwe6q2y"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_pc4uy"]
+[ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_y26ld"]
+[ext_resource type="Resource" uid="uid://jpclcuxcoxsp" path="res://resources/infusions/inf_fire_upgrade_def.tres" id="2_yp1pt"]
+[ext_resource type="Resource" uid="uid://cfa2o0pm6bmib" path="res://resources/infusions/inf_wind_upgrade_def.tres" id="3_fay2t"]
+[ext_resource type="Resource" uid="uid://brvxpwgcyttpp" path="res://resources/infusions/inf_earth_upgrade_def.tres" id="4_3g8cj"]
+[ext_resource type="Resource" uid="uid://fbyx4dj2rt7g" path="res://resources/infusions/inf_frost_upgrade_def.tres" id="5_urw83"]
+[ext_resource type="Resource" uid="uid://5vbvwd2j3uhu" path="res://resources/infusions/inf_lightning_upgrade_def.tres" id="6_x6bu7"]
+
+[resource]
+script = ExtResource("2_y26ld")
+definition_bundle = Array[ExtResource("1_pc4uy")]([ExtResource("2_yp1pt"), ExtResource("3_fay2t"), ExtResource("4_3g8cj"), ExtResource("5_urw83"), ExtResource("6_x6bu7")])
+metadata/_custom_type_script = "uid://vhx7ws3s2gjc"

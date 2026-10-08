@@ -1,3 +1,4 @@
+# res://components/ability/evolution_gate_component.gd
 class_name EvolutionGateComponent
 extends Node
 
@@ -8,14 +9,14 @@ var current_state: EvolutionState = EvolutionState.TIER_1_BASE
 var is_permanently_overclocked: bool = false
 
 
-## Evaluates structural morphology parameters and recipe matches string-free using direct arrays.
+## Refactored: Evaluates hand-crafted unlock recipes strictly from definitions rather than local trackers
 func evaluate_evolution_recipes(
-	available_evolutions: Array[UpgradeTracker], 
+	available_definitions: Array[UpgradeDefinition], 
 	infusion_levels: Array[int], 
 	active_tags: Array[Tags.Type]
-) -> Array[UpgradeTracker]:
+) -> Array[UpgradeDefinition]:
 	
-	var eligible_evos: Array[UpgradeTracker] = []
+	var eligible_evos: Array[UpgradeDefinition] = []
 	if is_permanently_overclocked:
 		return eligible_evos
 
@@ -45,16 +46,10 @@ func evaluate_evolution_recipes(
 		return eligible_evos
 
 	# --- STEP 3: CATEGORIZED RECIPE PATTERN MATCHING ---
-	for tracker in available_evolutions:
-		var definition = tracker.definition
-		if not is_instance_valid(definition) or tracker.current_purchases >= tracker.max_purchases: 
-			continue
-		
-		if definition.payload_type != UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
+	for definition in available_definitions:
+		if not is_instance_valid(definition) or definition.payload_type != UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
 			continue
 
-		# Order-Agnostic Subset Check: Loops through recipe_requirements directly.
-		# Framework elements like Tags.Type.INFUSION are separated out, removing layout friction.
 		var recipe_satisfied = true
 		for required_tag in definition.recipe_requirements:
 			if not active_tags.has(required_tag):
@@ -64,12 +59,11 @@ func evaluate_evolution_recipes(
 		if not recipe_satisfied: 
 			continue
 
-		eligible_evos.append(tracker)
+		eligible_evos.append(definition)
 			
 	return eligible_evos
 
 
-## Advances the local state machine when an evolution is successfully selected
 func advance_evolution_state() -> void:
 	if current_state == EvolutionState.TIER_1_BASE:
 		current_state = EvolutionState.TIER_2_EVOLVED

@@ -124,7 +124,6 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 			add_child(payload_inst)
 			payload_driver = payload_inst
 
-	_sync_ability_tags()
 	
 	if data.stats_profile and is_instance_valid(stats_container):
 		stats_container.mutate_base_profile(data.stats_profile)
@@ -139,10 +138,6 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 
 
 func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
-	if is_instance_valid(tag_component):
-		tag_component.add_tag(element_tag)
-		tag_component.add_tag(Tags.Type.INFUSION)
-
 	if is_instance_valid(infusion_tracker_component):
 		infusion_tracker_component.record_socket_transaction(element_tag)
 
@@ -151,23 +146,6 @@ func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
 	# Force an immediate stat calculation update pass right now since tags changed
 	if is_instance_valid(stats_container) and is_instance_valid(tag_component):
 		stats_container.get_final_stat_value(Stat.Type.BASE_DAMAGE, tag_component.get_active_tags())
-
-
-func _sync_ability_tags() -> void:
-	if not is_instance_valid(tag_component): 
-		return
-	var preserved_infusions: Array[Tags.Type] = []
-	for tag in tag_component.get_active_tags():
-		if Tags.get_index_from_element(tag) >= 0:
-			preserved_infusions.append(tag)
-			
-	tag_component._active_tags.clear()
-	for tag in preserved_infusions: 
-		tag_component.add_tag(tag)
-	for tag in data.structural_tags: 
-		tag_component.add_tag(tag)
-		
-	tag_component.tags_changed.emit(tag_component._active_tags)
 
 
 func _setup_cooldown_clock() -> void:

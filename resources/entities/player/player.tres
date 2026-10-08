@@ -1,13 +1,16 @@
-[gd_resource type="Resource" script_class="PlayerData" load_steps=6 format=3 uid="uid://bqmssuaanw7ud"]
+[gd_resource type="Resource" script_class="PlayerData" load_steps=8 format=3 uid="uid://bqmssuaanw7ud"]
 
 [ext_resource type="PackedScene" uid="uid://dc7wya572xwgd" path="res://components/movement/vector_movement_strategy.tscn" id="1_0k11s"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="1_vd66l"]
 [ext_resource type="Script" uid="uid://bvdkqg3nmljjr" path="res://components/entity/player/resources/player_data.gd" id="2_a7ngf"]
+[ext_resource type="Resource" uid="uid://dq1b4yxwe6q2y" path="res://resources/infusions/inf_blueprint.tres" id="3_13c16"]
+[ext_resource type="Resource" uid="uid://caouyygbw0fuo" path="res://resources/entities/player/player_start_abilities.tres" id="4_g0c48"]
 [ext_resource type="Texture2D" uid="uid://bqdncbu54ijwk" path="res://assets/entities/oryx_16bit_fantasy_creatures_55.png" id="4_g6gp2"]
 [ext_resource type="Resource" uid="uid://bcru70718h2af" path="res://resources/entities/player/player_stats.tres" id="5_13c16"]
 
 [resource]
 script = ExtResource("2_a7ngf")
+player_core_blueprints = Array[ExtResource("1_vd66l")]([ExtResource("3_13c16"), ExtResource("4_g0c48")])
 display_name = "Player"
 sprite_texture = ExtResource("4_g6gp2")
 stats_profile = ExtResource("5_13c16")
