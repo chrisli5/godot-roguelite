@@ -7,5 +7,6 @@ script = ExtResource("1_liq48")
 upgrade_id = "inf_earth"
 display_name = "Earth Infusion"
 description = "Earth"
+scope = 1
 target_tags = Array[int]([13])
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

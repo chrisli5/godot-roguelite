@@ -1,5 +1,5 @@
 # res://components/ability/drivers/geometry/linear_sweep_geometry.gd
-class_name LinearSweepDriver
+class_name LinearSweepGeometry
 extends GeometryDriver
 
 @export_group("Sweep Geometry Parameters")

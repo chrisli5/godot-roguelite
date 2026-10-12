@@ -3,7 +3,10 @@ extends Node2D
 
 @export var base_ability_scene: PackedScene
 
-var max_slots: int = 4
+## Hotbar slots are 1-4. Slot 0 is reserved for the Character Core (player stats)
+## and never holds an Ability.
+const MIN_SLOT: int = 1
+const MAX_SLOT: int = 4
 var abilities: Dictionary[int, Ability] = {}
 var _entity_root: Node2D = null
 
@@ -19,8 +22,8 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 		return null
 	
 	var slot_index: int = ability_data.slot_index
-	if slot_index < 0 or slot_index >= max_slots:
-		push_error("AbilityContainer: Hotbar slot index %d is out of bounds." % slot_index)
+	if slot_index < MIN_SLOT or slot_index > MAX_SLOT:
+		push_error("AbilityContainer: Hotbar slot index %d is out of bounds (valid: %d-%d)." % [slot_index, MIN_SLOT, MAX_SLOT])
 		return null
 		
 	var new_ability_instance: Node = base_ability_scene.instantiate()
@@ -42,13 +45,20 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 	if is_instance_valid(_entity_root):
 		ability.initialize_caster_context(_entity_root)
 
-	# Configure slot context routing indices inside the child container (1-4 matching hotbar slots)
-	if is_instance_valid(ability.stats_container):
-		ability.stats_container.configure_slot_context(slot_index)
-		ability.stats_container.initialize_profile(ability_data.stats_profile)
+	# The owning player's ledger (null when the owner is not a Player, e.g. an enemy)
+	var ledger: RunLedgerComponent = null
+	var owner_player := _entity_root as Player
+	if is_instance_valid(owner_player):
+		ledger = owner_player.run_ledger_component
 
+	# Configure slot context routing indices (1-4 matching hotbar slots).
+	# Tags first: the stats container reads them while building its initial values.
 	if is_instance_valid(ability.tag_component):
-		ability.tag_component.configure_slot_context(slot_index)
+		ability.tag_component.configure_slot_context(slot_index, ledger)
+
+	if is_instance_valid(ability.stats_container):
+		ability.stats_container.configure_slot_context(slot_index, ledger, ability.tag_component)
+		ability.stats_container.initialize_profile(ability_data.stats_profile)
 
 	# --- UNIFIED STRATEGY CONTRACT HANDOFF ---
 	# Automatically configures spatial query parameters and custom sorting hooks contextually
@@ -128,7 +138,7 @@ func add_infusion_tags_to_ability(slot_index: int, tags_to_add: Array[Tags.Type]
 
 func get_active_abilities() -> Array[Ability]:
 	var ordered_list: Array[Ability] = []
-	for i in range(max_slots):
+	for i in range(MIN_SLOT, MAX_SLOT + 1):
 		if abilities.has(i) and is_instance_valid(abilities[i]):
 			ordered_list.append(abilities[i])
 	return ordered_list

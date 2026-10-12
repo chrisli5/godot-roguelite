@@ -11,7 +11,8 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.stats_container_id = stats.get_instance_id()
 	
 	if is_instance_valid(source_tags):
-		payload.damage_tags = source_tags.get_active_tags()
+		# Copy: the payload outlives this cast and may be mutated by payload drivers.
+		payload.damage_tags = source_tags.get_active_tags().duplicate()
 		
 	if is_instance_valid(stats):
 		var base_damage: float = stats.get_final_stat_value(Stat.Type.BASE_DAMAGE)

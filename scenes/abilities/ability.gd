@@ -53,9 +53,6 @@ func _trigger_ability_delivery() -> void:
 		_start_cooldown_phase()
 		return
 		
-	# Gather our active taxonomy tags to pass down through the layered calculation layers
-	var active_tags := tag_component.get_active_tags() if is_instance_valid(tag_component) else []
-		
 	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
 	if is_instance_valid(data) and data.texture_prefab is Texture2D:
 		running_payload.base_texture = data.texture_prefab
@@ -131,7 +128,7 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 	if is_instance_valid(evolution_gate_component) and data.is_overclock_evolution:
 		evolution_gate_component.is_permanently_overclocked = true
 	
-	if data.slot_index:
+	if data.slot_index >= AbilityContainer.MIN_SLOT:
 		EventBus.ability_modification_completed.emit(data.slot_index)
 			
 	_start_cooldown_phase()
@@ -144,8 +141,8 @@ func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
 	print("[SOCKET] %s successfully registered inside local module layers." % Tags.Type.keys()[element_tag])
 	
 	# Force an immediate stat calculation update pass right now since tags changed
-	if is_instance_valid(stats_container) and is_instance_valid(tag_component):
-		stats_container.get_final_stat_value(Stat.Type.BASE_DAMAGE, tag_component.get_active_tags())
+	if is_instance_valid(stats_container):
+		stats_container.get_final_stat_value(Stat.Type.BASE_DAMAGE)
 
 
 func _setup_cooldown_clock() -> void:
@@ -158,8 +155,8 @@ func _setup_cooldown_clock() -> void:
 
 func _start_cooldown_phase() -> void:
 	var downtime: float = 4.0
-	if is_instance_valid(stats_container) and is_instance_valid(tag_component):
-		downtime = stats_container.get_final_stat_value(Stat.Type.COOLDOWN, tag_component.get_active_tags())
+	if is_instance_valid(stats_container):
+		downtime = stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
 	_cooldown_timer.start(downtime)
 
 
@@ -170,3 +167,22 @@ func _on_delivery_finished() -> void:
 func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
 	if stat_type == Stat.Type.COOLDOWN and is_instance_valid(_cooldown_timer):
 		_cooldown_timer.wait_time = new_value
+
+
+## Runtime state that cannot be rebuilt from AbilityData or the run ledger.
+func export_runtime_state() -> Dictionary:
+	var snapshot: Dictionary = {}
+	if is_instance_valid(infusion_tracker_component):
+		snapshot["infusion_levels"] = infusion_tracker_component.infusion_levels.duplicate()
+	if is_instance_valid(evolution_gate_component):
+		snapshot["evolution_state"] = evolution_gate_component.current_state
+		snapshot["overclocked"] = evolution_gate_component.is_permanently_overclocked
+	return snapshot
+
+
+## Call after the ability has been mounted from its saved AbilityData.
+func import_runtime_state(snapshot: Dictionary) -> void:
+	if is_instance_valid(infusion_tracker_component) and snapshot.has("infusion_levels"):
+		infusion_tracker_component.restore_levels(snapshot["infusion_levels"])
+	if is_instance_valid(evolution_gate_component) and snapshot.has("evolution_state"):
+		evolution_gate_component.restore_state(snapshot["evolution_state"], snapshot.get("overclocked", false))

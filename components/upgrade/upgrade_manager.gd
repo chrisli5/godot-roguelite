@@ -42,24 +42,6 @@ func _try_process_next_level_up() -> void:
 		EventBus.upgrade_options_ready.emit(rolled_options)
 
 
-func trigger_initial_draft_event() -> void:
-	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
-	if not is_instance_valid(current_player):
-		return
-		
-	_is_presenting_ui = true
-	get_tree().paused = true
-	
-	var available_choices: Array[UpgradeChoice] = _generate_initial_ability_pool(current_player)
-	if available_choices.is_empty():
-		get_tree().paused = false
-		_is_presenting_ui = false
-		return
-
-	var rolled_options = _roll_random_subset(available_choices, 3)
-	EventBus.upgrade_options_ready.emit(rolled_options)
-
-
 func trigger_infusion_draft_event() -> void:
 	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
 	if not is_instance_valid(current_player):
@@ -79,26 +61,6 @@ func trigger_infusion_draft_event() -> void:
 	EventBus.upgrade_options_ready.emit(rolled_options)
 
 
-func _generate_initial_ability_pool(_target_player: Player) -> Array[UpgradeChoice]:
-	var ability_pool: Array[UpgradeChoice] = []
-	
-	for profile in master_upgrade_pool:
-		if not is_instance_valid(profile): continue
-		for definition in profile.definition_bundle:
-			if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
-				var choice = UpgradeChoice.new()
-				
-				# Wrap into a dummy template tracker for UI consumption cards
-				var tracker := UpgradeTracker.new()
-				tracker.definition = definition
-				
-				choice.source_tracker = tracker
-				choice.target_slot_index = 0
-				ability_pool.append(choice)
-				
-	return ability_pool
-
-
 func _generate_infusion_pool(target_player: Player) -> Array[UpgradeChoice]:
 	var infusion_pool: Array[UpgradeChoice] = []
 
@@ -106,7 +68,6 @@ func _generate_infusion_pool(target_player: Player) -> Array[UpgradeChoice]:
 		if not is_instance_valid(profile): continue
 		for definition in profile.definition_bundle:
 			if definition.is_infusion():
-				print("infusion")
 				var current_tier = target_player.run_ledger_component.purchase_registry.get(definition.upgrade_id, 0)
 				if current_tier >= profile.total_tiers: continue
 				

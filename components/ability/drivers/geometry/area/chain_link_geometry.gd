@@ -31,7 +31,7 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 	# Extract chain jump stats from dynamic runtime memory banks
 	var stats = instance_from_id(final_payload.stats_container_id)
 	var has_stats := is_instance_valid(stats)
-	var chain_jump_radius: float = stats.get_final_stat_value(Stat.Type.CHAIN_RADIUS, 400.0) if has_stats else 400.0
+	var chain_jump_radius: float = stats.get_final_stat_value(Stat.Type.CHAIN_RADIUS) if has_stats else 400.0
 
 	# Apply damage payload to the primary target
 	initial_target.take_hit(final_payload)

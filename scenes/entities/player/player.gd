@@ -32,7 +32,7 @@ func _ready() -> void:
 		
 	# Synchronize our core stats container context as Slot 0 (Character Core)
 	if is_instance_valid(stats_container):
-		stats_container.configure_slot_context(0)
+		stats_container.configure_slot_context(0, run_ledger_component)
 	
 	collector_component.payload_collected.connect(_on_payload_collected)
 	
@@ -44,6 +44,10 @@ func _ready() -> void:
 					# Seed baseline upgrades as Tier 0 or unlock them based on starting rules
 					pass
 					
+	# Rebuild the run (ledger, level, loadout, health) BEFORE announcing the player,
+	# so every listener sees a fully restored character.
+	_restore_run_state()
+	
 	EventBus.player_spawned.emit(get_instance_id())
 
 
@@ -52,7 +56,66 @@ func _physics_process(_delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	capture_run_state()
 	EventBus.player_despawned.emit()
+
+
+## Writes everything that must outlive this room into RunSession. Room changes free the
+## whole world scene, so this runs as the player leaves the tree.
+func capture_run_state() -> void:
+	if not is_instance_valid(health_component) or not is_instance_valid(run_ledger_component) \
+			or not is_instance_valid(progression_component) or not is_instance_valid(ability_container):
+		return
+	# A dead player never carries over into another room
+	if health_component.current_health <= 0.0:
+		return
+	
+	if RunSession.state == null:
+		RunSession.reset()
+	var snapshot := RunSession.state
+	snapshot.has_player_snapshot = true
+	
+	snapshot.purchase_registry.clear()
+	for upgrade_id in run_ledger_component.purchase_registry:
+		snapshot.purchase_registry[upgrade_id] = run_ledger_component.purchase_registry[upgrade_id]
+	snapshot.active_upgrades.clear()
+	for definition in run_ledger_component.active_upgrades:
+		snapshot.active_upgrades.append(definition)
+	
+	snapshot.level = progression_component.current_level
+	snapshot.current_xp = progression_component.current_xp
+	snapshot.total_accumulated_xp = progression_component.total_accumulated_xp
+	snapshot.current_health = health_component.current_health
+	
+	snapshot.loadout.clear()
+	snapshot.ability_states.clear()
+	for slot_index in ability_container.abilities:
+		var ability: Ability = ability_container.abilities[slot_index]
+		if is_instance_valid(ability) and is_instance_valid(ability.data):
+			snapshot.loadout[slot_index] = ability.data
+			snapshot.ability_states[slot_index] = ability.export_runtime_state()
+
+
+## Rebuilds the saved run onto this freshly spawned player. Order matters: the ledger goes
+## first because core stats and every mounted ability read it while they initialize.
+func _restore_run_state() -> void:
+	if not RunSession.has_player_snapshot():
+		return
+	var snapshot := RunSession.state
+	
+	run_ledger_component.restore_state(snapshot.purchase_registry, snapshot.active_upgrades)
+	stats_container.invalidate_all_caches()
+	
+	progression_component.restore_state(snapshot.level, snapshot.current_xp, snapshot.total_accumulated_xp)
+	
+	for slot_index in snapshot.loadout:
+		var ability := ability_container.add_ability_from_data(snapshot.loadout[slot_index])
+		if is_instance_valid(ability):
+			ability.import_runtime_state(snapshot.ability_states.get(slot_index, {}))
+	
+	# Vitals last: max health depends on the ledger-driven core stats restored above
+	health_component.update_max_health(stats_container.get_final_stat_value(Stat.Type.MAX_HEALTH))
+	health_component.restore_current_health(snapshot.current_health)
 
 
 func _handle_movement_physics() -> void:

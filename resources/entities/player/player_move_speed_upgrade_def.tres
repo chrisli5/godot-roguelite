@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://bqqktk7x7xw6b"]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_71r6h"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_hlvyh"]
+
+[sub_resource type="Resource" id="Resource_l773n"]
+script = ExtResource("2_hlvyh")
+type = 1
+value = 0.5
+target_stat_type = 1
+metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
+
+[resource]
+script = ExtResource("1_71r6h")
+upgrade_id = "player_move_speed"
+display_name = "Player Movement"
+description = "50% increased movement speed"
+stat_modifier_payload = SubResource("Resource_l773n")
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

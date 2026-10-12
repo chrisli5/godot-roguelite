@@ -39,6 +39,12 @@ func set_to_full() -> void:
 	health_changed.emit(current_health, max_health)
 
 
+## Restores a saved life total (clamped to the current maximum). Use after max health is final.
+func restore_current_health(saved_health: float) -> void:
+	current_health = clamp(saved_health, 0.0, max_health)
+	health_changed.emit(current_health, max_health)
+
+
 ## Process health reductions programmatically.
 func take_damage(amount: float) -> void:
 	print(amount)

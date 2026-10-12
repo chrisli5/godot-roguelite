@@ -1,0 +1,33 @@
+[gd_scene load_steps=2 format=3 uid="uid://crhl3tbqxpv1o"]
+
+[ext_resource type="Script" uid="uid://eaapn16vhpym" path="res://ui/debug_console/debug_console.gd" id="1_4s6h8"]
+
+[node name="DebugConsole" type="CanvasLayer" node_paths=PackedStringArray("level_up_button", "upgrades_scroll_container")]
+layer = 100
+script = ExtResource("1_4s6h8")
+level_up_button = NodePath("PanelContainer/VBoxContainer/LevelUpButton")
+upgrades_scroll_container = NodePath("PanelContainer/VBoxContainer/ScrollContainer/UpgradesContainer")
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+layout_mode = 2
+
+[node name="LevelUpButton" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Level Up (100XP)"
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Ingest System Upgrades"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="UpgradesContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ScrollContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2

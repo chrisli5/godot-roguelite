@@ -10,30 +10,36 @@ signal tags_changed(active_tags: Array[Tags.Type])
 var _cached_active_tags: Array[Tags.Type] = []
 var _is_dirty: bool = true
 var _slot_owner_index: int = 0
+var _ledger: RunLedgerComponent = null
 
 
 func _ready() -> void:
 	_cached_active_tags = base_tags.duplicate()
 
 
-func configure_slot_context(slot_idx: int) -> void:
+## `ledger` is the owning player's RunLedger (null for ledger-less owners such as enemies).
+func configure_slot_context(slot_idx: int, ledger: RunLedgerComponent = null) -> void:
 	_slot_owner_index = slot_idx
-	_connect_to_ledger_broadcast()
-
-
-func _connect_to_ledger_broadcast() -> void:
-	var current_player = instance_from_id(EventBus.active_player_instance_id) as Player
-	if is_instance_valid(current_player) and is_instance_valid(current_player.run_ledger_component):
-		current_player.run_ledger_component.stats_invalidated.connect(_on_stats_invalidated)
+	if is_instance_valid(_ledger) and _ledger != ledger:
+		if _ledger.stats_invalidated.is_connected(_on_stats_invalidated):
+			_ledger.stats_invalidated.disconnect(_on_stats_invalidated)
+	_ledger = ledger
+	if is_instance_valid(_ledger) and not _ledger.stats_invalidated.is_connected(_on_stats_invalidated):
+		_ledger.stats_invalidated.connect(_on_stats_invalidated)
+	# Slot/ledger changed, so anything compiled earlier is stale.
+	_is_dirty = true
 
 
 ## THE LAZY TAXONOMY ENGINE: 
 ## 99.9% of the time, this returns a pre-compiled array cleanly out of RAM.
 ## It updates exactly ONCE the next time an engine system or driver queries it.
+## The returned array is the live cache: treat it as READ-ONLY. It is safe to hold a
+## reference across recompiles because _recompile_tags() always builds a NEW array.
+## Callers that intend to mutate the result must duplicate() it themselves.
 func get_active_tags() -> Array[Tags.Type]:
 	if _is_dirty:
 		_recompile_tags()
-	return _cached_active_tags.duplicate()
+	return _cached_active_tags
 
 
 func has_tag(tag_type: Tags.Type) -> bool:
@@ -47,9 +53,8 @@ func _recompile_tags() -> void:
 	_cached_active_tags = base_tags.duplicate()
 	
 	# LAYER 2: Pull dynamic upgrades from the player's centralized ledger vault
-	var current_player = instance_from_id(EventBus.active_player_instance_id) as Player
-	if is_instance_valid(current_player) and is_instance_valid(current_player.run_ledger_component):
-		var ledger = current_player.run_ledger_component
+	if is_instance_valid(_ledger):
+		var ledger := _ledger
 		
 		for def in ledger.active_upgrades:
 			if def.is_infusion():

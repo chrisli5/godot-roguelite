@@ -5,33 +5,40 @@ signal stat_updated(stat_type: Stat.Type, new_value: float)
 
 var stats: Dictionary[Stat.Type, Stat] = {}
 var _slot_owner_index: int = 0
-var _cached_tags: Array[Tags.Type] = []
+## Owner's RunLedger. Stays null for ledger-less owners (enemies), which therefore
+## never receive the player's upgrade bonuses.
+var _ledger: RunLedgerComponent = null
+## Source of the live tag set used for tag-scoped upgrades (null for the player core).
+var _tag_component: TagComponent = null
 
 
-func configure_slot_context(slot_idx: int) -> void:
+func configure_slot_context(slot_idx: int, ledger: RunLedgerComponent = null, tag_component: TagComponent = null) -> void:
 	_slot_owner_index = slot_idx
-	_connect_to_ledger_broadcast()
+	_tag_component = tag_component
 
+	if is_instance_valid(_ledger) and _ledger != ledger:
+		if _ledger.stats_invalidated.is_connected(_on_stats_invalidated):
+			_ledger.stats_invalidated.disconnect(_on_stats_invalidated)
+	_ledger = ledger
+	if is_instance_valid(_ledger) and not _ledger.stats_invalidated.is_connected(_on_stats_invalidated):
+		_ledger.stats_invalidated.connect(_on_stats_invalidated)
 
-func _connect_to_ledger_broadcast() -> void:
-	var current_player = instance_from_id(EventBus.active_player_instance_id) as Player
-	if is_instance_valid(current_player) and is_instance_valid(current_player.run_ledger_component):
-		current_player.run_ledger_component.stats_invalidated.connect(_on_stats_invalidated)
+	# Anything calculated before the ledger/tags were known is stale.
+	invalidate_all_caches()
 
 
 ## THE LAZY READ GATING ENGINE:
 ## Performs a true O(1) float read 99.9% of the time out of primitive RAM.
 ## Recalculates ONLY on the frame pass where the cache was flagged as dirty.
-func get_final_stat_value(stat_type: Stat.Type, active_tags: Array[Tags.Type] = []) -> float:
+## Tags are no longer passed in: the container reads them from its own TagComponent.
+func get_final_stat_value(stat_type: Stat.Type) -> float:
 	var tracking_stat := stats.get(stat_type, null) as Stat
 	if not tracking_stat:
 		return 0.0
-		
-	_cached_tags = active_tags
-	
+
 	if tracking_stat.is_dirty:
 		_calculate_stat(stat_type)
-		
+
 	return tracking_stat.current_value
 
 
@@ -43,7 +50,18 @@ func invalidate_all_caches() -> void:
 
 ## REACTIVELY TOGGLES FLAGS INSTANTLY WITHOUT RUNNING HEAVY BACKGROUND MATH
 func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
-	if not is_instance_valid(definition) or not is_instance_valid(definition.stat_modifier_payload): 
+	if not is_instance_valid(definition):
+		return
+
+	# Infusions change a lane's TAGS rather than a single stat, which can switch
+	# tag-scoped upgrades on or off for any stat on that lane.
+	if definition.is_infusion():
+		if _slot_owner_index > 0 and is_instance_valid(_ledger) \
+				and _ledger.purchase_registry.has("%s::slot_%d" % [definition.upgrade_id, _slot_owner_index]):
+			invalidate_all_caches()
+		return
+
+	if not is_instance_valid(definition.stat_modifier_payload): 
 		return
 		
 	var target_stat := definition.stat_modifier_payload.target_stat_type
@@ -84,21 +102,14 @@ func _calculate_stat(stat_type: Stat.Type) -> void:
 	var tracking_stat := stats[stat_type]
 	var calculated_baseline := tracking_stat.base_value
 	
-	var current_player = instance_from_id(EventBus.active_player_instance_id) as Player
-	if is_instance_valid(current_player) and is_instance_valid(current_player.run_ledger_component):
-		var ledger_modifiers = current_player.run_ledger_component.compile_modifiers_for_weapon(_slot_owner_index, _cached_tags)
-		
-		var flat_progression := calculated_baseline
-		var percent_progression := 0.0
-		
-		for mod in ledger_modifiers:
-			if mod.target_stat_type == stat_type:
-				if mod.type == StatModifier.Type.FLAT:
-					flat_progression += mod.value
-				elif mod.type == StatModifier.Type.PERCENT:
-					percent_progression += mod.value
-					
-		calculated_baseline = flat_progression * (1.0 + percent_progression)
+	if is_instance_valid(_ledger):
+		var active_tags: Array[Tags.Type] = []
+		if is_instance_valid(_tag_component):
+			active_tags = _tag_component.get_active_tags()
+
+		# Vector2(flat_sum, percent_sum): no temporary modifier resources are created.
+		var totals := _ledger.get_modifier_totals(_slot_owner_index, active_tags, stat_type)
+		calculated_baseline = (calculated_baseline + totals.x) * (1.0 + totals.y)
 
 	var final_computed_value = tracking_stat.recalculate_runtime_value(calculated_baseline)
 	

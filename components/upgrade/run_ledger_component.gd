@@ -37,43 +37,62 @@ func log_slot_specific_purchase(definition: UpgradeDefinition, chosen_slot_idx: 
 	ui_inventory_updated.emit()
 	stats_invalidated.emit(definition)
 
-## MASTER EVALUATOR: Compiles dynamically scaled runtime modifiers matching 
-## a specific weapon's hotbar slot context index and live taxonomy tags array.
-func compile_modifiers_for_weapon(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[StatModifier]:
-	var compiled_list: Array[StatModifier] = []
-	
+## Allocation-free modifier aggregation for ONE stat on ONE hotbar slot.
+## Returns Vector2(flat_sum, percent_sum). Slot 0 is the Character Core.
+func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_type: Stat.Type) -> Vector2:
+	var flat_sum := 0.0
+	var percent_sum := 0.0
+
 	for def in active_upgrades:
-		# --- LAYER A: CHECK FOR OPEN-ENDED SLOT-SPECIFIC INFUSIONS ---
-		var specialized_id := "%s::slot_%d" % [def.upgrade_id, slot_index]
-		var tier = 0
-		var is_eligible := false
-		
-		if purchase_registry.has(specialized_id):
-			tier = purchase_registry[specialized_id]
-			is_eligible = true
-		else:
-			# --- LAYER B: FALLBACK TO STANDARD FIXED SCOPE EVALUATION ---
-			tier = purchase_registry.get(def.upgrade_id, 0)
-			if tier > 0:
-				match def.scope:
-					UpgradeDefinition.ScopeType.LOCAL_SLOT:
-						if def.restrict_to_slot == slot_index:
-							is_eligible = true
-					UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
-						for required_tag in def.target_tags:
-							if weapon_tags.has(required_tag):
-								is_eligible = true
-								break
-								
-		# If any architectural tier evaluation matches out, append the scaled modifier block
-		if is_eligible and tier > 0 and is_instance_valid(def.stat_modifier_payload):
-			var runtime_mod: StatModifier = def.stat_modifier_payload.duplicate()
-			runtime_mod.value = def.stat_modifier_payload.value * tier
-			
-			# Generate a deterministic unique ID based on the resolved registry key namespace
-			var resolved_id := specialized_id if purchase_registry.has(specialized_id) else def.upgrade_id
-			runtime_mod.id = "ledger::" + resolved_id
-			
-			compiled_list.append(runtime_mod)
-			
-	return compiled_list
+		var payload := def.stat_modifier_payload
+		if payload == null or payload.target_stat_type != stat_type:
+			continue
+
+		var tier := _resolve_tier(def, slot_index, weapon_tags)
+		if tier <= 0:
+			continue
+
+		if payload.type == StatModifier.Type.FLAT:
+			flat_sum += payload.value * tier
+		elif payload.type == StatModifier.Type.PERCENT:
+			percent_sum += payload.value * tier
+
+	return Vector2(flat_sum, percent_sum)
+
+
+## Returns how many tiers of `def` apply to this slot (0 = not eligible).
+func _resolve_tier(def: UpgradeDefinition, slot_index: int, weapon_tags: Array[Tags.Type]) -> int:
+	# LAYER A: slot-specific purchases (e.g. infusions) always win for their own lane
+	var slot_key := "%s::slot_%d" % [def.upgrade_id, slot_index]
+	if purchase_registry.has(slot_key):
+		return purchase_registry[slot_key]
+
+	# LAYER B: standard purchases, filtered by the definition's scope
+	var tier: int = purchase_registry.get(def.upgrade_id, 0)
+	if tier <= 0:
+		return 0
+
+	match def.scope:
+		UpgradeDefinition.ScopeType.CHARACTER_CORE:
+			return tier if slot_index == 0 else 0
+		UpgradeDefinition.ScopeType.LOCAL_SLOT:
+			return tier if def.restrict_to_slot == slot_index else 0
+		UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
+			for required_tag in def.target_tags:
+				if weapon_tags.has(required_tag):
+					return tier
+	return 0
+
+
+## Replaces the ledger contents with a saved run (used when a new room spawns the player).
+## Deliberately silent: restoring must not replay purchase side effects or unlock logic.
+func restore_state(saved_registry: Dictionary, saved_upgrades: Array) -> void:
+	purchase_registry.clear()
+	for upgrade_id in saved_registry:
+		purchase_registry[upgrade_id] = int(saved_registry[upgrade_id])
+
+	active_upgrades.clear()
+	for definition in saved_upgrades:
+		active_upgrades.append(definition)
+
+	ui_inventory_updated.emit()

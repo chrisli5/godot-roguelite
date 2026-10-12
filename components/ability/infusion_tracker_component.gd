@@ -55,3 +55,9 @@ func is_element_socket_allowed(selected_element: Tags.Type, state: EvolutionGate
 			return current_element_level < INFUSION_SOFT_CAP_T2
 	
 	return true
+
+
+func restore_levels(saved_levels: Array) -> void:
+	for i in range(mini(saved_levels.size(), infusion_levels.size())):
+		infusion_levels[i] = int(saved_levels[i])
+	_recalculate_totals()

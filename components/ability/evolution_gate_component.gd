@@ -69,3 +69,8 @@ func advance_evolution_state() -> void:
 		current_state = EvolutionState.TIER_2_EVOLVED
 	elif current_state == EvolutionState.TIER_2_EVOLVED:
 		current_state = EvolutionState.TIER_3_APEX
+
+
+func restore_state(saved_state: EvolutionState, overclocked: bool) -> void:
+	current_state = saved_state
+	is_permanently_overclocked = overclocked

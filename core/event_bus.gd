@@ -27,6 +27,7 @@ var active_player_instance_id: int = 0
 
 func _ready() -> void:
 	player_spawned.connect(_on_player_spawned)
+	player_despawned.connect(_on_player_despawned)
 
 func _on_player_spawned(instance_id: int):
 	active_player_instance_id = instance_id

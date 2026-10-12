@@ -13,7 +13,3 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 	_spawn_scatter_projectiles(origin, target_direction, 0, payload)
 	
 	delivery_finished.emit()
-
-
-func requires_spatial_query() -> bool:
-	return false

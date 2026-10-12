@@ -35,3 +35,11 @@ func _evaluate_progression_loop() -> void:
 		EventBus.player_leveled_up.emit(current_level)
 		# Fetch next evaluation target tier ceiling dynamically
 		required_xp = thresholds_profile.get_required_xp_for_level(current_level + 1)
+
+
+## Restores saved progress without firing level-up events (those drafts were already resolved).
+func restore_state(saved_level: int, saved_xp: float, saved_total_xp: float) -> void:
+	current_level = maxi(1, saved_level)
+	current_xp = saved_xp
+	total_accumulated_xp = saved_total_xp
+	experience_gained.emit(0.0, current_xp)

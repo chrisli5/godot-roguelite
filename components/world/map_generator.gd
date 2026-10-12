@@ -39,6 +39,8 @@ func _on_new_run_started(act_config: ActConfiguration) -> void:
 
 
 func _clear_previous_run_data() -> void:
+	# A new run starts with no carried-over player state
+	RunSession.reset()
 	_current_run_graph.clear()
 	_completed_rooms.clear()
 	_active_room_id = ""
