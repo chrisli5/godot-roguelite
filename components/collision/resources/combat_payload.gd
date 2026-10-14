@@ -10,6 +10,10 @@ extends Resource
 @export_group("Static Status Integration")
 ## Status effects that this hit applies to the target on impact
 @export var status_effects_to_apply: Array[StatusEffect] = []
+## Source DOT_DAMAGE (damage per second) snapshotted when the hit was generated.
+@export var dot_damage_snapshot: float = 0.0
+## Source STATUS_DURATION (seconds added to an effect's base duration), snapshotted likewise.
+@export var status_duration_snapshot: float = 0.0
 
 @export_group("Dynamic Strategy Core Targets")
 ## Injected by the spawning Ability: Points to the live Enemy Node2D locked by the hotbar strategy

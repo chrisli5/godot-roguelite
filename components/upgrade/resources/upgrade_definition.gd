@@ -2,7 +2,8 @@
 class_name UpgradeDefinition
 extends Resource
 
-enum PayloadType { STAT_MODIFIER, ABILITY_UNLOCK }
+## Append-only: stored as integers in .tres files.
+enum PayloadType { STAT_MODIFIER, ABILITY_UNLOCK, ABILITY_OVERCLOCK }
 
 enum ScopeType {
 	CHARACTER_CORE,    # Targets player baseline character stats (e.g., Max Health, Move Speed)
@@ -27,6 +28,16 @@ enum ScopeType {
 @export var payload_type: PayloadType = PayloadType.STAT_MODIFIER
 @export var stat_modifier_payload: StatModifier
 @export var ability_data_payload: AbilityData
+## Optional status applied by hits from abilities this card applies to. Independent of payload_type,
+## so a card can carry a stat modifier and a status together.
+@export var status_effect_payload: StatusEffect
+
+@export_group("Evolution Gating")
+## Only used by ABILITY_UNLOCK cards that are evolutions: the base ability this card evolves.
+## Null for ordinary unlocks (which are drafted normally).
+@export var evolves_from: AbilityData
+## Elements that must all be at the current soft cap for this evolution to be offered.
+@export var recipe_requirements: Array[Tags.Type] = []
 
 
 ## Helper utility checking if this card behaves as an elemental socket infusion

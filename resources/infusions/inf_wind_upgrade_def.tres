@@ -1,11 +1,21 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3 uid="uid://cfa2o0pm6bmib"]
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://cfa2o0pm6bmib"]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_6g077"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_windmod"]
+
+[sub_resource type="Resource" id="Resource_windmod"]
+script = ExtResource("2_windmod")
+type = 1
+value = 0.1
+target_stat_type = 13
+metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 
 [resource]
 script = ExtResource("1_6g077")
 upgrade_id = "inf_wind"
 display_name = "Wind Infusion"
 description = "Wind"
+scope = 1
 target_tags = Array[int]([12])
+stat_modifier_payload = SubResource("Resource_windmod")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

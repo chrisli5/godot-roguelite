@@ -78,6 +78,12 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 		return
 	data = new_data
 
+	# AbilityData.structural_tags is the source of truth for this ability's base (identity) tags.
+	if new_data.structural_tags.is_empty():
+		push_warning("Ability '%s': structural_tags is empty, base tags were left unchanged." % new_data.display_name)
+	elif is_instance_valid(tag_component):
+		tag_component.set_base_tags(new_data.structural_tags)
+
 	# Wiped out local ledger initialization blocks completely!
 	spatial_query_component.reset_to_defaults()
 	
@@ -124,6 +130,10 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 	
 	if data.stats_profile and is_instance_valid(stats_container):
 		stats_container.mutate_base_profile(data.stats_profile)
+
+	# Changed base tags can switch tag-scoped (GLOBAL_TAG_MATCH) upgrades on or off.
+	if is_instance_valid(stats_container):
+		stats_container.invalidate_all_caches()
 
 	if is_instance_valid(evolution_gate_component) and data.is_overclock_evolution:
 		evolution_gate_component.is_permanently_overclocked = true

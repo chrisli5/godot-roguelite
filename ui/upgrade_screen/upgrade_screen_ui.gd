@@ -22,6 +22,15 @@ func _ready() -> void:
 func _on_upgrade_options_presented(options: Array[UpgradeChoice]) -> void:
 	if not is_instance_valid(cards_container) or not is_instance_valid(card_scene):
 		return
+	
+	# Forced offers (evolution / Overclock) cannot be rerolled
+	if is_instance_valid(reroll_button):
+		var has_forced_offer := false
+		for choice in options:
+			if choice.is_forced_offer:
+				has_forced_offer = true
+				break
+		reroll_button.visible = not has_forced_offer
 		
 	# Clear out old card frames from previous level-up cycles
 	for child in cards_container.get_children():

@@ -129,13 +129,6 @@ func remove_stat_modifier_from_slot(slot_index: int, modifier: StatModifier) -> 
 	ability.stats_container.remove_modifier(modifier)
 
 
-func add_infusion_tags_to_ability(slot_index: int, tags_to_add: Array[Tags.Type]) -> void:
-	var ability = get_ability_by_slot(slot_index)
-	if is_instance_valid(ability) and is_instance_valid(ability.tag_component):
-		for tag in tags_to_add:
-			ability.tag_component.add_tag(tag)
-
-
 func get_active_abilities() -> Array[Ability]:
 	var ordered_list: Array[Ability] = []
 	for i in range(MIN_SLOT, MAX_SLOT + 1):

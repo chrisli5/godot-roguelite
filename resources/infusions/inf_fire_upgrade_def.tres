@@ -1,6 +1,14 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3 uid="uid://jpclcuxcoxsp"]
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://jpclcuxcoxsp"]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_usa74"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_firemod"]
+[ext_resource type="Resource" path="res://resources/status_effects/burn.tres" id="3_burn"]
+
+[sub_resource type="Resource" id="Resource_firemod"]
+script = ExtResource("2_firemod")
+value = 2.0
+target_stat_type = 17
+metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 
 [resource]
 script = ExtResource("1_usa74")
@@ -9,4 +17,6 @@ display_name = "Fire Infusion"
 description = "Adds fire infusion to selected ability."
 scope = 1
 target_tags = Array[int]([9])
+stat_modifier_payload = SubResource("Resource_firemod")
+status_effect_payload = ExtResource("3_burn")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

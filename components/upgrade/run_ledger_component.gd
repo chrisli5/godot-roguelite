@@ -38,10 +38,13 @@ func log_slot_specific_purchase(definition: UpgradeDefinition, chosen_slot_idx: 
 	stats_invalidated.emit(definition)
 
 ## Allocation-free modifier aggregation for ONE stat on ONE hotbar slot.
-## Returns Vector2(flat_sum, percent_sum). Slot 0 is the Character Core.
-func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_type: Stat.Type) -> Vector2:
+## Returns Vector3(flat_sum, percent_sum, multiplicative_product). Slot 0 is the Character Core.
+## The multiplicative product starts at 1.0 and multiplies (1 + value)^tier per upgrade.
+## Final stat formula: (base + flat) * (1 + percent) * multiplicative.
+func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_type: Stat.Type) -> Vector3:
 	var flat_sum := 0.0
 	var percent_sum := 0.0
+	var multiplicative_product := 1.0
 
 	for def in active_upgrades:
 		var payload := def.stat_modifier_payload
@@ -56,8 +59,34 @@ func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_ty
 			flat_sum += payload.value * tier
 		elif payload.type == StatModifier.Type.PERCENT:
 			percent_sum += payload.value * tier
+		elif payload.type == StatModifier.Type.MULTIPLICATIVE:
+			multiplicative_product *= pow(1.0 + payload.value, tier)
 
-	return Vector2(flat_sum, percent_sum)
+	return Vector3(flat_sum, percent_sum, multiplicative_product)
+
+
+## Status effects carried by the upgrades that apply to this slot, in purchase order.
+## A card only needs to be present (tier > 0); extra copies add nothing. Deduplicated by
+## effect_id, first wins.
+func get_status_effects(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[StatusEffect]:
+	var effects: Array[StatusEffect] = []
+
+	for def in active_upgrades:
+		var status := def.status_effect_payload
+		if status == null:
+			continue
+		if _resolve_tier(def, slot_index, weapon_tags) <= 0:
+			continue
+
+		var already_present := false
+		for existing in effects:
+			if existing.effect_id == status.effect_id:
+				already_present = true
+				break
+		if not already_present:
+			effects.append(status)
+
+	return effects
 
 
 ## Returns how many tiers of `def` apply to this slot (0 = not eligible).

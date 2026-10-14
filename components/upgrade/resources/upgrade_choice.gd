@@ -6,6 +6,8 @@ var source_tracker: UpgradeTracker
 var target_slot_index: int = 0
 ## The scannable category name of the target being upgraded (e.g., "Character Core", "Arcane Missile").
 var target_display_name: String = ""
+## Forced offers (evolution / Overclock) are presented without reroll and cannot be declined.
+var is_forced_offer: bool = false
 
 var definition: UpgradeDefinition:
 	get:

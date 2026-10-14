@@ -29,6 +29,11 @@ enum Type {
 	ON_DASH,
 	DOT,
 	CROWD_CONTROL,
+
+	# Temporary state tags granted by status effects (append-only)
+	BURNING,
+	CHILLED,
+	FROZEN,
 }
 
 ## UNIVERSAL TRANSLATOR INDEX MAPPER

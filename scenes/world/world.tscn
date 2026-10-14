@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://s03l0k7sk2u2"]
+[gd_scene load_steps=25 format=3 uid="uid://s03l0k7sk2u2"]
 
 [ext_resource type="Script" uid="uid://o5dxkbwae0sh" path="res://scenes/world/world_manager.gd" id="1_nc0nk"]
 [ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_ujq7m"]
@@ -21,6 +21,9 @@
 [ext_resource type="Script" uid="uid://daslngsr5de1l" path="res://components/utility/debug_player_respawn.gd" id="12_tytul"]
 [ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="15_wbwoo"]
 [ext_resource type="PackedScene" uid="uid://crhl3tbqxpv1o" path="res://ui/debug_console/debug_console.tscn" id="20_tytul"]
+[ext_resource type="Resource" path="res://resources/status_effects/burn.tres" id="dbg_burn"]
+[ext_resource type="Resource" path="res://resources/status_effects/chill.tres" id="dbg_chill"]
+[ext_resource type="Script" uid="uid://dp2fxs8j366iu" path="res://components/utility/debug_status_trigger.gd" id="dbg_status_script"]
 
 [node name="World" type="Node2D" node_paths=PackedStringArray("player_spawner", "enemy_spawner", "entities_container", "projectiles_container", "pickups_container")]
 script = ExtResource("1_nc0nk")
@@ -39,6 +42,11 @@ master_upgrade_pool = Array[ExtResource("3_mxkvs")]([ExtResource("4_71ii3"), Ext
 [node name="DebugInfusionTrigger" type="Node" parent="SystemControllers" node_paths=PackedStringArray("upgrade_manager")]
 script = ExtResource("3_j2gmx")
 upgrade_manager = NodePath("../UpgradeManager")
+
+[node name="DebugStatusTrigger" type="Node" parent="SystemControllers"]
+script = ExtResource("dbg_status_script")
+burn_effect = ExtResource("dbg_burn")
+chill_effect = ExtResource("dbg_chill")
 
 [node name="EnemySpawner" type="Node" parent="SystemControllers"]
 script = ExtResource("4_gb53w")

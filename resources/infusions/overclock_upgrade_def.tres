@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+upgrade_id = "overclock"
+display_name = "Overclock"
+description = "Permanently raises this ability's infusion cap to 15. It can no longer evolve."
+payload_type = 2
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

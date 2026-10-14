@@ -138,6 +138,14 @@ func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 	if not is_instance_valid(definition): 
 		return
 		
+	# --- OVERCLOCK: permanently raises one ability's infusion cap (never falls through to log_purchase) ---
+	if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK and choice.target_slot_index > 0:
+		run_ledger_component.log_slot_specific_purchase(definition, choice.target_slot_index)
+		var overclocked_ability := ability_container.get_ability_by_slot(choice.target_slot_index)
+		if is_instance_valid(overclocked_ability) and is_instance_valid(overclocked_ability.evolution_gate_component):
+			overclocked_ability.evolution_gate_component.is_permanently_overclocked = true
+		return
+
 	# --- INTELLIGENT OVERLOAD ROUTING PASS ---
 	if choice.is_infusion and choice.target_slot_index > 0:
 		# Scenario A: Player-allocated elemental socket card.

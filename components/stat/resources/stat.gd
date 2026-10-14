@@ -26,6 +26,9 @@ enum Type {
 	
 	PROJECTILE_AMOUNT,
 	MAX_TARGETS,
+
+	DOT_DAMAGE, ## Damage per second of a damage-over-time effect. Never derived from BASE_DAMAGE.
+	STATUS_DURATION,
 }
 
 @export var type: Type = Type.MAX_HEALTH
@@ -58,14 +61,17 @@ func remove_transient_modifier(modifier_id: String) -> void:
 func recalculate_runtime_value(ledger_progression_value: float) -> float:
 	var flat_total: float = ledger_progression_value
 	var percent_total: float = 0.0
-	
+	var multiplicative_total: float = 1.0
+
 	for modifier in transient_modifiers:
 		if modifier.type == StatModifier.Type.FLAT:
 			flat_total += modifier.value
 		elif modifier.type == StatModifier.Type.PERCENT:
 			percent_total += modifier.value
-	
-	var final_value: float = flat_total * (1.0 + percent_total)
+		elif modifier.type == StatModifier.Type.MULTIPLICATIVE:
+			multiplicative_total *= 1.0 + modifier.value
+
+	var final_value: float = flat_total * (1.0 + percent_total) * multiplicative_total
 	current_value = clamp(final_value, 0.0, 9999.0)
 	
 	is_dirty = false # Cache is now clean!

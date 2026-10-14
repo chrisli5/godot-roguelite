@@ -1,11 +1,20 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=2 format=3 uid="uid://5vbvwd2j3uhu"]
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://5vbvwd2j3uhu"]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_l6x1w"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_lightmod"]
+
+[sub_resource type="Resource" id="Resource_lightmod"]
+script = ExtResource("2_lightmod")
+value = 0.03
+target_stat_type = 6
+metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 
 [resource]
 script = ExtResource("1_l6x1w")
 upgrade_id = "inf_lightning"
 display_name = "Lightning Infusion"
 description = "Lightning"
+scope = 1
 target_tags = Array[int]([11])
+stat_modifier_payload = SubResource("Resource_lightmod")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

@@ -11,6 +11,9 @@ var _cached_active_tags: Array[Tags.Type] = []
 var _is_dirty: bool = true
 var _slot_owner_index: int = 0
 var _ledger: RunLedgerComponent = null
+## Reference counts for temporary tags (e.g. from status effects), so overlapping sources
+## cannot strip each other's tags.
+var _temporary_tag_counts: Dictionary[Tags.Type, int] = {}
 
 
 func _ready() -> void:
@@ -48,6 +51,28 @@ func has_tag(tag_type: Tags.Type) -> bool:
 	return _cached_active_tags.has(tag_type)
 
 
+## Replaces the permanent identity tags (layer 1). Infusion and temporary tags are untouched.
+func set_base_tags(tags: Array[Tags.Type]) -> void:
+	base_tags = tags.duplicate()
+	_is_dirty = true
+
+
+## Grants a tag until every matching remove_temporary_tag() call has been made.
+func add_temporary_tag(tag_type: Tags.Type) -> void:
+	_temporary_tag_counts[tag_type] = _temporary_tag_counts.get(tag_type, 0) + 1
+	_is_dirty = true
+
+
+## Releases one reference to a temporary tag. The tag disappears when the last reference is released.
+func remove_temporary_tag(tag_type: Tags.Type) -> void:
+	var remaining: int = _temporary_tag_counts.get(tag_type, 0) - 1
+	if remaining > 0:
+		_temporary_tag_counts[tag_type] = remaining
+	else:
+		_temporary_tag_counts.erase(tag_type)
+	_is_dirty = true
+
+
 func _recompile_tags() -> void:
 	# LAYER 1: Re-seed the baseline designer identity tags from the current weapon blueprint
 	_cached_active_tags = base_tags.duplicate()
@@ -70,6 +95,11 @@ func _recompile_tags() -> void:
 						if not _cached_active_tags.has(tag):
 							_cached_active_tags.append(tag)
 							
+	# LAYER 3: Temporary tags (status effects) with at least one live reference
+	for temp_tag in _temporary_tag_counts:
+		if not _cached_active_tags.has(temp_tag):
+			_cached_active_tags.append(temp_tag)
+
 	_is_dirty = false
 	tags_changed.emit(_cached_active_tags)
 

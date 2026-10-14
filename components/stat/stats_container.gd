@@ -107,15 +107,28 @@ func _calculate_stat(stat_type: Stat.Type) -> void:
 		if is_instance_valid(_tag_component):
 			active_tags = _tag_component.get_active_tags()
 
-		# Vector2(flat_sum, percent_sum): no temporary modifier resources are created.
+		# Vector3(flat_sum, percent_sum, multiplicative_product): no temporary modifier resources are created.
 		var totals := _ledger.get_modifier_totals(_slot_owner_index, active_tags, stat_type)
-		calculated_baseline = (calculated_baseline + totals.x) * (1.0 + totals.y)
+		calculated_baseline = (calculated_baseline + totals.x) * (1.0 + totals.y) * totals.z
 
 	var final_computed_value = tracking_stat.recalculate_runtime_value(calculated_baseline)
 	
 	# THE CENTRALIZED SIGNAL EMISSION PASS:
 	# Fired uniformly right here whenever numbers are recalculated from the ground up!
 	stat_updated.emit(stat_type, final_computed_value)
+
+
+## Status effects granted to this container's slot by the owner's upgrades.
+## Empty for ledger-less owners (enemies). Tags come from the container's own TagComponent.
+func get_status_effects() -> Array[StatusEffect]:
+	if not is_instance_valid(_ledger):
+		return []
+
+	var active_tags: Array[Tags.Type] = []
+	if is_instance_valid(_tag_component):
+		active_tags = _tag_component.get_active_tags()
+
+	return _ledger.get_status_effects(_slot_owner_index, active_tags)
 
 
 # --- REAL-TIME COMBAT INTERFACES (Autonomous, single-argument API signatures) ---

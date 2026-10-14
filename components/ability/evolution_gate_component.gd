@@ -9,59 +9,85 @@ var current_state: EvolutionState = EvolutionState.TIER_1_BASE
 var is_permanently_overclocked: bool = false
 
 
-## Refactored: Evaluates hand-crafted unlock recipes strictly from definitions rather than local trackers
-func evaluate_evolution_recipes(
-	available_definitions: Array[UpgradeDefinition], 
-	infusion_levels: Array[int], 
-	active_tags: Array[Tags.Type]
-) -> Array[UpgradeDefinition]:
-	
-	var eligible_evos: Array[UpgradeDefinition] = []
-	if is_permanently_overclocked:
-		return eligible_evos
+## Soft cap per element for the current state (tier 1 = 3, later tiers = 5).
+func _get_soft_cap_ceiling() -> int:
+	if current_state == EvolutionState.TIER_1_BASE:
+		return InfusionTrackerComponent.INFUSION_SOFT_CAP_T1
+	return InfusionTrackerComponent.INFUSION_SOFT_CAP_T2
 
-	# --- STEP 1: CALCULATE ACTIVE ELEMENT METRICS ---
+
+## True once enough elements are active and at the soft cap to unlock the next step.
+## Tier 1: 2 active and 2 at level 3+. Tier 2: 3 active and 3 at level 5+. Tier 3: never.
+func has_reached_soft_cap_milestone(infusion_levels: Array[int]) -> bool:
 	var active_socket_count: int = 0
 	var elements_at_soft_cap_count: int = 0
-	
-	var current_soft_cap_ceiling = 3 if current_state == EvolutionState.TIER_1_BASE else 5
-	
+	var ceiling := _get_soft_cap_ceiling()
+
 	for level in infusion_levels:
 		if level > 0:
 			active_socket_count += 1
-			if level >= current_soft_cap_ceiling:
+			if level >= ceiling:
 				elements_at_soft_cap_count += 1
 
-	# --- STEP 2: VERIFY SOFT LEVEL CAP THRESHOLDS ---
-	var reached_soft_cap_milestone = false
 	match current_state:
 		EvolutionState.TIER_1_BASE:
-			if active_socket_count >= 2 and elements_at_soft_cap_count >= 2:
-				reached_soft_cap_milestone = true
+			return active_socket_count >= 2 and elements_at_soft_cap_count >= 2
 		EvolutionState.TIER_2_EVOLVED:
-			if active_socket_count >= 3 and elements_at_soft_cap_count >= 3:
-				reached_soft_cap_milestone = true
+			return active_socket_count >= 3 and elements_at_soft_cap_count >= 3
+	return false
 
-	if not reached_soft_cap_milestone:
+
+## True if this ability should currently be offered an evolution / Overclock choice.
+func is_offer_eligible(infusion_levels: Array[int]) -> bool:
+	return not is_permanently_overclocked and has_reached_soft_cap_milestone(infusion_levels)
+
+
+## True if every element in `recipe` is at or above the current soft cap. An empty recipe never matches.
+## A recipe may name fewer elements than are active.
+func meets_recipe(recipe: Array[Tags.Type], infusion_levels: Array[int]) -> bool:
+	if recipe.is_empty():
+		return false
+
+	var ceiling := _get_soft_cap_ceiling()
+	for element in recipe:
+		var element_index := Tags.get_index_from_element(element)
+		if element_index == -1 or element_index >= infusion_levels.size():
+			return false
+		if infusion_levels[element_index] < ceiling:
+			return false
+	return true
+
+
+## Evolution cards (ABILITY_UNLOCK with evolves_from) that evolve `ability_data` and whose recipe is met.
+## Returns nothing unless this ability is currently offer-eligible.
+func evaluate_evolution_recipes(
+	available_definitions: Array[UpgradeDefinition],
+	infusion_levels: Array[int],
+	ability_data: AbilityData
+) -> Array[UpgradeDefinition]:
+	var eligible_evos: Array[UpgradeDefinition] = []
+	if not is_offer_eligible(infusion_levels):
 		return eligible_evos
 
-	# --- STEP 3: CATEGORIZED RECIPE PATTERN MATCHING ---
 	for definition in available_definitions:
 		if not is_instance_valid(definition) or definition.payload_type != UpgradeDefinition.PayloadType.ABILITY_UNLOCK:
 			continue
-
-		var recipe_satisfied = true
-		for required_tag in definition.recipe_requirements:
-			if not active_tags.has(required_tag):
-				recipe_satisfied = false
-				break
-				
-		if not recipe_satisfied: 
+		if not _is_same_ability_data(definition.evolves_from, ability_data):
 			continue
-
+		if not meets_recipe(definition.recipe_requirements, infusion_levels):
+			continue
 		eligible_evos.append(definition)
-			
+
 	return eligible_evos
+
+
+## Same resource by path when both have one, otherwise by identity. Null never matches.
+func _is_same_ability_data(a: AbilityData, b: AbilityData) -> bool:
+	if a == null or b == null:
+		return false
+	if not a.resource_path.is_empty() and not b.resource_path.is_empty():
+		return a.resource_path == b.resource_path
+	return a == b
 
 
 func advance_evolution_state() -> void:

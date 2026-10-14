@@ -1,7 +1,8 @@
 class_name StatModifier
 extends Resource
 
-enum Type { FLAT, PERCENT }
+## MULTIPLICATIVE: value v at tier t contributes (1 + v)^t; contributions multiply together.
+enum Type { FLAT, PERCENT, MULTIPLICATIVE }
 
 @export var type: Type = Type.FLAT
 @export var value: float = 0.0
