@@ -103,6 +103,12 @@ Not implemented:
 
 Known open bugs: nothing emits `room_completion_confirmed`; `boss_node` is never generated; `EventBus.campaign_victory_triggered` is undeclared; `InfusionAllocationUI` uses wrong member names (`run_ledger`, `ui_inventory_changed`; latent, it is only reached when the player already exists); enemies never drop XP; enemies spawn at fixed coordinates; nothing counts remaining enemies, so a room has no clear condition (`EnemySpawnerComponent` emits `wave_completed` and `campaign_cleared`, but nothing listens); nothing handles `Entity.died`, so there is no death or game-over flow; `StatsContainer` prints `[STAT FLAGGED DIRTY]` on the invalidation path, which the code-style rule treats as a hot path (removal not yet requested).
 
+## Setup after cloning
+The repo is public, so some folders are deliberately not in it (both are in `.gitignore`):
+- `assets/` holds art, including a commercial pack (files named `oryx_16bit_fantasy_*`) that must not be redistributed. Do not commit or push it. Without it, scenes and resources that reference these textures show missing-texture errors and the game has no sprites. Put the files back at the same paths (`assets/entities/bullet.png`, `assets/entities/oryx_16bit_fantasy_creatures_55.png`, `assets/entities/oryx_16bit_fantasy_creatures_219.png`, `assets/world/oryx_16bit_fantasy_world_trans.png`), then open the project once in Godot so it regenerates the `.import` files.
+- `addons/` holds GUT (the test framework). Install it from the Godot Asset Library or its GitHub release if you need to run tests.
+- Script `.uid` files and `test/` are tracked. Commit new `.uid` files with their scripts.
+
 ## Working in this repo
 - Before changing a method signature, grep all `.gd` AND `.tscn` files for callers.
 - Be careful with `.tscn` / `.tres` edits: they hold resource IDs and enum integers. Keep diffs small and review them.
