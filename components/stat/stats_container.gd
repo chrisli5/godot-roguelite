@@ -91,10 +91,6 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 		var tracking_stat = stats.get(target_stat, null)
 		if tracking_stat:
 			tracking_stat.is_dirty = true
-			print("[STAT FLAGGED DIRTY] Slot %d marked '%s' as stale." % [
-				_slot_owner_index, 
-				Stat.Type.keys()[target_stat]
-			])
 
 
 ## Internal Calculator: Executed strictly on demand when a fresh read arrives or transients mutate

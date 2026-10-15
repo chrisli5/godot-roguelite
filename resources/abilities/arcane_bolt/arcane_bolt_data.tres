@@ -12,6 +12,7 @@
 script = ExtResource("1_4isvk")
 display_name = "Arcane Bolt"
 texture_prefab = ExtResource("3_rachv")
+structural_tags = Array[int]([2, 7])
 stats_profile = ExtResource("2_yajfj")
 deployment_anchor_scene = ExtResource("1_205il")
 geometry_driver_scene = ExtResource("2_205il")
