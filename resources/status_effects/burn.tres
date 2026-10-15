@@ -1,13 +1,13 @@
-[gd_resource type="Resource" script_class="StatusEffect" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="StatusEffect" load_steps=3 format=3 uid="uid://dw8i4lmnlvyhk"]
 
 [ext_resource type="Script" uid="uid://xmr42iregaux" path="res://components/status_effect/resources/status_effect.gd" id="1_effect"]
+[ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_81o3g"]
 
 [resource]
 script = ExtResource("1_effect")
 effect_id = "burn"
-base_duration = 3.0
 tick_interval = 0.5
-ramp_bonus_per_second = 0.25
-ramp_max_bonus = 1.0
+ramp_bonus_per_second = 0.1
+ramp_max_bonus = 0.5
 granted_tags = Array[int]([18])
 metadata/_custom_type_script = "uid://xmr42iregaux"

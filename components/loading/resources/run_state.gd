@@ -19,6 +19,11 @@ extends Resource
 @export_group("Vitals")
 @export var current_health: float = 0.0
 
+@export_group("Pending Drafts")
+## Level-up draft levels not yet resolved (the one on screen first, then the queue).
+## Written through by UpgradeManager, because the manager is freed with the room.
+@export var pending_draft_levels: Array[int] = []
+
 @export_group("Loadout")
 ## Hotbar slot -> the AbilityData currently mounted there (the evolved data after an evolution).
 @export var loadout: Dictionary[int, AbilityData] = {}

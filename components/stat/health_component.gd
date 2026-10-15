@@ -50,7 +50,6 @@ func restore_current_health(saved_health: float) -> void:
 
 ## Process health reductions programmatically.
 func take_damage(amount: float) -> void:
-	print(amount)
 	_reduce_health(amount)
 
 

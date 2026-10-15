@@ -7,6 +7,8 @@ extends Node
 
 var _cached_full_pool: Array[UpgradeChoice] = []
 var _level_up_queue: Array[int] = []
+## Level whose draft is on screen (popped from the queue but not yet resolved), or 0.
+var _presenting_level: int = 0
 var _is_presenting_ui: bool = false
 ## True while a forced evolution / Overclock offer is on screen (no reroll, no random fill).
 var _is_offer_draft: bool = false
@@ -16,6 +18,11 @@ var _pending_check_scheduled: bool = false
 
 
 func _ready() -> void:
+	# Restore unresolved drafts from before the room change. Processing starts from the
+	# player_spawned handler once the player exists.
+	if RunSession.state != null and not RunSession.state.pending_draft_levels.is_empty():
+		_level_up_queue = RunSession.state.pending_draft_levels.duplicate()
+	
 	EventBus.player_leveled_up.connect(_on_player_leveled_up)
 	EventBus.upgrade_selected.connect(_on_ui_upgrade_selected)
 	EventBus.upgrade_reroll_requested.connect(reroll_current_options)
@@ -51,8 +58,21 @@ func _start_pending_drafts() -> void:
 	_try_process_next_level_up()
 
 
+## Writes unresolved draft levels (presenting level first, then the queue) into RunSession.
+## Called after every change to _level_up_queue or _presenting_level.
+func _sync_pending_to_run_state() -> void:
+	if RunSession.state == null:
+		RunSession.reset()
+	var pending: Array[int] = []
+	if _presenting_level > 0:
+		pending.append(_presenting_level)
+	pending.append_array(_level_up_queue)
+	RunSession.state.pending_draft_levels = pending
+
+
 func _on_player_leveled_up(new_level: int) -> void:
 	_level_up_queue.append(new_level)
+	_sync_pending_to_run_state()
 	if not _is_presenting_ui:
 		_try_process_next_level_up()
 
@@ -85,6 +105,8 @@ func _try_process_next_level_up() -> void:
 
 	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
 	var next_level_to_process: int = _level_up_queue.pop_front()
+	_presenting_level = next_level_to_process
+	_sync_pending_to_run_state()
 	
 	if is_instance_valid(current_player):
 		# Pass the central player reference and level context to compile our subset pool
@@ -93,6 +115,8 @@ func _try_process_next_level_up() -> void:
 		if rolled_options.is_empty():
 			# Never present an empty draft: it would leave the game paused on an empty screen.
 			push_warning("UpgradeManager: no upgrades available for level %d, skipping its draft." % next_level_to_process)
+			_presenting_level = 0
+			_sync_pending_to_run_state()
 			get_tree().process_frame.connect(_try_process_next_level_up, CONNECT_ONE_SHOT)
 			return
 		_is_offer_draft = false
@@ -254,8 +278,8 @@ func generate_selection_pool(target_player: Player, processing_level: int) -> Ar
 			if processing_level < dynamic_req_level:
 				continue
 
-			# Infusion Gating: Skip elements that no ability can socket (they would soft-lock the allocation screen)
-			if definition.is_infusion() and not _any_ability_accepts_element(target_player, definition.get_infusion_element()):
+			# Infusions are drafted only through the separate infusion draft
+			if definition.is_infusion():
 				continue
 
 			# Build core tracking instance container
@@ -319,6 +343,8 @@ func _on_ui_upgrade_selected(chosen_choice: UpgradeChoice) -> void:
 	# Forward transaction package directly to the central Player RunLedger
 	current_player.apply_contextual_upgrade(chosen_choice)
 	
+	_presenting_level = 0
+	_sync_pending_to_run_state()
 	_is_offer_draft = false
 	_cached_full_pool.clear()
 	# Resolve coroutine tree updates on the next process frame tick cleanly
@@ -332,6 +358,8 @@ func _on_infusion_allocation_confirmed(finalized_choice: UpgradeChoice) -> void:
 		# Forward finalized placement data safely down to player mutation channels
 		current_player.apply_contextual_upgrade(finalized_choice)
 		
+	_presenting_level = 0
+	_sync_pending_to_run_state()
 	_is_presenting_ui = false
 	# Deferred: InfusionAllocationUI unpauses right after emitting, which would undo the pause of an offer draft.
 	_try_process_next_level_up.call_deferred()

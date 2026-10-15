@@ -32,8 +32,9 @@ func is_element_socket_allowed(selected_element: Tags.Type, state: EvolutionGate
 		
 	var current_element_level = infusion_levels[element_index]
 	
-	if is_overclocked:
-		return current_element_level < INFUSION_HARD_CAP
+	# Overclock lifts only the per-element cap; the limit on how many elements may be active still applies.
+	var cap_t1: int = INFUSION_HARD_CAP if is_overclocked else INFUSION_SOFT_CAP_T1
+	var cap_t2: int = INFUSION_HARD_CAP if is_overclocked else INFUSION_SOFT_CAP_T2
 
 	var active_socket_count: int = 0
 	for level in infusion_levels:
@@ -43,17 +44,17 @@ func is_element_socket_allowed(selected_element: Tags.Type, state: EvolutionGate
 	match state:
 		EvolutionGateComponent.EvolutionState.TIER_1_BASE:
 			if current_element_level > 0:
-				return current_element_level < INFUSION_SOFT_CAP_T1
+				return current_element_level < cap_t1
 			return active_socket_count < 2
 			
 		EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED:
 			if current_element_level > 0:
-				return current_element_level < INFUSION_SOFT_CAP_T2
+				return current_element_level < cap_t2
 			return active_socket_count < 3
 			
 		EvolutionGateComponent.EvolutionState.TIER_3_APEX:
-			return current_element_level < INFUSION_SOFT_CAP_T2
-	
+			return current_element_level < cap_t2
+
 	return true
 
 
