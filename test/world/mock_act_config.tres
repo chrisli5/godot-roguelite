@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ActConfiguration" load_steps=2 format=3 uid="uid://cvx24ygsjao8m"]
+
+[ext_resource type="Script" uid="uid://b42uc61s3i26n" path="res://components/world/resources/act_configuration.gd" id="1_hbcys"]
+
+[resource]
+script = ExtResource("1_hbcys")
+room_tilemap_pool = Array[String](["res://test/world/mock_empty_terrain.tscn"])
+metadata/_custom_type_script = "uid://b42uc61s3i26n"
