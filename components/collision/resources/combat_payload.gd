@@ -6,6 +6,8 @@ extends Resource
 ## Active elemental/lifecycle tags bundled with this specific strike (e.g., FIRE, DOT)
 @export var final_damage: float = 0.0
 @export var damage_tags: Array[Tags.Type] = []
+## True when the cast's crit roll succeeded. Rolled once per cast, so a whole volley shares it.
+@export var is_critical_hit: bool = false
 
 @export_group("Static Status Integration")
 ## Status effects that this hit applies to the target on impact
@@ -16,6 +18,12 @@ extends Resource
 @export var status_duration_snapshot: float = 0.0
 ## Source STATUS_RAMP_CAP (added to a ramping status's cap), snapshotted likewise.
 @export var status_ramp_cap_snapshot: float = 0.0
+
+@export_group("Impact Bursts")
+## Bursts chosen at cast time; each fires on a qualifying hit (see ImpactBurstDefinition.Trigger).
+@export var impact_bursts: Array[ImpactBurstDefinition] = []
+## True on the payload a burst delivers to its targets. Such a payload never starts another burst.
+@export var is_burst: bool = false
 
 @export_group("Dynamic Strategy Core Targets")
 ## Injected by the spawning Ability: Points to the live Enemy Node2D locked by the hotbar strategy

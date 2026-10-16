@@ -30,6 +30,7 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 			#payload.damage_tags.append(Tags.Type.CROWD_CONTROL) 
 			
 		payload.final_damage = calculated_damage
+		payload.is_critical_hit = is_critical_hit
 
 		# DoT magnitudes are snapshotted here, independent of BASE_DAMAGE and crit.
 		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE)
@@ -42,6 +43,10 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 				_warn_missing_dot_damage(effect.effect_id)
 				continue
 			payload.status_effects_to_apply.append(effect)
+
+		# Impact bursts from the upgrade cards that apply to this ability (fired on hit by the hurtbox).
+		for burst in stats.get_impact_bursts():
+			payload.impact_bursts.append(burst)
 	else:
 		# Safety fallback if hit logic originates from an object without standard stats
 		payload.final_damage = 10.0

@@ -19,6 +19,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 	_eb = tree.root.get_node("EventBus")
 	_run()
 	await _fissure_test()
+	await _burst_tests()
 	print("LOGICTEST done fails=%d" % fails)
 	return 1 if fails > 0 else 0
 
@@ -89,6 +90,172 @@ func _fissure_test() -> void:
 	# Without AOE_RADIUS the first strike falls back to starting_radius 30 (hit within 40)
 	var fallback_hits := await _cast_fissure(_make_stats({}), origin + Vector2(0, 5000), [Vector2(70, 35), Vector2(70, 45)])
 	check(fallback_hits[0] == 1 and fallback_hits[1] == 0, "fissure: no AOE_RADIUS falls back to starting_radius 30")
+
+
+var _recorded: Dictionary = {}
+
+
+func _record_hit(payload: CombatPayload, key: int) -> void:
+	_recorded[key].append(payload)
+
+
+func _make_burst(id: StringName, trigger: ImpactBurstDefinition.Trigger, fraction: float = 0.5, bonus: float = 0.0, cap: float = 0.0, radius_multiplier: float = 1.0) -> ImpactBurstDefinition:
+	var definition := ImpactBurstDefinition.new()
+	definition.burst_id = id
+	definition.trigger = trigger
+	definition.damage_fraction = fraction
+	definition.per_enemy_bonus = bonus
+	definition.per_enemy_bonus_cap = cap
+	var shape := CircleBurstShape.new()
+	shape.radius_multiplier = radius_multiplier
+	definition.shape = shape
+	return definition
+
+
+func _burst_payload(stats: StatsContainer, damage: float, definitions: Array[ImpactBurstDefinition], critical: bool = false) -> CombatPayload:
+	var payload := CombatPayload.new()
+	payload.stats_container_id = stats.get_instance_id()
+	payload.final_damage = damage
+	payload.is_critical_hit = critical
+	payload.impact_bursts = definitions
+	return payload
+
+
+## Spawns stationary bats (1000 hp) at origin + offsets, records every payload they receive, and waits for physics to register them.
+func _spawn_burst_bats(origin: Vector2, offsets: Array[Vector2]) -> Array[Enemy]:
+	_recorded.clear()
+	var bats: Array[Enemy] = []
+	for i in range(offsets.size()):
+		var bat := _spawn_bat()
+		bat.set_physics_process(false)
+		bat.health_component.update_max_health(1000.0, true)
+		bat.health_component.set_to_full()
+		bat.global_position = origin + offsets[i]
+		_recorded[i] = []
+		bat.hurtbox_component.hit_received.connect(_record_hit.bind(i))
+		bats.append(bat)
+	await tree.physics_frame
+	await tree.physics_frame
+	return bats
+
+
+func _lost(bat: Enemy) -> float:
+	return 1000.0 - bat.health_component.current_health
+
+
+func _free_bats(bats: Array[Enemy]) -> void:
+	for bat in bats:
+		bat.queue_free()
+
+
+func _burst_tests() -> void:
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var on_hit := _make_burst(&"test_on_hit", ImpactBurstDefinition.Trigger.ON_HIT)
+	var on_crit := _make_burst(&"test_on_crit", ImpactBurstDefinition.Trigger.ON_CRIT)
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+
+	# --- ON_HIT burst: B in range takes the fraction, C out of range nothing, A only the primary hit; deferred ---
+	var bats := await _spawn_burst_bats(Vector2(90000.0, 90000.0), [Vector2(0, 0), Vector2(30, 0), Vector2(100, 0)])
+	bats[0].hurtbox_component.take_hit(_burst_payload(stats, 10.0, [on_hit]))
+	check(is_equal_approx(_lost(bats[1]), 0.0), "burst deferred: neighbor untouched when take_hit returns")
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 5.0), "burst ON_HIT: neighbor in range takes damage_fraction of the hit (5.0 of 10)")
+	check(is_equal_approx(_lost(bats[2]), 0.0), "burst ON_HIT: neighbor out of range takes nothing")
+	check(is_equal_approx(_lost(bats[0]), 10.0) and _recorded[0].size() == 1, "burst ON_HIT: primary takes only the primary hit (10.0, once)")
+	_free_bats(bats)
+
+	# --- Regression: a payload with no bursts behaves as before ---
+	bats = await _spawn_burst_bats(Vector2(90000.0, 91000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_burst_payload(stats, 10.0, []))
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[0]), 10.0) and _recorded[0].size() == 1, "no bursts: primary hit unchanged (10.0, once)")
+	check(is_equal_approx(_lost(bats[1]), 0.0) and _recorded[1].is_empty(), "no bursts: neighbor untouched")
+	_free_bats(bats)
+
+	# --- ON_CRIT burst: fires only on a crit, using the crit hit's final damage ---
+	var crit_stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 1.0, Stat.Type.CRIT_MULTIPLIER: 2.0})
+	var plain_stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0})
+	var crit_payload := CombatCalculations.generate_hit_payload(world as Node2D, crit_stats, null)
+	var plain_payload := CombatCalculations.generate_hit_payload(world as Node2D, plain_stats, null)
+	check(crit_payload.is_critical_hit and is_equal_approx(crit_payload.final_damage, 20.0), "cast time: a crit is recorded on the payload (is_critical_hit, damage 20)")
+	check(not plain_payload.is_critical_hit and is_equal_approx(plain_payload.final_damage, 10.0), "cast time: a non-crit is recorded (is_critical_hit false, damage 10)")
+	var crit_bursts: Array[ImpactBurstDefinition] = [on_crit]
+	crit_payload.impact_bursts = crit_bursts
+	plain_payload.impact_bursts = crit_bursts
+	bats = await _spawn_burst_bats(Vector2(90000.0, 92000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(crit_payload)
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 10.0), "burst ON_CRIT: a crit hit fires it using the crit damage (0.5 of 20 = 10)")
+	_free_bats(bats)
+	bats = await _spawn_burst_bats(Vector2(90000.0, 93000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(plain_payload)
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 0.0), "burst ON_CRIT: a non-crit hit does not fire it")
+	_free_bats(bats)
+
+	# --- No recursion, never crits, no statuses; one burst with two neighbors caught ---
+	var status_list: Array[StatusEffect] = [burn]
+	var loud := _burst_payload(stats, 20.0, [on_hit], true)
+	loud.status_effects_to_apply = status_list
+	loud.dot_damage_snapshot = 1.0
+	loud.status_duration_snapshot = 3.0
+	bats = await _spawn_burst_bats(Vector2(90000.0, 94000.0), [Vector2(0, 0), Vector2(30, 0), Vector2(-30, 0)])
+	bats[0].hurtbox_component.take_hit(loud)
+	await tree.process_frame
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[1].size() == 1 and _recorded[2].size() == 1 and _recorded[0].size() == 1, "burst: exactly one burst, no recursion (each neighbor hit once, primary once)")
+	var burst_seen: CombatPayload = _recorded[1][0]
+	check(burst_seen.is_burst and burst_seen.impact_bursts.is_empty(), "burst payload: is_burst true and impact_bursts empty")
+	check(not burst_seen.is_critical_hit and burst_seen.status_effects_to_apply.is_empty() and is_equal_approx(burst_seen.final_damage, 10.0), "burst payload: never crits, carries no statuses (0.5 of 20 = 10)")
+	check(bats[1].status_effect_component._active_effects.is_empty() and bats[2].status_effect_component._active_effects.is_empty(), "burst: neighbors get no status even though the source carried Burn")
+	check(bats[0].status_effect_component._active_effects.has("burn") and loud.impact_bursts.size() == 1 and not loud.is_burst, "source payload untouched: primary still gets Burn, bursts and flags intact")
+	_free_bats(bats)
+
+	# --- per_enemy_bonus and cap (0.5 * (1 + min(0.2 * n, 0.3))) ---
+	var scaled := _make_burst(&"test_scaled", ImpactBurstDefinition.Trigger.ON_HIT, 0.5, 0.2, 0.3)
+	bats = await _spawn_burst_bats(Vector2(90000.0, 95000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_burst_payload(stats, 10.0, [scaled]))
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 6.0), "burst bonus: 1 caught gives 1 + 0.2 (0.5 * 1.2 * 10 = 6.0)")
+	_free_bats(bats)
+	bats = await _spawn_burst_bats(Vector2(90000.0, 96000.0), [Vector2(0, 0), Vector2(30, 0), Vector2(-30, 0), Vector2(0, 30)])
+	bats[0].hurtbox_component.take_hit(_burst_payload(stats, 10.0, [scaled]))
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 6.5) and is_equal_approx(_lost(bats[2]), 6.5) and is_equal_approx(_lost(bats[3]), 6.5), "burst bonus: 3 caught hits the cap (0.5 * 1.3 * 10 = 6.5 each)")
+	_free_bats(bats)
+
+	# --- Missing AOE_RADIUS: no burst, one warning ---
+	var no_aoe := _make_stats({})
+	check(not CircleBurstShape._warned_missing_radius, "no burst warning issued yet")
+	bats = await _spawn_burst_bats(Vector2(90000.0, 97000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_burst_payload(no_aoe, 10.0, [on_hit]))
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 0.0), "burst without AOE_RADIUS: no burst")
+	var empty_space := (world as Node2D).get_world_2d().direct_space_state
+	var again: Array[HurtboxComponent] = []
+	for i in range(3):
+		again.append_array(on_hit.shape.find_targets(Vector2.ZERO, no_aoe, empty_space, 0))
+	check(again.is_empty() and CircleBurstShape._warned_missing_radius, "burst without AOE_RADIUS: empty on repeated calls, warning flag set (one warning line is counted in the output)")
+	_free_bats(bats)
+
+	# --- Triggered from a real physics callback (a CombatVolume entering a hurtbox) ---
+	var phys_stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0, Stat.Type.DURATION: 5.0, Stat.Type.PROJECTILE_MOVEMENT_SPEED: 0.0})
+	var wide := _make_burst(&"test_wide", ImpactBurstDefinition.Trigger.ON_HIT, 0.5, 0.0, 0.0, 8.0)
+	var phys_origin := Vector2(90000.0, 98000.0)
+	bats = await _spawn_burst_bats(phys_origin, [Vector2(0, 0), Vector2(30, 0)])
+	var projectile := (load("res://components/ability/projectile.tscn") as PackedScene).instantiate() as Projectile
+	projectile.initialize_volume(phys_origin, Vector2.RIGHT, 0, _burst_payload(phys_stats, 10.0, [wide]))
+	world.get_node("GameWorld/ProjectilesContainer").add_child(projectile)
+	for i in range(4):
+		await tree.physics_frame
+	await tree.process_frame
+	check(_recorded[0].size() == 1 and is_equal_approx(_lost(bats[0]), 10.0), "physics callback: the volume hit the primary once (10.0)")
+	check(is_equal_approx(_lost(bats[1]), 5.0), "physics callback: the burst ran after a real area_entered hit (neighbor took 5.0; no space-state error in the output)")
+	_free_bats(bats)
 
 
 ## Spawns a Projectile whose payload points at `stats`, returns its hitbox radius, then frees it.
@@ -344,6 +511,32 @@ func _run() -> void:
 	vortex_bat.queue_free()
 	for geometry in [pulse, sweep, vortex, chain]:
 		geometry.free()
+
+	# --- Impact bursts: ledger resolver, cast-time fill, payload duplicate ---
+	var shared_a := _make_burst(&"test_shared_burst", ImpactBurstDefinition.Trigger.ON_HIT)
+	var shared_b := _make_burst(&"test_shared_burst", ImpactBurstDefinition.Trigger.ON_CRIT)
+	var burst_card_a := UpgradeDefinition.new()
+	burst_card_a.upgrade_id = "test_burst_card_a"
+	burst_card_a.scope = UpgradeDefinition.ScopeType.LOCAL_SLOT
+	burst_card_a.restrict_to_slot = 1
+	burst_card_a.impact_burst_payload = shared_a
+	var burst_card_b := UpgradeDefinition.new()
+	burst_card_b.upgrade_id = "test_burst_card_b"
+	burst_card_b.scope = UpgradeDefinition.ScopeType.LOCAL_SLOT
+	burst_card_b.restrict_to_slot = 1
+	burst_card_b.impact_burst_payload = shared_b
+	var no_tags: Array[Tags.Type] = []
+	check(player.run_ledger_component.get_impact_bursts(1, no_tags).is_empty(), "ledger: no bursts before a burst card is bought")
+	player.run_ledger_component.log_purchase(burst_card_a)
+	player.run_ledger_component.log_purchase(burst_card_b)
+	var slot_bursts := player.run_ledger_component.get_impact_bursts(1, no_tags)
+	check(slot_bursts.size() == 1 and slot_bursts[0] == shared_a, "ledger: burst resolves for its slot, deduplicated by burst_id (first in purchase order wins)")
+	check(player.run_ledger_component.get_impact_bursts(2, no_tags).is_empty(), "ledger: a slot-1 burst does not leak to slot 2")
+	var cast_payload := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
+	check(cast_payload.impact_bursts.size() == 1 and cast_payload.impact_bursts[0] == shared_a and not cast_payload.is_burst, "cast time: impact_bursts filled from the ledger, is_burst false")
+	cast_payload.is_burst = true
+	var cast_copy := cast_payload.duplicate() as CombatPayload
+	check(cast_copy.impact_bursts.size() == 1 and cast_copy.impact_bursts[0] == shared_a and cast_copy.is_burst, "payload.duplicate keeps impact_bursts and is_burst")
 
 	# --- Infusion tracker / gate ---
 	var tr := ability.infusion_tracker_component

@@ -134,6 +134,19 @@ func get_status_effects() -> Array[StatusEffect]:
 	return _ledger.get_status_effects(_slot_owner_index, active_tags)
 
 
+## Impact bursts granted to this container's slot by the owner's upgrades.
+## Empty for ledger-less owners (enemies). Tags come from the container's own TagComponent.
+func get_impact_bursts() -> Array[ImpactBurstDefinition]:
+	if not is_instance_valid(_ledger):
+		return []
+
+	var active_tags: Array[Tags.Type] = []
+	if is_instance_valid(_tag_component):
+		active_tags = _tag_component.get_active_tags()
+
+	return _ledger.get_impact_bursts(_slot_owner_index, active_tags)
+
+
 # --- REAL-TIME COMBAT INTERFACES (Autonomous, single-argument API signatures) ---
 
 func add_modifier(modifier: StatModifier) -> void:

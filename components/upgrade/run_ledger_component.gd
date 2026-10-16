@@ -109,6 +109,30 @@ func get_status_effects(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array
 	return effects
 
 
+## Impact bursts carried by the upgrades that apply to this slot, in purchase order. Resolved exactly
+## like get_status_effects: a card only needs to be present, and bursts are deduplicated by burst_id
+## (first wins).
+func get_impact_bursts(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[ImpactBurstDefinition]:
+	var bursts: Array[ImpactBurstDefinition] = []
+
+	for def in active_upgrades:
+		var burst := def.impact_burst_payload
+		if burst == null:
+			continue
+		if _resolve_tier(def, slot_index, weapon_tags) <= 0:
+			continue
+
+		var already_present := false
+		for existing in bursts:
+			if existing.burst_id == burst.burst_id:
+				already_present = true
+				break
+		if not already_present:
+			bursts.append(burst)
+
+	return bursts
+
+
 ## Returns how many tiers of `def` apply to this slot (0 = not eligible).
 func _resolve_tier(def: UpgradeDefinition, slot_index: int, weapon_tags: Array[Tags.Type]) -> int:
 	# LAYER A: slot-specific purchases (e.g. infusions) always win for their own lane

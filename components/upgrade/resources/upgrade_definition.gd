@@ -33,6 +33,8 @@ enum ScopeType {
 ## Optional status applied by hits from abilities this card applies to. Independent of payload_type,
 ## so a card can carry a stat modifier and a status together.
 @export var status_effect_payload: StatusEffect
+## Optional impact burst fired by hits from abilities this card applies to (chosen at cast time).
+@export var impact_burst_payload: ImpactBurstDefinition
 
 @export_group("Evolution Gating")
 ## Only used by ABILITY_UNLOCK cards that are evolutions: the base ability this card evolves.
