@@ -6,7 +6,7 @@ extends Node
 @export var chill_effect: StatusEffect
 @export_group("Simulated Source Stats")
 @export var debug_dot_damage: float = 5.0
-@export var debug_duration_bonus: float = 0.0
+@export var debug_duration_bonus: float = 3.0
 @export_group("Logging")
 @export var log_events: bool = true
 

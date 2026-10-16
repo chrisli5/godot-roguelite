@@ -14,6 +14,8 @@ extends Resource
 @export var dot_damage_snapshot: float = 0.0
 ## Source STATUS_DURATION (seconds added to an effect's base duration), snapshotted likewise.
 @export var status_duration_snapshot: float = 0.0
+## Source STATUS_RAMP_CAP (added to a ramping status's cap), snapshotted likewise.
+@export var status_ramp_cap_snapshot: float = 0.0
 
 @export_group("Dynamic Strategy Core Targets")
 ## Injected by the spawning Ability: Points to the live Enemy Node2D locked by the hotbar strategy

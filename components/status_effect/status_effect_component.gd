@@ -31,18 +31,22 @@ func _exit_tree() -> void:
 	_active_effects.clear()
 
 
-## Applies `effect` to the owner. `dot_damage` (damage per second) and `duration_bonus` (seconds)
-## are the magnitudes snapshotted from the source's DOT_DAMAGE / STATUS_DURATION stats.
+## Applies `effect` to the owner. `dot_damage` (damage per second), `duration_bonus` (seconds) and
+## `ramp_cap_bonus` are the magnitudes snapshotted from the source's DOT_DAMAGE / STATUS_DURATION /
+## STATUS_RAMP_CAP stats. An effect whose effective duration is 0 is not applied at all.
 ## Re-applying an active effect follows its stacking policy.
-func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0) -> void:
+func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0) -> void:
 	if not is_instance_valid(effect) or effect.effect_id.is_empty():
 		push_warning("StatusEffectComponent: Invalid status effect passed.")
+		return
+	if effect.base_duration + duration_bonus <= 0.0:
 		return
 
 	var existing: StatusEffectInstance = _active_effects.get(effect.effect_id)
 	if existing != null:
 		existing.dot_damage = dot_damage
 		existing.duration_bonus = duration_bonus
+		existing.ramp_cap_bonus = ramp_cap_bonus
 		existing.time_remaining = existing.get_effective_duration()
 		if effect.stacking == StatusEffect.StackingPolicy.STACK and existing.stacks < effect.max_stacks:
 			existing.stacks += 1
@@ -54,6 +58,7 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 	_next_instance_id += 1
 	instance.dot_damage = dot_damage
 	instance.duration_bonus = duration_bonus
+	instance.ramp_cap_bonus = ramp_cap_bonus
 	instance.time_remaining = instance.get_effective_duration()
 	_active_effects[effect.effect_id] = instance
 	set_process(true)

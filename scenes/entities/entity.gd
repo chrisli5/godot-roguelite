@@ -83,7 +83,7 @@ func _on_hit_received(payload: CombatPayload) -> void:
 	if is_instance_valid(status_effect_component) and health_component.current_health > 0.0:
 		for effect in payload.status_effects_to_apply:
 			status_effect_component.apply_effect(
-				effect, payload.dot_damage_snapshot, payload.status_duration_snapshot
+				effect, payload.dot_damage_snapshot, payload.status_duration_snapshot, payload.status_ramp_cap_snapshot
 			)
 
 

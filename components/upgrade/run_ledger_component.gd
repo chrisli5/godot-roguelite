@@ -47,22 +47,42 @@ func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_ty
 	var multiplicative_product := 1.0
 
 	for def in active_upgrades:
+		# Tier is resolved lazily, only once a modifier of this card targets the stat.
+		var tier := -1
 		var payload := def.stat_modifier_payload
-		if payload == null or payload.target_stat_type != stat_type:
-			continue
+		if payload != null and payload.target_stat_type == stat_type:
+			tier = _resolve_tier(def, slot_index, weapon_tags)
+			if tier > 0:
+				var contribution := _modifier_contribution(payload, tier)
+				flat_sum += contribution.x
+				percent_sum += contribution.y
+				multiplicative_product *= contribution.z
 
-		var tier := _resolve_tier(def, slot_index, weapon_tags)
-		if tier <= 0:
-			continue
-
-		if payload.type == StatModifier.Type.FLAT:
-			flat_sum += payload.value * tier
-		elif payload.type == StatModifier.Type.PERCENT:
-			percent_sum += payload.value * tier
-		elif payload.type == StatModifier.Type.MULTIPLICATIVE:
-			multiplicative_product *= pow(1.0 + payload.value, tier)
+		for extra in def.additional_stat_modifiers:
+			if extra == null or extra.target_stat_type != stat_type:
+				continue
+			if tier < 0:
+				tier = _resolve_tier(def, slot_index, weapon_tags)
+			if tier <= 0:
+				break
+			var extra_contribution := _modifier_contribution(extra, tier)
+			flat_sum += extra_contribution.x
+			percent_sum += extra_contribution.y
+			multiplicative_product *= extra_contribution.z
 
 	return Vector3(flat_sum, percent_sum, multiplicative_product)
+
+
+## One modifier's effect at `tier` as Vector3(flat_add, percent_add, multiplicative_factor).
+func _modifier_contribution(modifier: StatModifier, tier: int) -> Vector3:
+	match modifier.type:
+		StatModifier.Type.FLAT:
+			return Vector3(modifier.value * tier, 0.0, 1.0)
+		StatModifier.Type.PERCENT:
+			return Vector3(0.0, modifier.value * tier, 1.0)
+		StatModifier.Type.MULTIPLICATIVE:
+			return Vector3(0.0, 0.0, pow(1.0 + modifier.value, tier))
+	return Vector3(0.0, 0.0, 1.0)
 
 
 ## Status effects carried by the upgrades that apply to this slot, in purchase order.

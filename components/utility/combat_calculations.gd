@@ -34,6 +34,7 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		# DoT magnitudes are snapshotted here, independent of BASE_DAMAGE and crit.
 		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE)
 		payload.status_duration_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_DURATION)
+		payload.status_ramp_cap_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_RAMP_CAP)
 
 		# Statuses from the upgrade cards that apply to this ability. Application is guaranteed.
 		for effect in stats.get_status_effects():

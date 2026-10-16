@@ -27,6 +27,8 @@ enum ScopeType {
 @export_group("Payload Configuration")
 @export var payload_type: PayloadType = PayloadType.STAT_MODIFIER
 @export var stat_modifier_payload: StatModifier
+## Extra stat modifiers carried by the same card, resolved by the ledger exactly like stat_modifier_payload.
+@export var additional_stat_modifiers: Array[StatModifier] = []
 @export var ability_data_payload: AbilityData
 ## Optional status applied by hits from abilities this card applies to. Independent of payload_type,
 ## so a card can carry a stat modifier and a status together.

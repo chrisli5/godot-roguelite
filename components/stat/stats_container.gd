@@ -61,10 +61,9 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 			invalidate_all_caches()
 		return
 
-	if not is_instance_valid(definition.stat_modifier_payload): 
+	if not is_instance_valid(definition.stat_modifier_payload) and definition.additional_stat_modifiers.is_empty():
 		return
-		
-	var target_stat := definition.stat_modifier_payload.target_stat_type
+
 	var is_impacted := false
 
 	match definition.scope:
@@ -88,9 +87,17 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 								break
 
 	if is_impacted:
-		var tracking_stat = stats.get(target_stat, null)
-		if tracking_stat:
-			tracking_stat.is_dirty = true
+		_flag_modifier_stat_dirty(definition.stat_modifier_payload)
+		for extra in definition.additional_stat_modifiers:
+			_flag_modifier_stat_dirty(extra)
+
+
+func _flag_modifier_stat_dirty(modifier: StatModifier) -> void:
+	if not is_instance_valid(modifier):
+		return
+	var tracking_stat = stats.get(modifier.target_stat_type, null)
+	if tracking_stat:
+		tracking_stat.is_dirty = true
 
 
 ## Internal Calculator: Executed strictly on demand when a fresh read arrives or transients mutate

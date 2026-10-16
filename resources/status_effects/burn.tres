@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_effect")
 effect_id = "burn"
+base_duration = 0.0
 tick_interval = 0.5
 ramp_bonus_per_second = 0.1
 ramp_max_bonus = 0.5

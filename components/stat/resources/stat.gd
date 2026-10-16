@@ -29,6 +29,7 @@ enum Type {
 
 	DOT_DAMAGE, ## Damage per second of a damage-over-time effect. Never derived from BASE_DAMAGE.
 	STATUS_DURATION,
+	STATUS_RAMP_CAP, ## Flat bonus to a ramping status's ramp cap (raises Burn's ramp_max_bonus per application).
 }
 
 @export var type: Type = Type.MAX_HEALTH

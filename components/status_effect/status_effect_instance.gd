@@ -12,6 +12,7 @@ var stacks: int = 1
 ## Magnitudes snapshotted from the source's stats when the hit was generated.
 var dot_damage: float = 0.0
 var duration_bonus: float = 0.0
+var ramp_cap_bonus: float = 0.0
 
 ## Per-application copies of the template's modifiers (unique ids, safe to mutate).
 var runtime_modifiers: Array[StatModifier] = []
@@ -33,9 +34,9 @@ func get_effective_duration() -> float:
 	return template.base_duration + duration_bonus
 
 
-## Tick damage multiplier from time spent active (linear ramp, capped).
+## Tick damage multiplier from time spent active (linear ramp, capped at the template cap plus the snapshotted bonus).
 func get_ramp_multiplier() -> float:
-	return 1.0 + minf(elapsed * template.ramp_bonus_per_second, template.ramp_max_bonus)
+	return 1.0 + minf(elapsed * template.ramp_bonus_per_second, template.ramp_max_bonus + ramp_cap_bonus)
 
 
 ## Damage dealt by one tick: DOT_DAMAGE (per second) * ramp * interval * stacks. Never crits.
