@@ -2,7 +2,7 @@
 
 Owner: Claude Code. This file records what the code actually does and how each claim was checked. The rules and design decisions live in `CLAUDE.md` (owned by the designer and Claude Chat). Claude Code updates this file in every task that changes anything listed here and shows its diff in the report. Claude Chat reads it but does not edit it; report mismatches to Claude Code instead.
 
-Last synced with code commit: `2fa6b02`. Update this line whenever this file changes.
+Last synced with code commit: `09b3456`. Update this line whenever this file changes.
 
 ## Status (as of 2026-10-16, verify against the code)
 Three levels of evidence are used below:
@@ -17,7 +17,7 @@ Verified:
 - Run persistence through the F3 player respawn only. Room transitions are not implemented, so a real room change is untested.
 
 Headless:
-- Burn ticks, ramp (0.10 / 0.5, read from `burn.tres`), refresh, expiry and death cleanup (the logic test was re-run after the hand edit, Task E). Chill slow and tag removal. Refcounted tags.
+- Burn ticks, ramp (0.10 / 0.5, read from `burn.tres`), refresh, expiry and death cleanup (the logic test was re-run after the hand edit, Task E). Chill slow and tag removal. Refcounted tags. Caveat on Burn expiry: the logic test's check named "burn run to expiry" ended in `or true` and could never fail. It was in the repo from `814f2ce` (2026-10-15) until `09b3456` (2026-10-16), when it became a real assertion (effect list empty and `BURNING` released). Real Burn expiry checks first appeared with Task F (`63afff2`, 2026-10-15: "burn lasted exactly" and "refreshed burn expires"), so the Task E claim of Burn expiry rested only on the vacuous check.
 - Fire levels 1 to 3 (Task F): duration 3.0 / 6.0 / 9.0 s, ramp cap 0.6 / 0.7 / 0.8, multiplier 1.3 at 3.0 s at level 1 and 1.8 at 8.0 s at level 3. A cast without Fire carries no status. A duration-0 application does nothing. A refresh takes the latest ramp cap bonus.
 - Fire and Frost statuses carried on payloads.
 - The Overclock offer appears as the only forced card and does not repeat. Overclock cap changes.
