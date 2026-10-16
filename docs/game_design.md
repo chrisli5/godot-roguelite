@@ -1,10 +1,10 @@
 # Game Design Document v1.9: Modular Action Roguelite
 
-Oct 14, 2026 · @Christopher
+Oct 15, 2026 · @Christopher
 
 ## Revision summary
 
-This revision aligns the design with the code as of 2026-10-14. Since v1.8, the infusion-to-status hook, the Burn ramp retune, base tags from `AbilityData`, evolution gating, the Overclock card, forced offer drafts and queue persistence are in the code. Infusions are now drafted separately from level-up drafts (decided). Compounds are redefined as shared effects, with evolutions unique per ability (§4).
+This revision aligns the design with the code as of 2026-10-14. Since v1.8, the infusion-to-status hook, base tags from `AbilityData`, evolution gating, the Overclock card, forced offer drafts and queue persistence are in the code. The Burn ramp (0.10 / 0.5) was set by hand on Oct 15, after Task D found the file still at 0.25 / 1.0. Infusions are now drafted separately from level-up drafts (decided). Compounds are redefined as shared effects, with evolutions unique per ability (§4). A review of the ability driver folders (Oct 14, later the same day) added the driver library to §1, the Arcane Bolt decisions to §3 and §4, and open items 27 to 31. A later design pass (Oct 15) defined the five base infusions in §4 and the two-stat model in §5: every ability carries `BASE_DAMAGE` and `DOT_DAMAGE`, Fire becomes a duration and ramp-cap infusion, and indirect scalings unlock by infusion level. All of it is Decided. The Fire part is Implemented and Headless-verified (Task F); the rest is not built.
 
 Every section carries one status tag:
 
@@ -15,7 +15,7 @@ Every section carries one status tag:
 
 Where this document and the code disagree, the code is the baseline until a section says otherwise.
 
-Verification uses three levels. **Verified**: run by the designer in Godot. **Headless**: run by Claude Code with the Godot executable (163 scripts, scenes and resources load; the world scene runs 600 frames without errors; 38 of 38 logic checks passed). **Written**: not run. Details are in §6 to §8. Visuals, key presses, the draft screens and real room changes are still untested by hand, and room transitions are not implemented.
+Verification uses three levels. **Verified**: run by the designer in Godot. **Headless**: run by Claude Code with the Godot executable (163 scripts, scenes and resources load; the world scene runs 600 frames without errors; 63 logic checks passed in Task G (54 after Task F). The 38 in earlier reports was a miscount; Task E counted 36). **Written**: not run. Details are in §6 to §8. Visuals, key presses, the draft screens and real room changes are still untested by hand, and room transitions are not implemented.
 
 ## Glossary
 
@@ -32,6 +32,25 @@ Verification uses three levels. **Verified**: run by the designer in Godot. **He
 &#91;embedded content: system architecture · player, ability container, run state\]
 
 Child components never hold references to sibling nodes. The Player and each Ability are the mediators that wire components together with signals and method parameters. The Player's run ledger is the single source of truth for upgrades. The EventBus is the global signal hub, and systems find the player through `EventBus.active_player_instance_id`. Because room scenes are freed on every transition, run state is held outside the room by `RunSession`. `UpgradeManager` sits under the Systems node of the World scene and is freed with it, so it writes the state it needs straight through to `RunSession.state`.
+
+### Ability drivers (read from the code, not run)
+
+An ability is a stack of swappable drivers chosen by its `AbilityData`: a deployment anchor, a geometry driver, an optional payload driver and a stats profile.
+
+| Layer | Existing pieces |
+| --- | --- |
+| Anchors | Caster position, mouse position |
+| Projectile geometry | Targeted (nearest enemy), Straight (player movement direction), Mouse aim. All use the fan helper (`PROJECTILE_AMOUNT`, 15 degree spread) |
+| Area geometry | Radial pulse, Linear sweep (wedge), Fissure (three growing strikes along the movement direction), Converging vortex (pulls enemies in), Chain link (nearest enemy, then up to 4 jumps, `CHAIN_RADIUS`) |
+| Persistent geometry | Orbiting ring |
+| Trajectories | Vector (default), Homing, Boomerang, Sine wave, Tornado |
+| Payload drivers | `MissileHitPayload` only (sets the trajectory scene) |
+
+- Every geometry delivers hits through `HurtboxComponent.take_hit`, so status effects apply from any shape.
+- All projectiles of one cast share one payload, and crit is rolled once per cast (decided, simplest).
+- Each driver reads specific stats, and a missing stat reads 0.0. An evolution's stats profile must therefore carry every stat its drivers read (open item 18).
+- An evolution may change family, for example from a projectile ability to an area ability (decided).
+- Arcane Bolt today: caster anchor, a circular query sorted nearest-first, Targeted projectile geometry with a fan, and the Vector trajectory. The bolt is destroyed on its first hit.
 
 ## 2. Action bar: four ability slots and the Character Core
 
@@ -54,7 +73,7 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 - **Append-only.** Tags are stored as integers in `.tres` files. New entries go at the end of the enum. Entries are never inserted, reordered or deleted. The same rule applies to `UpgradeDefinition.PayloadType` and every other enum referenced from `.tres` files.
 - **Source of truth.** Each stats container reads tags from its own `TagComponent`. Callers do not pass tags in.
 - **Layers.** A `TagComponent` compiles three layers: base tags, infusion tags and temporary tags.
-- **Base tags (Implemented, Written).** Base tags come from `AbilityData.structural_tags`, and they replace the ability's previous base tags whenever it is mounted or evolves. An empty list logs a warning and leaves the tags unchanged. Arcane Bolt may still have none (open item 22).
+- **Base tags (Implemented, Written).** Base tags come from `AbilityData.structural_tags`, and they replace the ability's previous base tags whenever it is mounted or evolves. An empty list logs a warning and leaves the tags unchanged. Arcane Bolt has `METAMAGIC` and `PROJECTILE` (Task E, Headless: its runtime base tags read back as both). They are provisional until the tag system is fully designed, because tags will eventually decide which global upgrades apply to an ability (open item 22). An evolution that changes family replaces the tag set, so a chain form drops `PROJECTILE` and projectile-scoped global cards stop applying to it.
 - **Infusion tags.** Rebuilt from the run ledger on every recompile, so evolving never removes them.
 - **Status tags (Implemented).** `BURNING`, `CHILLED` and `FROZEN` are appended to the enum. `TagComponent` grants them as temporary tags with reference counts, so a tag only clears when the last status that granted it ends. `FROZEN` has no source yet.
 - **Compound tags (Proof of concept).** A compound is a tag granted by an evolution through its `structural_tags`. None exists yet.
@@ -62,21 +81,34 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 
 ## 4. Elemental infusions, compounds and evolutions
 
-**Status:** Implemented for the stat contributions and for applying statuses, except Fire `STATUS_DURATION` (Decided, not built). Decided for how infusions are drafted. Proof of concept for the indirect scalings and compounds. Deferred for compound effects.
+**Status:** Implemented for the current stat contributions and for applying statuses, including the Fire rework (Task F, Headless). Decided, not built, for the indirect scalings, the other elements' changes and how infusions are drafted. Proof of concept for the numbers and for compounds. Deferred for compound effects.
 
 Infusions are socketed into ability slots. They contribute through stat modifiers (`stat_modifier_payload`), plus an optional status carried by the card (`status_effect_payload`, §6). Effect templates define shape, never absolute damage. The ledger stores slot-specific purchases under `<upgrade_id>::slot_<n>`, and that key wins over the plain key.
 
 **Drafting (Decided).** Infusions are drafted through their own draft, separate from level-up drafts. Only elements that at least one ability can accept are offered. In the code today, this draft is a debug key only, and level-up drafts never show infusion cards. When infusion drafts happen in a normal run is not decided (open item 23).
 
-| Element | Role | Direct stat contribution | Status applied | Indirect scaling (Proof of concept) |
-| --- | --- | --- | --- | --- |
-| Fire | Damage over time | DOT\_DAMAGE (Implemented). STATUS\_DURATION (Decided, not built: needs a second payload field) | Burn (Implemented, headless) | Not yet defined |
-| Frost | Control | COOLDOWN (Implemented) | Chill (Implemented, headless) | Not yet defined |
-| Lightning | Hit and crit | CRIT\_CHANCE, through its one payload (Implemented). CRIT\_MULTIPLIER is not built | None | Not yet defined |
-| Wind | Mobility | PROJECTILE\_MOVEMENT\_SPEED (Implemented) | None | Not yet defined |
-| Earth | Area | AOE\_RADIUS (Implemented) | None | Not yet defined |
+### Base infusions (Decided; Fire Implemented)
 
-Each infusion definition holds one `stat_modifier_payload`. A second payload field on `UpgradeDefinition` is needed for Fire `STATUS_DURATION` and Lightning `CRIT_MULTIPLIER`. See the open items.
+Each infusion has a direct stat that works from level 1 and an indirect scaling that unlocks at a higher infusion level. Unlock levels and all numbers are placeholders. Where an element's soft cap is 3, level 3 is its capstone.
+
+| Element | Role | Direct stat (level 1) | Indirect scaling (unlock level) | Status applied |
+| --- | --- | --- | --- | --- |
+| Fire | Duration and DoT | `STATUS_DURATION` and `STATUS_RAMP_CAP`, both flat per level (Implemented, Headless, Task F). No damage of its own | Burn's ramp: the cap grows per level (Implemented, Headless), and a longer duration keeps the ramp running. DoT only | Burn (Implemented, Headless) |
+| Frost | Cooldown | `COOLDOWN` (Implemented) | Level 2: bonus damage per 0.1 s shaved off the ability's default cooldown, with a cooldown floor and a cap on the bonus | Chill (Implemented, headless) |
+| Lightning | Crit | `CRIT_CHANCE` (Implemented) and `CRIT_MULTIPLIER` (not built) | Level 3: a crit releases an overload that damages nearby enemies for a percentage of the crit damage | None |
+| Wind | Action velocity | One speed stat that every driver reads as its own speed: projectile travel, orbit rotation, sweep rate, and melee swing rate later. Drivers with no speed concept ignore it. Today `PROJECTILE_MOVEMENT_SPEED` (Implemented) | Level 2: damage scale from the speed ratio, read at cast time | None |
+| Earth | Area | `AOE_RADIUS` for hitbox and area size (Implemented, Headless: the projectile hitbox follows it, Task G) | Level 3: an on-impact explosion whose damage scales with the number of enemies it catches | None |
+
+Rules:
+
+- **Both channels.** Indirect bonuses apply to hit damage and to DoT. Frost and Wind compute one cast-time `damage_scale` and apply it to the final hit damage and to `dot_damage_snapshot`, so ticks never read anything later. Indirect bonuses are summed into one scale and capped (open item 32). Fire's indirect is DoT only by nature.
+- **Cast time, not impact time.** Wind's description says "at the point of impact". The scale is read at cast time instead, for the same reason crit is rolled once per cast.
+- **One shared impact burst.** Earth's explosion and Lightning's overload are both secondary area damage on hit, so they share one component. A burst never crits and never triggers another burst or overload. It would also serve Magma later.
+- **Burst effects scale off hit damage.** A DoT specialist gets less from the overload and the explosion. This is accepted for now.
+- **Fire.** Fire deals no damage itself. Burn's damage comes from the ability's own `DOT_DAMAGE`, and Fire turns it on by supplying duration. Implemented, Headless (Task F): flat +3.0 s duration and +0.1 ramp cap per level. Flat modifiers scale as value times tier, so level 3 is 9.0 s and +0.3. Burn's `base_duration` is 0. All numbers are placeholders.
+- **Staged unlocks.** Indirect effects unlock by infusion level (open item 33). Placeholder levels: Frost 2, Wind 2, Lightning 3, Earth 3.
+
+A card can now carry more than one modifier through `UpgradeDefinition.additional_stat_modifiers` (Task F, Headless), and the single `stat_modifier_payload` still works. Fire uses it. Lightning's `CRIT_MULTIPLIER` can use it later. See the open items.
 
 ### Compounds and evolutions
 
@@ -95,9 +127,21 @@ Each infusion definition holds one `stat_modifier_payload`. A second payload fie
 
 The effects above are working names from v1.8 (Plasma Scorch, Magma Volcano and Brittle Fracture were the old evolution names). None has a defined mechanic, and all are **Deferred**.
 
+### First evolution forms
+
+An evolution may leave its ability's family (decided). The forms below are built from drivers that already exist. They are **Proof of concept**, except the first one, which is **Decided** as the first evolution to author.
+
+| Compound | Arcane Bolt form (existing drivers) | What the original idea would need |
+| --- | --- | --- |
+| Plasma | **Arc bolt**: Chain link geometry. Every link applies the Burn the Fire infusion carries, so Burn spreads. **Decided as the first form.** | A piercing lance needs a pierce count and a change to `CombatVolume` |
+| Magma | Fissure: three growing strikes along the movement direction | A lobbed bomb needs an on-impact burst (the spawner's `projectile_impacted` signal is unused) and lava hazards |
+| Frost + Earth | Shatter nova: Radial pulse with Chill (Converging vortex is the alternative) | A bursting shard needs fragment spawning and a `FROZEN` source |
+
+The first form tests the whole path: replacing base tags, a compound tag granted through `structural_tags`, a shared card scoped to that tag, and Burn spreading through chain hits. A chain crit is all-or-nothing, because crit is rolled once per cast.
+
 ## 5. Damage channels
 
-**Status:** Implemented for the multiplicative modifier type and the `DOT_DAMAGE` and `STATUS_DURATION` stats. Balance numbers are placeholders.
+**Status:** Implemented for the multiplicative modifier type and the `DOT_DAMAGE` and `STATUS_DURATION` stats. Balance numbers are placeholders. The two-stat model below is Decided and built for Arcane Bolt only.
 
 There are two separate channels. A build specializes in one of them, and hit damage is not the best scaling option for both.
 
@@ -110,6 +154,15 @@ There are two separate channels. A build specializes in one of them, and hit dam
 | Reads BASE\_DAMAGE | Yes | Never |
 
 The DoT magnitude is snapshotted at cast time from the source ability into the payload (`dot_damage_snapshot`). When a status is applied, the snapshot is copied into that status instance. `status_duration_snapshot` works the same way.
+
+### Every ability carries both stats (Decided; built for Arcane Bolt only)
+
+- Every ability profile holds a nonzero `BASE_DAMAGE` and a nonzero `DOT_DAMAGE`. A hit specialist has a high `BASE_DAMAGE` and a low `DOT_DAMAGE`, and a DoT specialist is the reverse. Every infusion therefore applies to every ability, and a poor fit is a weak synergy, not a dead pick.
+- `DOT_DAMAGE` is inert potency. Nothing ticks until a status with a duration is applied, and today only the Fire card supplies Burn. There is no explicit duration gate: duration alone decides. Burn's template `base_duration` becomes 0 and Fire supplies `STATUS_DURATION`. A DoT specialist is therefore weak until Fire is socketed.
+- Fire is the on-switch for DoT, and the ability's `DOT_DAMAGE` says how hard it hits once on. Lightning's crit touches hit damage only. The infusions form a gradient across specializations: Fire favors DoT specialists, Lightning favors hit specialists, and Frost, Wind and Earth change delivery and favor neither.
+- Hit and DoT need one exchange rate and a split per specialization (for example 85/15, 60/40 and 25/75, placeholders). By arithmetic from the current Burn numbers, not run, one Burn application delivers about 3.5 times its `DOT_DAMAGE` value. None of this is in `balance_notes.md` yet (open item 34).
+- Arcane Bolt hits for `BASE_DAMAGE` 1.0 every 1.0 s, so its base `DOT_DAMAGE` is 0.15 (placeholder; Task F, Headless). With Burn always on, that is about 15 to 20% of its damage, a hit specialist split. A value of 1.0 would have made one Burn application worth about 3.5 hits.
+- A modifier on a stat that is missing from an ability's profile has no effect, because the stat reads 0.0. Every profile therefore needs `DOT_DAMAGE`, `STATUS_DURATION` and `STATUS_RAMP_CAP`. Arcane Bolt's profile gained `STATUS_RAMP_CAP: 0.0` for this reason.
 
 ### Stacking of modifiers
 
@@ -144,7 +197,7 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 - **Template resource.** `StatusEffect` holds id, base duration, stacking policy, max stacks, tick interval, two ramp floats (`ramp_bonus_per_second`, `ramp_max_bonus`, used instead of a Curve resource), stat modifiers and granted tags. Templates define shape only and are never mutated.
 - **Runtime state.** Each application gets its own `StatusEffectInstance` (per-application copies of the modifiers with unique ids), so shared payloads are never changed per hit.
 - **Routing.** `StatusEffectComponent` emits `applied`, `refreshed`, `ticked` and `expired`. The Entity routes them to stats, health and tags. The component knows nothing about its siblings.
-- **Tick damage.** `dot_damage * (1 + min(elapsed * ramp_bonus_per_second, ramp_max_bonus)) * tick_interval * stacks`. Ticks bypass the hurtbox through `take_dot_damage`. They never crit and never read BASE\_DAMAGE.
+- **Tick damage.** `dot_damage * (1 + min(elapsed * ramp_bonus_per_second, ramp_max_bonus)) * tick_interval * stacks`. Ticks bypass the hurtbox through `take_dot_damage`. They never crit and never read BASE\_DAMAGE. The cap is `ramp_max_bonus` plus a per-application `ramp_cap_bonus`, snapshotted from the `STATUS_RAMP_CAP` stat the same way `STATUS_DURATION` is (Implemented, Headless, Task F).
 - **Refresh.** REFRESH resets the timer and takes the newer snapshot, but keeps `elapsed`, so a sustained Burn keeps ramping. The ramp resets only after the effect expires.
 - **Dead targets.** A status is not applied to an entity that is already dead, and all effects are cleared when health is depleted.
 - **Persistence.** Status effects are not carried between rooms.
@@ -157,19 +210,20 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 - **Chosen at cast time.** The payload's `status_effects_to_apply` is filled once per cast, then applied on every hit. Application is guaranteed: there is no chance stat.
 - **No DOT\_DAMAGE, no ticking status.** A status that ticks (`tick_interval > 0`) is skipped when the ability's `dot_damage_snapshot` is 0, with a one-time warning per `effect_id`. A status that does not tick (Chill) always applies.
 - **STATUS\_DURATION is ability-wide.** The single snapshot lengthens every status the ability applies.
-- **No status variants.** Templates stay fixed. Scaling of Chill's slow and Burn's ramp is undefined.
+- **Duration decides (Implemented, Headless, Task F).** There is no cast-time gate. A ticking Burn gets its whole duration from `STATUS_DURATION` (template `base_duration` 0). `apply_effect` returns early when the effective duration is 0 or less: no instance, no `BURNING` tag, no ticks, no warning, and an already-active Burn is left alone.
+- **No status variants.** Templates stay fixed. Chill's slow scaling is undefined. Burn's ramp cap grows with Fire levels through a per-application bonus, not a template change (Implemented, Headless, Task F).
 
 ### Effects
 
 | Effect | Source | Behavior | Status |
 | --- | --- | --- | --- |
-| Burn | Fire | DoT with REFRESH stacking, sets BURNING. Base 3 s, tick 0.5 s, ramp +10% per second capped at +50% | Implemented. Verified (apply, expiry, ticks, ramp at the old numbers). Headless (retuned ramp) |
+| Burn | Fire | DoT with REFRESH stacking, sets BURNING. Tick 0.5 s, ramp +10% per second capped at +50% plus 0.1 per Fire level. Template `base_duration` 0, so duration comes from Fire (+3.0 s per level) | Implemented. Verified (apply, expiry, ticks, ramp at the old numbers 0.25 / 1.0). Headless (ramp 0.10 / 0.5 set by hand on Oct 15, Fire levels 1 to 3, duration 0, refresh; Task F) |
 | Chill | Frost | Slows the target by 30% movement speed, sets CHILLED. Base 3 s, no tick | Implemented, Verified (apply, expiry). Headless (slow, tag removal) |
 | Plasma Bleed | Plasma (compound) | Burst reaction | Deferred |
 | Deep Frozen | Frost + Earth compound | Shatter reaction | Deferred |
 | Lava Tiles | Magma (compound) | Area hazard | Deferred |
 
-Burn ramp: retuned to the balance workbook (+10% per second, capped at +50%). All other Burn and Chill numbers are placeholders.
+Burn ramp: the shipped file was still 0.25 / 1.0 until Oct 15, when the designer set it by hand to the balance workbook values (+10% per second, capped at +50%). The logic test passes with the new values (Task E, Headless). All other Burn and Chill numbers are placeholders.
 
 ## 7. Evolution gating, progression and overclock
 
@@ -221,14 +275,14 @@ The `player_core_blueprints` loop currently ends in `pass`, so the starting abil
 
 ## 10. Open items
 
-Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11, 16 and 17).
+Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11, 16, 17 and 30).
 
 | # | Item | Type |
 | --- | --- | --- |
-| 1 | `UpgradeDefinition` needs a second payload field: Lightning's `stat_modifier_payload` carries CRIT\_CHANCE only (CRIT\_MULTIPLIER missing), and Fire has no STATUS\_DURATION source, so Burn lasts its 3.0 s base | Design decision |
+| 1 | Lightning's card still carries `CRIT_CHANCE` only (`CRIT_MULTIPLIER` missing). A card can now carry several modifiers (`additional_stat_modifiers`, Task F), so it only needs authoring | Gap |
 | 2 | Fire value and card strengths are placeholders | Balance |
 | 3 | Early-game specialization fails at 4 and 8 drafts in the model | Balance |
-| 4 | Fire needs a value curve across a run | Balance |
+| 4 | Fire needs a value curve across a run. Flat modifiers scale as value times tier, so Overclock level 15 would give 45 s duration and a ramp cap of 2.0 at the placeholder values | Balance |
 | 5 | Four slots or five | Design decision |
 | 7 | Nothing emits `room_completion_confirmed` | Bug |
 | 8 | `boss_node` is never generated | Bug |
@@ -238,12 +292,23 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 | 13 | `player_core_blueprints` loop ends in `pass` | Gap |
 | 14 | Pending level-up drafts are persisted but untested, because room transitions are not implemented | Gap |
 | 15 | Trigger tags and a passive ability type are missing | Gap |
-| 18 | Stats profiles of other abilities and evolutions need `DOT_DAMAGE` and `STATUS_DURATION` entries (a missing stat reads 0.0, and `mutate_base_profile` replaces the whole profile) | Gap |
+| 18 | Stats profiles of other abilities and evolutions need `DOT_DAMAGE`, `STATUS_DURATION`, `STATUS_RAMP_CAP` and every stat their drivers read, such as `PROJECTILE_AMOUNT`, `DURATION` or `CHAIN_RADIUS` (a missing stat reads 0.0, and `mutate_base_profile` replaces the whole profile) | Gap |
 | 19 | Status proc chance is not built (application is guaranteed) | Deferred |
-| 20 | Scaling of Chill's slow and Burn's ramp is undefined | Design decision |
+| 20 | Chill's slow scaling is undefined (Burn's ramp cap now scales with Fire levels, Task F) | Design decision |
 | 21 | STACK policy is untuned and unused | Balance |
-| 22 | Every `AbilityData` needs `structural_tags` (Arcane Bolt may have none) | Gap |
+| 22 | Every `AbilityData` needs `structural_tags`. Arcane Bolt now has `METAMAGIC` and `PROJECTILE` (Task E, Headless). Future abilities and evolutions still need them | Gap |
 | 23 | When infusion drafts occur in a normal run (separate draft decided; debug key only today) | Design decision |
 | 24 | No evolution is authored, so an ability at its soft cap is forced into Overclock. Author the first evolution, or add an `@export` switch on `UpgradeManager` | Design decision |
 | 25 | Compound designs: pairs, names, effects, tags | Design decision |
-| 26 | Room transitions are not implemented | Gap |
+| 26 | Room transitions are not implemented. Missing: room completion (nothing emits `room_completion_confirmed`, nothing counts remaining enemies, and `EnemySpawnerComponent`'s `wave_completed` and `campaign_cleared` have no listeners) and a death or game-over flow (nothing handles `Entity.died`). See items 7 to 9 | Gap |
+| 27 | Projectile hitbox: fixed in Task G (Headless). `CombatVolume` reads `AOE_RADIUS` before setting the shape (Arcane Bolt base 10.0; Earth levels 1 to 3 give 11, 12 and 13; the sprite is not scaled). Still open: area abilities reading `AOE_RADIUS` for their reach (Decided, Task H, written, not run): radial pulse and converging vortex query radius, linear sweep strike length, fissure strike radius. Chain link and the projectile geometries keep `QUERY_RADIUS` / `CHAIN_RADIUS` | Gap |
+| 28 | No pierce: `CombatVolume` frees itself on every hit, and orbit shards (same class) vanish after one hit | Gap |
+| 29 | No on-impact burst: the spawner's `projectile_impacted` signal is unused. Needed for Earth's explosion and Lightning's overload (one shared component, Decided) and for Magma later | Gap |
+| 31 | Crit is rolled once per cast (decided, simplest). Revisit if the Lightning theme needs per-hit crit | Design decision |
+| 32 | Cast-time `damage_scale` for Frost and Wind (applied to hit damage and `dot_damage_snapshot`, indirect bonuses summed then capped): the cap value and where the scale is computed | Design decision |
+| 33 | Level-gated infusion effects: how effect resolution checks the infusion level (depends on how the infusion tracker stores levels) | Gap |
+| 34 | The damage budget, the hit/DoT split per specialization and the hit-to-DoT exchange rate are not in `balance_notes.md`. The workbook solved Fire as an additive amount and needs re-solving for the potency model | Balance |
+| 35 | REFRESH takes the latest applier's snapshot, so a weaker Burn applied later can downgrade a stronger one, now that every ability can apply Burn. Left as is. Alternative: keep the higher `dot_damage` | Design decision |
+| 36 | Wind's generic speed stat: reuse `PROJECTILE_MOVEMENT_SPEED` or add a stat, and what each driver reads as its speed (orbit rotation, sweep rate, melee swing rate) | Design decision |
+| 37 | Every ability profile needs nonzero `BASE_DAMAGE` and `DOT_DAMAGE`, plus `STATUS_DURATION` and `STATUS_RAMP_CAP` entries (a missing stat ignores modifiers). Only Arcane Bolt's profile has them (`DOT_DAMAGE` 0.15, placeholder). A headless warning for zeros was offered, not requested | Gap |
+| 38 | Fire's duration does little for fast abilities, by arithmetic from the numbers (not run): Arcane Bolt's cooldown is 1.0 s and Burn lasts 3.0 s at level 1, so REFRESH keeps it up, and the ramp keeps running because a refresh keeps `elapsed`. The ramp cap and Frost's cooldown cuts matter more there. Duration matters for slow abilities and after target changes | Balance |

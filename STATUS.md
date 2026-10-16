@@ -2,7 +2,7 @@
 
 Owner: Claude Code. This file records what the code actually does and how each claim was checked. The rules and design decisions live in `CLAUDE.md` (owned by the designer and Claude Chat). Claude Code updates this file in every task that changes anything listed here and shows its diff in the report. Claude Chat reads it but does not edit it; report mismatches to Claude Code instead.
 
-Last synced with code commit: `892ebf3`. Update this line whenever this file changes.
+Last synced with code commit: `0b28709`. Update this line whenever this file changes.
 
 ## Status (as of 2026-10-16, verify against the code)
 Three levels of evidence are used below:
@@ -24,6 +24,14 @@ Headless:
 - The pending-level write-through.
 
 Written (needs a hand check): B and C key presses (B now uses a 3.0 s `debug_duration_bonus`), the draft screens (including the reworked Fire card) (offer, level-up, infusion), a bolt hit applying a status to an enemy, and a room transition with queued drafts.
+
+Build state of the design decisions in `CLAUDE.md` (moved here from the Combat design decisions section, which now states decisions only):
+- **Two stats on every ability:** decided Oct 15, built for Arcane Bolt only (`BASE_DAMAGE` 1.0, `DOT_DAMAGE` 0.15). No other ability exists yet.
+- **Fire deals no damage itself:** built and checked Headless in Task F (`63afff2`). `STATUS_RAMP_CAP` is `Stat.Type` 19. Level 1 gives 3.0 s and a 0.1 cap bonus, level 3 gives 9.0 s and 0.3 (cap 0.8).
+- **Burn ramp:** the designer edited `burn.tres` to 0.10 / 0.5 by hand on 2026-10-15; until then the shipped file was 0.25 / 1.0. The logic test passes with the new values (Task E, `814f2ce`, Headless).
+- **Indirect infusion scalings** (`damage_scale`, impact burst): decided, not built (see Not implemented). The cap on summed indirect bonuses is undecided.
+- **`AOE_RADIUS`:** projectile and orbit hitboxes read it (Task G, `63afff2`, Headless). `CLAUDE.md` also states that area abilities read it for their reach; that is a decision, not the current code (only converging vortex reads it today; Task H is pending).
+- **Balance workbook:** `effective_dps_hit_vs_dot.xlsx` (its name was dropped from `CLAUDE.md`).
 
 Done:
 - Core-stat invalidation, slot range, allocation-free modifier totals.
