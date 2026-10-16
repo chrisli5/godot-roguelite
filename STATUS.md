@@ -1,0 +1,58 @@
+# Project status
+
+Owner: Claude Code. This file records what the code actually does and how each claim was checked. The rules and design decisions live in `CLAUDE.md` (owned by the designer and Claude Chat). Claude Code updates this file in every task that changes anything listed here and shows its diff in the report. Claude Chat reads it but does not edit it; report mismatches to Claude Code instead.
+
+Last synced with code commit: `892ebf3`. Update this line whenever this file changes.
+
+## Status (as of 2026-10-16, verify against the code)
+Three levels of evidence are used below:
+- **Verified**: the user ran it in Godot.
+- **Headless**: Claude Code ran it with the Godot executable and reported it (163 scripts, scenes and resources load; the world scene runs 600 frames without errors; 63 logic checks passed in Task G (54 after Task F). The 38 in earlier reports was a miscount; Task E counted 36).
+- **Written**: not run.
+
+Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = pending (not yet given).
+
+Verified:
+- Burn and Chill, triggered with B / C, apply and are removed on expiry. Burn tick damage and ramp (checked before the ramp retune).
+- Run persistence through the F3 player respawn only. Room transitions are not implemented, so a real room change is untested.
+
+Headless:
+- Burn ticks, ramp (0.10 / 0.5, read from `burn.tres`), refresh, expiry and death cleanup (the logic test was re-run after the hand edit, Task E). Chill slow and tag removal. Refcounted tags.
+- Fire levels 1 to 3 (Task F): duration 3.0 / 6.0 / 9.0 s, ramp cap 0.6 / 0.7 / 0.8, multiplier 1.3 at 3.0 s at level 1 and 1.8 at 8.0 s at level 3. A cast without Fire carries no status. A duration-0 application does nothing. A refresh takes the latest ramp cap bonus.
+- Fire and Frost statuses carried on payloads.
+- The Overclock offer appears as the only forced card and does not repeat. Overclock cap changes.
+- The pending-level write-through.
+
+Written (needs a hand check): B and C key presses (B now uses a 3.0 s `debug_duration_bonus`), the draft screens (including the reworked Fire card) (offer, level-up, infusion), a bolt hit applying a status to an enemy, and a room transition with queued drafts.
+
+Done:
+- Core-stat invalidation, slot range, allocation-free modifier totals.
+- `StatModifier.Type.MULTIPLICATIVE`; `Stat.Type.DOT_DAMAGE` / `STATUS_DURATION`.
+- Infusion stat payloads: Fire STATUS_DURATION and STATUS_RAMP_CAP (Task F; it was a flat DOT_DAMAGE), Frost COOLDOWN, Wind PROJECTILE_MOVEMENT_SPEED, Earth AOE_RADIUS, Lightning CRIT_CHANCE. Arcane Bolt crit baseline (5% / 1.5x).
+- Status tags `BURNING`, `CHILLED`, `FROZEN`; refcounted temporary tags. Status effect system (`StatusEffect`, `StatusEffectInstance`, `StatusEffectComponent`) routed by `Entity`. `HealthComponent.take_dot_damage`. `CombatPayload` carries `status_effects_to_apply` and the DoT and duration snapshots.
+- Infusion-to-status hook: `UpgradeDefinition.status_effect_payload`, resolved through the ledger at cast time. (Confirm the exact method names against the code.)
+- `AbilityData.structural_tags` replaces an ability's base tags in `swap_runtime_strategies` (`TagComponent.set_base_tags`).
+- Evolution gating (`has_reached_soft_cap_milestone`, `is_offer_eligible`, `meets_recipe`, `evaluate_evolution_recipes`), `UpgradeDefinition.evolves_from` and `recipe_requirements`, `PayloadType.ABILITY_OVERCLOCK`, `UpgradeChoice.is_forced_offer`, forced offer drafts, and the generic Overclock card.
+- Infusion cards are filtered to elements some ability can accept; an empty draft is skipped with a warning.
+- Arcane Bolt `structural_tags` = `[METAMAGIC, PROJECTILE]` (Task E, Headless: its runtime base tags read back as both; provisional, tags will eventually decide which global upgrades apply). Its base stats: BASE_DAMAGE 1.0, COOLDOWN 1.0, CRIT_CHANCE 0.05, CRIT_MULTIPLIER 1.5, DURATION 3.0, AOE_RADIUS 10.0 (was 5.0 before Task G), QUERY_RADIUS 300, PROJECTILE_MOVEMENT_SPEED 500, PROJECTILE_AMOUNT 1, DOT_DAMAGE 0.15, STATUS_DURATION 0.0, STATUS_RAMP_CAP 0.0.
+- The `[STAT FLAGGED DIRTY]` print in `StatsContainer` is removed. The headless scripts are in `tools/headless/` (Task E, committed and pushed in `814f2ce`).
+- Projectile hitbox follows `AOE_RADIUS` (Task G, `63afff2`, Headless): `CombatVolume` reads the stat before setting the circle and falls back to `DEFAULT_COLLISION_RADIUS` 10.0 with a one-time warning when the stat is 0 or missing. Arcane Bolt's `AOE_RADIUS` base is 10.0, and Earth levels 1 to 3 give 11, 12 and 13. The sprite is not scaled. Any ability using Straight or MouseAim projectiles or the orbiting ring needs key 9 in its profile.
+- Task F (`63afff2`, Headless: import scan, world run, load check 163 / 0, logic test 54 PASS): `Stat.Type.STATUS_RAMP_CAP` = 19; `UpgradeDefinition.additional_stat_modifiers` (the ledger's `get_modifier_totals` loops the primary payload and then the extras through `_modifier_contribution`, and `StatsContainer` invalidation flags every stat any of a card's modifiers targets); `CombatPayload.status_ramp_cap_snapshot`; `StatusEffectInstance.ramp_cap_bonus`; `apply_effect(effect, dot_damage, duration_bonus, ramp_cap_bonus := 0.0)` (`Entity` passes the fourth argument); `burn.tres` `base_duration` 0.0; `inf_fire_upgrade_def.tres` carries the two flat modifiers; Arcane Bolt profile `DOT_DAMAGE` 0.15 and `STATUS_RAMP_CAP` 0.0 (key 19); `debug_status_trigger.gd` default `debug_duration_bonus` 3.0, because B would otherwise apply nothing.
+- Level-up drafts (`generate_selection_pool`) skip every infusion definition unconditionally, and the `HealthComponent.take_damage` print is removed (Task D, `c1cbdff`, Headless: 163 loads, world 600 frames, logic checks, identical before and after).
+- `RunState.pending_draft_levels`, written through by `UpgradeManager`.
+
+Not implemented:
+- Lightning `CRIT_MULTIPLIER` is not authored. A card can now carry it through `additional_stat_modifiers` (Task F).
+- Pierce does not exist: `CombatVolume._on_collision_detected` frees the volume on every hit. `OrbitingShard` shares it, so orbit shards vanish after one hit (looks unintended).
+- Most area geometries do not read `AOE_RADIUS` for their reach yet: radial pulse uses the `QUERY_RADIUS` query circle (inherited from `GeometryDriver.get_query_shape`), linear sweep uses `strike_length`, and fissure uses its exports. Converging vortex is the exception: its query circle is also `QUERY_RADIUS`, but it already reads `AOE_RADIUS` for its maximum reach. Decided: the others read `AOE_RADIUS` too (Task H, pending: the task has not been given yet). Chain link and the projectile geometries keep `QUERY_RADIUS` / `CHAIN_RADIUS`.
+- No on-impact burst: `ProjectileSpawnerComponent.projectile_impacted` exists but nothing uses it. It is needed for Earth's explosion and Lightning's overload (one shared component, Decided).
+- Cast-time `damage_scale` for Frost and Wind (and its cap), level-gated infusion effects, and Wind's generic speed stat are designed (Decided) but not built.
+- First evolution (decided, first form only): Arcane Bolt -> Plasma, using `ChainLinkGeometry` (an area form, so its evolved `structural_tags` drop `PROJECTILE`). Not authored yet.
+- Any authored evolution, evolution card or compound (tags, shared effects). Until one exists, an ability reaching its soft cap is forced into Overclock.
+- A trigger for infusion drafts in a normal run.
+- Room transitions.
+- Every future ability or evolution stats profile needs `DOT_DAMAGE`, `STATUS_DURATION` and `STATUS_RAMP_CAP` entries (a missing stat reads 0.0 and ignores modifiers, and `mutate_base_profile` replaces the whole profile). Today `arcane_bolt_stats.tres` is the only ability profile and it has them; the entity profiles (`player_stats`, `bat_stats`, `enemy_stats_profile`) are not ability profiles and do not need them.
+- Reactions (hook marked by a comment in `Entity._on_hit_received`). `FROZEN` has no source.
+- STACK policy is untuned and unused. Proc chance for statuses.
+
+Known open bugs: nothing emits `room_completion_confirmed`; `boss_node` is never generated; `EventBus.campaign_victory_triggered` is undeclared; `InfusionAllocationUI` uses wrong member names (`run_ledger`, `ui_inventory_changed`; latent, it is only reached when the player already exists); enemies never drop XP; enemies spawn at fixed coordinates; nothing counts remaining enemies, so a room has no clear condition (`EnemySpawnerComponent` emits `wave_completed` and `campaign_cleared`, but nothing listens); nothing handles `Entity.died`, so there is no death or game-over flow.
