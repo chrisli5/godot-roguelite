@@ -34,15 +34,17 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 	if is_instance_valid(player):
 		target_direction = player.velocity.normalized() if player.velocity != Vector2.ZERO else Vector2.RIGHT
 
+	var stats := instance_from_id(final_payload.stats_container_id) as StatsContainer if is_instance_valid(final_payload) else null
+	var first_radius := _get_area_radius(stats, starting_radius)
 	var step_shape := CircleShape2D.new()
-	
+
 	# Execute sequential queries on the physics server directly for step tracking line rules
 	for step in range(fissure_steps):
 		var calculated_distance := (step + 1) * distance_step
 		var target_strike_point := global_origin + (target_direction * calculated_distance)
 		
 		var growth_factor := step * expansion_rate_per_step
-		step_shape.radius = (starting_radius + growth_factor)
+		step_shape.radius = (first_radius + growth_factor)
 		
 		# Direct call using our shared engine server logic utility
 		var intersections := SpatialQuery.query_shape_intersections(

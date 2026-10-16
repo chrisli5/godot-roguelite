@@ -2,15 +2,15 @@
 
 Owner: Claude Code. This file records what the code actually does and how each claim was checked. The rules and design decisions live in `CLAUDE.md` (owned by the designer and Claude Chat). Claude Code updates this file in every task that changes anything listed here and shows its diff in the report. Claude Chat reads it but does not edit it; report mismatches to Claude Code instead.
 
-Last synced with code commit: `0b28709`. Update this line whenever this file changes.
+Last synced with code commit: `7656c3b`. Update this line whenever this file changes.
 
 ## Status (as of 2026-10-16, verify against the code)
 Three levels of evidence are used below:
 - **Verified**: the user ran it in Godot.
-- **Headless**: Claude Code ran it with the Godot executable and reported it (163 scripts, scenes and resources load; the world scene runs 600 frames without errors; 63 logic checks passed in Task G (54 after Task F). The 38 in earlier reports was a miscount; Task E counted 36).
+- **Headless**: Claude Code ran it with the Godot executable and reported it (163 scripts, scenes and resources load; the world scene runs 600 frames without errors; 81 logic checks passed in Task H (63 after Task G, 54 after Task F). The 38 in earlier reports was a miscount; Task E counted 36).
 - **Written**: not run.
 
-Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = pending (not yet given).
+Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = uncommitted at the time of writing (commit hash to be added).
 
 Verified:
 - Burn and Chill, triggered with B / C, apply and are removed on expiry. Burn tick damage and ramp (checked before the ramp retune).
@@ -30,7 +30,7 @@ Build state of the design decisions in `CLAUDE.md` (moved here from the Combat d
 - **Fire deals no damage itself:** built and checked Headless in Task F (`63afff2`). `STATUS_RAMP_CAP` is `Stat.Type` 19. Level 1 gives 3.0 s and a 0.1 cap bonus, level 3 gives 9.0 s and 0.3 (cap 0.8).
 - **Burn ramp:** the designer edited `burn.tres` to 0.10 / 0.5 by hand on 2026-10-15; until then the shipped file was 0.25 / 1.0. The logic test passes with the new values (Task E, `814f2ce`, Headless).
 - **Indirect infusion scalings** (`damage_scale`, impact burst): decided, not built (see Not implemented). The cap on summed indirect bonuses is undecided.
-- **`AOE_RADIUS`:** projectile and orbit hitboxes read it (Task G, `63afff2`, Headless). `CLAUDE.md` also states that area abilities read it for their reach; that is a decision, not the current code (only converging vortex reads it today; Task H is pending).
+- **`AOE_RADIUS`:** projectile and orbit hitboxes read it (Task G, `63afff2`, Headless). Area geometries read it for their reach too (Task H, Headless; see Done).
 - **Balance workbook:** `effective_dps_hit_vs_dot.xlsx` (its name was dropped from `CLAUDE.md`).
 
 Done:
@@ -45,6 +45,7 @@ Done:
 - Arcane Bolt `structural_tags` = `[METAMAGIC, PROJECTILE]` (Task E, Headless: its runtime base tags read back as both; provisional, tags will eventually decide which global upgrades apply). Its base stats: BASE_DAMAGE 1.0, COOLDOWN 1.0, CRIT_CHANCE 0.05, CRIT_MULTIPLIER 1.5, DURATION 3.0, AOE_RADIUS 10.0 (was 5.0 before Task G), QUERY_RADIUS 300, PROJECTILE_MOVEMENT_SPEED 500, PROJECTILE_AMOUNT 1, DOT_DAMAGE 0.15, STATUS_DURATION 0.0, STATUS_RAMP_CAP 0.0.
 - The `[STAT FLAGGED DIRTY]` print in `StatsContainer` is removed. The headless scripts are in `tools/headless/` (Task E, committed and pushed in `814f2ce`).
 - Projectile hitbox follows `AOE_RADIUS` (Task G, `63afff2`, Headless): `CombatVolume` reads the stat before setting the circle and falls back to `DEFAULT_COLLISION_RADIUS` 10.0 with a one-time warning when the stat is 0 or missing. Arcane Bolt's `AOE_RADIUS` base is 10.0, and Earth levels 1 to 3 give 11, 12 and 13. The sprite is not scaled. Any ability using Straight or MouseAim projectiles or the orbiting ring needs key 9 in its profile.
+- Area geometries read `AOE_RADIUS` for their reach (Task H, uncommitted, Headless: import scan, world run, load check 163 / 0, logic test 81 PASS). `GeometryDriver._get_area_radius(stats, fallback)` returns the stat, or the fallback with a one-time warning when it is missing or 0. `AreaGeometry` and `RadialPulseGeometry` override `get_query_shape` with an `AOE_RADIUS` circle (fallback `QUERY_RADIUS`, or 200 with no stats), and converging vortex inherits it. Linear sweep uses it as the wedge length (fallback `strike_length` 120). Fissure uses it as the first strike radius (fallback `starting_radius` 30) and keeps `distance_step` 70 and `expansion_rate_per_step` 15. Chain link and the projectile geometries still return `QUERY_RADIUS` circles. With Earth level 1 a 200-radius pulse is 220. The logic test checks fissure reach with real physics queries against placed bats, so `run` in `logic_test.gd` is now a coroutine and `runner.gd` awaits it from `_run_test`. The old exports remain as fallbacks. No area ability is authored yet; any future area profile needs key 9.
 - Task F (`63afff2`, Headless: import scan, world run, load check 163 / 0, logic test 54 PASS): `Stat.Type.STATUS_RAMP_CAP` = 19; `UpgradeDefinition.additional_stat_modifiers` (the ledger's `get_modifier_totals` loops the primary payload and then the extras through `_modifier_contribution`, and `StatsContainer` invalidation flags every stat any of a card's modifiers targets); `CombatPayload.status_ramp_cap_snapshot`; `StatusEffectInstance.ramp_cap_bonus`; `apply_effect(effect, dot_damage, duration_bonus, ramp_cap_bonus := 0.0)` (`Entity` passes the fourth argument); `burn.tres` `base_duration` 0.0; `inf_fire_upgrade_def.tres` carries the two flat modifiers; Arcane Bolt profile `DOT_DAMAGE` 0.15 and `STATUS_RAMP_CAP` 0.0 (key 19); `debug_status_trigger.gd` default `debug_duration_bonus` 3.0, because B would otherwise apply nothing.
 - Level-up drafts (`generate_selection_pool`) skip every infusion definition unconditionally, and the `HealthComponent.take_damage` print is removed (Task D, `c1cbdff`, Headless: 163 loads, world 600 frames, logic checks, identical before and after).
 - `RunState.pending_draft_levels`, written through by `UpgradeManager`.
@@ -52,7 +53,6 @@ Done:
 Not implemented:
 - Lightning `CRIT_MULTIPLIER` is not authored. A card can now carry it through `additional_stat_modifiers` (Task F).
 - Pierce does not exist: `CombatVolume._on_collision_detected` frees the volume on every hit. `OrbitingShard` shares it, so orbit shards vanish after one hit (looks unintended).
-- Most area geometries do not read `AOE_RADIUS` for their reach yet: radial pulse uses the `QUERY_RADIUS` query circle (inherited from `GeometryDriver.get_query_shape`), linear sweep uses `strike_length`, and fissure uses its exports. Converging vortex is the exception: its query circle is also `QUERY_RADIUS`, but it already reads `AOE_RADIUS` for its maximum reach. Decided: the others read `AOE_RADIUS` too (Task H, pending: the task has not been given yet). Chain link and the projectile geometries keep `QUERY_RADIUS` / `CHAIN_RADIUS`.
 - No on-impact burst: `ProjectileSpawnerComponent.projectile_impacted` exists but nothing uses it. It is needed for Earth's explosion and Lightning's overload (one shared component, Decided).
 - Cast-time `damage_scale` for Frost and Wind (and its cap), level-gated infusion effects, and Wind's generic speed stat are designed (Decided) but not built.
 - First evolution (decided, first form only): Arcane Bolt -> Plasma, using `ChainLinkGeometry` (an area form, so its evolved `structural_tags` drop `PROJECTILE`). Not authored yet.

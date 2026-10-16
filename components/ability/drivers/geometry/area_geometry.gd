@@ -2,6 +2,14 @@ class_name AreaGeometry
 extends GeometryDriver
 
 
+## Area reach comes from AOE_RADIUS; the QUERY_RADIUS circle is only the fallback.
+func get_query_shape(stats: StatsContainer) -> Shape2D:
+	var circle := CircleShape2D.new()
+	var fallback: float = stats.get_final_stat_value(Stat.Type.QUERY_RADIUS) if is_instance_valid(stats) else 200.0
+	circle.radius = _get_area_radius(stats, fallback)
+	return circle
+
+
 func _process_volume_hit(_hurtbox: HurtboxComponent, _origin: Vector2, _payload: CombatPayload) -> void:
 	pass
 

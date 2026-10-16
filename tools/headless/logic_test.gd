@@ -18,6 +18,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 	world = world_node
 	_eb = tree.root.get_node("EventBus")
 	_run()
+	await _fissure_test()
 	print("LOGICTEST done fails=%d" % fails)
 	return 1 if fails > 0 else 0
 
@@ -26,6 +27,69 @@ func _spawn_bat() -> Enemy:
 	e.initialize_entity(load("res://resources/entities/enemy/bat.tres"))
 	world.get_node("GameWorld/EntitiesContainer").add_child(e)
 	return e
+
+## Builds an in-memory StatsContainer from {Stat.Type: float}. With a ledger it behaves like an ability lane in `slot`.
+func _make_stats(values: Dictionary, slot: int = 0, ledger: RunLedgerComponent = null) -> StatsContainer:
+	var container := StatsContainer.new()
+	if ledger != null:
+		container.configure_slot_context(slot, ledger)
+	var typed: Dictionary[Stat.Type, float] = {}
+	for key in values:
+		typed[key] = values[key]
+	var profile := StatsProfile.new()
+	profile.base_stats = typed
+	container.initialize_profile(profile)
+	return container
+
+
+var _fissure_hits: Array[int] = []
+
+
+func _count_fissure_hit(_payload: CombatPayload, index: int) -> void:
+	_fissure_hits[index] += 1
+
+
+## Casts a fissure from `origin` against bats placed at `offsets` and returns how many times each bat was hit.
+func _cast_fissure(stats: StatsContainer, origin: Vector2, offsets: Array[Vector2]) -> Array[int]:
+	var fissure := FissureGeometry.new()
+	world.add_child(fissure)
+	_fissure_hits.clear()
+	var bats: Array[Enemy] = []
+	for i in range(offsets.size()):
+		var bat := _spawn_bat()
+		bat.set_physics_process(false)
+		bat.global_position = origin + offsets[i]
+		_fissure_hits.append(0)
+		bat.hurtbox_component.hit_received.connect(_count_fissure_hit.bind(i))
+		bats.append(bat)
+	await tree.physics_frame
+	await tree.physics_frame
+	var payload := CombatPayload.new()
+	payload.stats_container_id = stats.get_instance_id()
+	fissure.execute_geometry({"origin": origin}, payload)
+	var result: Array[int] = _fissure_hits.duplicate()
+	for bat in bats:
+		bat.queue_free()
+	fissure.queue_free()
+	return result
+
+
+func _fissure_test() -> void:
+	# Hurtbox circles have radius 10, so a strike of radius R hits a bat whose centre is within R + 10.
+	# Strikes sit at +70, +140, +210 on x with radii R, R + 15, R + 30 (R = AOE_RADIUS = 40).
+	var origin := Vector2(80000.0, 80000.0)
+	var hits := await _cast_fissure(_make_stats({Stat.Type.AOE_RADIUS: 40.0}), origin, [
+		Vector2(70, 45), Vector2(70, 52),
+		Vector2(140, 62), Vector2(140, 70),
+		Vector2(210, 77), Vector2(210, 83),
+	])
+	check(hits[0] == 1 and hits[1] == 0, "fissure: first strike radius = AOE_RADIUS (40), hit at 45, miss at 52")
+	check(hits[2] == 1 and hits[3] == 0, "fissure: second strike at +140 with radius 55 (spacing 70, growth 15)")
+	check(hits[4] == 1 and hits[5] == 0, "fissure: third strike at +210 with radius 70 (spacing 70, growth 15)")
+	# Without AOE_RADIUS the first strike falls back to starting_radius 30 (hit within 40)
+	var fallback_hits := await _cast_fissure(_make_stats({}), origin + Vector2(0, 5000), [Vector2(70, 35), Vector2(70, 45)])
+	check(fallback_hits[0] == 1 and fallback_hits[1] == 0, "fissure: no AOE_RADIUS falls back to starting_radius 30")
+
 
 ## Spawns a Projectile whose payload points at `stats`, returns its hitbox radius, then frees it.
 func _spawn_projectile_radius(container: Node, stats: StatsContainer) -> float:
@@ -226,6 +290,60 @@ func _run() -> void:
 		default_ok = default_ok and is_equal_approx(_spawn_projectile_radius(proj_container, no_aoe), 10.0)
 	check(default_ok, "profile without AOE_RADIUS: default radius 10.0 on 3 spawns")
 	check(CombatVolume._warned_missing_radius, "missing AOE_RADIUS warns (flag set; exactly one warning line is counted in the output)")
+
+	# --- Area geometries read AOE_RADIUS (Task H) ---
+	var area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0})
+	var pulse := RadialPulseGeometry.new()
+	check(is_equal_approx((pulse.get_query_shape(area_stats) as CircleShape2D).radius, 200.0), "radial pulse: query circle = AOE_RADIUS (200)")
+	player.run_ledger_component.log_slot_specific_purchase(earth, 2)
+	var earth_area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0}, 2, player.run_ledger_component)
+	var earth_pulse_radius := (pulse.get_query_shape(earth_area_stats) as CircleShape2D).radius
+	print("INFO  radial pulse with Earth level 1 -> radius %.3f" % earth_pulse_radius)
+	check(is_equal_approx(earth_pulse_radius, 220.0), "radial pulse with Earth L1: radius %.1f" % earth_pulse_radius)
+	var query_only_stats := _make_stats({Stat.Type.QUERY_RADIUS: 150.0})
+	check(not GeometryDriver._warned_area_fallback, "no area fallback warning issued yet")
+	var fallback_ok := true
+	for i in range(3):
+		fallback_ok = fallback_ok and is_equal_approx((pulse.get_query_shape(query_only_stats) as CircleShape2D).radius, 150.0)
+	check(fallback_ok, "radial pulse: no AOE_RADIUS falls back to QUERY_RADIUS (150) on 3 calls")
+	check(GeometryDriver._warned_area_fallback, "area fallback warns (flag set; exactly one warning line is counted in the output)")
+
+	var sweep := LinearSweepGeometry.new()
+	var wedge := sweep.get_query_shape(area_stats) as ConvexPolygonShape2D
+	check(is_equal_approx(wedge.points[1].length(), 200.0) and is_equal_approx(wedge.points[2].length(), 200.0), "linear sweep: far vertices at AOE_RADIUS (200)")
+	var default_wedge := sweep.get_query_shape(_make_stats({})) as ConvexPolygonShape2D
+	check(is_equal_approx(default_wedge.points[1].length(), 120.0) and is_equal_approx(default_wedge.points[2].length(), 120.0), "linear sweep: no AOE_RADIUS falls back to strike_length (120)")
+
+	var vortex := ConvergingVortexGeometry.new()
+	check(is_equal_approx((vortex.get_query_shape(area_stats) as CircleShape2D).radius, 200.0), "converging vortex: query circle = AOE_RADIUS (200)")
+	var vortex_origin := Vector2(60000.0, 60000.0)
+	var vortex_bat := _spawn_bat()
+	vortex_bat.set_physics_process(false)
+	vortex_bat.global_position = vortex_origin + Vector2(200.0, 0.0)
+	vortex_bat.velocity = Vector2.ZERO
+	var vortex_payload := CombatPayload.new()
+	vortex_payload.stats_container_id = area_stats.get_instance_id()
+	vortex._process_volume_hit(vortex_bat.hurtbox_component, vortex_origin, vortex_payload)
+	check(is_equal_approx(vortex_bat.velocity.length(), vortex.horizontal_suction_force), "converging vortex: falloff weight is 0 at distance == AOE_RADIUS (force 450)")
+	vortex_bat.velocity = Vector2.ZERO
+	vortex_bat.global_position = vortex_origin + Vector2(100.0, 0.0)
+	vortex._process_volume_hit(vortex_bat.hurtbox_component, vortex_origin, vortex_payload)
+	check(is_equal_approx(vortex_bat.velocity.length(), vortex.horizontal_suction_force * 1.5), "converging vortex: weight 0.5 at half the radius (force 675), never negative")
+
+	var chain := ChainLinkGeometry.new()
+	check(is_equal_approx((chain.get_query_shape(area_stats) as CircleShape2D).radius, 150.0), "chain link: still a QUERY_RADIUS circle (150)")
+	for scene_path in [
+		"res://components/ability/drivers/geometry/projectile/targeted_projectile_geometry.tscn",
+		"res://components/ability/drivers/geometry/projectile/straight_projectile_geometry.tscn",
+		"res://components/ability/drivers/geometry/projectile/mouse_aim_projectile_geometry.tscn",
+	]:
+		var projectile_geometry := (load(scene_path) as PackedScene).instantiate() as GeometryDriver
+		var projectile_shape := projectile_geometry.get_query_shape(area_stats) as CircleShape2D
+		check(projectile_shape != null and is_equal_approx(projectile_shape.radius, 150.0), "%s: still a QUERY_RADIUS circle (150)" % scene_path.get_file().get_basename())
+		projectile_geometry.free()
+	vortex_bat.queue_free()
+	for geometry in [pulse, sweep, vortex, chain]:
+		geometry.free()
 
 	# --- Infusion tracker / gate ---
 	var tr := ability.infusion_tracker_component
