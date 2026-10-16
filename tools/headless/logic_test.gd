@@ -134,7 +134,7 @@ func _run() -> void:
 		comp._process(0.5)
 		if not is_instance_valid(bat) or bat.health_component.current_health <= 0.0:
 			break
-	check(not is_instance_valid(bat) or bat.is_queued_for_deletion() or not bat.tag_component.has_tag(Tags.Type.BURNING) or true, "burn run to expiry/death without error")
+	check(is_instance_valid(bat) and comp._active_effects.is_empty() and not bat.tag_component.has_tag(Tags.Type.BURNING), "burn run to expiry: effect cleared and BURNING released")
 
 	# --- Chill ---
 	var bat2 := _spawn_bat()

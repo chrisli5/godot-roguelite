@@ -2,7 +2,7 @@
 
 Owner: Claude Code. This file records what the code actually does and how each claim was checked. The rules and design decisions live in `CLAUDE.md` (owned by the designer and Claude Chat). Claude Code updates this file in every task that changes anything listed here and shows its diff in the report. Claude Chat reads it but does not edit it; report mismatches to Claude Code instead.
 
-Last synced with code commit: `7656c3b`. Update this line whenever this file changes.
+Last synced with code commit: `2fa6b02`. Update this line whenever this file changes.
 
 ## Status (as of 2026-10-16, verify against the code)
 Three levels of evidence are used below:
