@@ -1,6 +1,6 @@
 # Project: Action Roguelite (Godot 4, GDScript)
 
-Last synced with code commit: `3dad139`. Update this line whenever this file changes.
+Last synced with code commit: `5dff41b`. Update this line whenever this file changes.
 
 Auto-attack action roguelite (Vampire Survivors-style combat) with a Slay the Spire-style room map.
 Engine: Godot 4.x. The code uses `@abstract` and typed Dictionaries, so assume 4.5 or newer.
@@ -83,7 +83,10 @@ The repo is public, so some folders are deliberately not in it (both are in `.gi
   - Load check: `$GODOT --headless --path . -s res://tools/headless/load_all.gd`. It tries to open every `.gd`, `.tscn` and `.tres` outside `addons/` and `tools/`, which catches parse errors and broken references. It skips `res://tools/`, because it crashed Godot by reloading itself. The latest count is in `STATUS.md`.
   - Logic test: `$GODOT --headless --path . -s res://tools/headless/runner.gd`. Each `check(...)` is one assertion about behavior; the latest count is in `STATUS.md`. It runs `res://tools/headless/logic_test.gd` unless the `LOGIC_TEST` environment variable names another script. It prints `ERROR: N resources still in use at exit` (N grows when a check creates objects it does not free) because the harness quits early; that is expected.
   - These checks do not use GUT (`addons/gut`), and the GUT folder does not run them.
-  - The three scripts live in `tools/headless/`. Put new checks in `logic_test.gd`. Most working-tree files use CRLF line endings, but at least `combat_volume.gd` uses LF, so check each file before matching text.
+  - Golden test: `LOGIC_TEST=res://tools/headless/golden_test.gd $GODOT --headless --path . -s res://tools/headless/runner.gd` (same runner, with the `LOGIC_TEST` environment variable naming the golden script). It compares stat totals, payload snapshots, card resolution and damage received against `tools/headless/golden/golden_values.json`. Those values record what the code computed when they were written; they are not a claim that the numbers are correct. A refactor must reproduce them exactly. Never regenerate them (`GOLDEN_UPDATE=1`, off by default) to make a failure pass. Regenerate only when a design change is intended, and say so in the report with the old and new values. The latest count is in `STATUS.md`.
+    - Scripts in `tools/headless/`: `runner.gd` (runs a check script), `logic_test.gd` (behavior checks), `golden_test.gd` (characterization checks), `fixtures.gd` (clean state per section), `load_all.gd` (load check), plus the `golden/` folder holding `golden_values.json`.
+    - Put new behavior checks in `logic_test.gd` as part of a section that starts with `fixtures.gd`'s `begin_section()` and ends with `end_section()`, so no check depends on another's state.
+  - Most working-tree files use CRLF line endings, but at least `combat_volume.gd` uses LF, so check each file before matching text.
   - Custom check scripts run with `-s <script>`. Autoloads (`EventBus`) do not exist when an `-s` script compiles: load project code from `_process` after the first frame, and reach autoloads with `root.get_node("EventBus")`.
   - Headless runs cannot show visuals or take key presses (B / C, drafts on screen): those still need a manual playthrough.
 - When a task changes anything recorded in `STATUS.md`, update `STATUS.md` in the same change and show its diff in your report. Only list something as Verified if the user said they ran it. List something as Headless only if you ran it and can name the command.
