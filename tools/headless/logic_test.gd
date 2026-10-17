@@ -45,6 +45,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_purchase_key,
 		_section_run_state_round_trip,
 		_section_real_infusion_categories,
+		_section_stat_modifier_list,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -746,3 +747,126 @@ func _section_pending_drafts() -> void:
 	mgr._level_up_queue.clear()
 	mgr._sync_pending_to_run_state()
 	check(RunSession.state.pending_draft_levels.is_empty(), "pending cleared")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task L3: UpgradeDefinition.stat_modifiers and its bridge from the old fields
+# ---------------------------------------------------------------------------------------------
+
+func _l3_modifier(type: StatModifier.Type, value: float, stat: Stat.Type) -> StatModifier:
+	var modifier := StatModifier.new()
+	modifier.type = type
+	modifier.value = value
+	modifier.target_stat_type = stat
+	return modifier
+
+
+func _l3_card(id: String) -> UpgradeDefinition:
+	var card := UpgradeDefinition.new()
+	card.upgrade_id = id
+	card.scope = UpgradeDefinition.ScopeType.LOCAL_SLOT
+	card.restrict_to_slot = 1
+	return card
+
+
+func _l3_ledger() -> RunLedgerComponent:
+	var ledger := RunLedgerComponent.new()
+	fx.track(ledger)
+	return ledger
+
+
+func _section_stat_modifier_list() -> void:
+	var no_tags: Array[Tags.Type] = []
+	var damage := Stat.Type.BASE_DAMAGE
+	var cooldown := Stat.Type.COOLDOWN
+	var crit_multiplier := Stat.Type.CRIT_MULTIPLIER
+	var untouched := Stat.Type.DURATION
+
+	# The new list and the old fields give identical totals, at tiers 1 to 3, for every modifier type.
+	var flat := _l3_modifier(StatModifier.Type.FLAT, 2.0, damage)
+	var percent := _l3_modifier(StatModifier.Type.PERCENT, 0.1, damage)
+	var multiplicative := _l3_modifier(StatModifier.Type.MULTIPLICATIVE, 0.2, crit_multiplier)
+	var other_flat := _l3_modifier(StatModifier.Type.FLAT, 0.5, cooldown)
+	var new_card := _l3_card("test_l3_new")
+	new_card.stat_modifiers = [flat, percent, multiplicative, other_flat]
+	var old_card := _l3_card("test_l3_old")
+	old_card.stat_modifier_payload = flat
+	old_card.additional_stat_modifiers = [percent, multiplicative, other_flat]
+	var new_ledger := _l3_ledger()
+	var old_ledger := _l3_ledger()
+	var stats_to_compare: Array[Stat.Type] = [damage, cooldown, crit_multiplier, untouched]
+	for tier in [1, 2, 3]:
+		new_ledger.log_purchase(new_card)
+		old_ledger.log_purchase(old_card)
+		var identical := true
+		for stat in stats_to_compare:
+			identical = identical and new_ledger.get_modifier_totals(1, no_tags, stat) == old_ledger.get_modifier_totals(1, no_tags, stat)
+		check(identical, "stat_modifiers vs old fields: identical totals for every stat at tier %d" % tier)
+	check(new_ledger.get_modifier_totals(1, no_tags, damage) == Vector3(6.0, 0.3, 1.0) and is_equal_approx(new_ledger.get_modifier_totals(1, no_tags, crit_multiplier).z, pow(1.2, 3.0)), "stat_modifiers: tier 3 totals are flat 6, percent 0.3 and 1.2^3")
+
+	# When both are set, the new list wins and the old fields are ignored.
+	var both_card := _l3_card("test_l3_both")
+	both_card.stat_modifiers = [percent]
+	both_card.stat_modifier_payload = flat
+	both_card.additional_stat_modifiers = [other_flat]
+	var both_ledger := _l3_ledger()
+	both_ledger.log_purchase(both_card)
+	check(both_card.get_stat_modifiers().size() == 1 and both_card.get_stat_modifiers()[0] == percent, "both set: get_stat_modifiers returns only the new list")
+	check(is_same(both_card.get_stat_modifiers(), both_card.stat_modifiers), "both set: the new list is returned without a copy")
+	var both_damage := both_ledger.get_modifier_totals(1, no_tags, damage)
+	check(is_equal_approx(both_damage.x, 0.0) and is_equal_approx(both_damage.y, 0.1), "both set: the old primary modifier is ignored")
+	check(both_ledger.get_modifier_totals(1, no_tags, cooldown) == Vector3(0.0, 0.0, 1.0), "both set: the old extra modifier is ignored")
+
+	# The bridge cache follows later changes to the old fields.
+	var legacy_card := _l3_card("test_l3_legacy")
+	legacy_card.stat_modifier_payload = flat
+	legacy_card.additional_stat_modifiers = [percent]
+	var legacy_ledger := _l3_ledger()
+	legacy_ledger.log_purchase(legacy_card)
+	check(legacy_ledger.get_modifier_totals(1, no_tags, damage) == Vector3(2.0, 0.1, 1.0), "bridge: legacy card totals before any change")
+	check(is_same(legacy_card.get_stat_modifiers(), legacy_card.get_stat_modifiers()), "bridge: an unchanged legacy card returns the same cached array")
+	legacy_card.stat_modifier_payload = _l3_modifier(StatModifier.Type.FLAT, 5.0, damage)
+	check(legacy_ledger.get_modifier_totals(1, no_tags, damage) == Vector3(5.0, 0.1, 1.0), "bridge: a replaced stat_modifier_payload is picked up")
+	legacy_card.additional_stat_modifiers[0] = _l3_modifier(StatModifier.Type.PERCENT, 0.3, damage)
+	check(is_equal_approx(legacy_ledger.get_modifier_totals(1, no_tags, damage).y, 0.3), "bridge: a replaced element of additional_stat_modifiers is picked up")
+	legacy_card.additional_stat_modifiers.append(_l3_modifier(StatModifier.Type.FLAT, 1.0, cooldown))
+	check(legacy_ledger.get_modifier_totals(1, no_tags, cooldown) == Vector3(1.0, 0.0, 1.0), "bridge: an appended additional modifier is picked up")
+	legacy_card.stat_modifier_payload = null
+	check(legacy_ledger.get_modifier_totals(1, no_tags, damage).x == 0.0, "bridge: a cleared stat_modifier_payload is picked up")
+	legacy_card.additional_stat_modifiers = []
+	check(legacy_card.get_stat_modifiers().is_empty(), "bridge: clearing every old field gives an empty list")
+
+	# StatsContainer dirties the stat of every entry of a card that uses only stat_modifiers.
+	var invalidation_card := _l3_card("test_l3_invalidation")
+	invalidation_card.stat_modifiers = [flat, other_flat, multiplicative]
+	var invalidation_ledger := _l3_ledger()
+	var container := fx.make_stats({damage: 1.0, cooldown: 1.0, crit_multiplier: 1.5, untouched: 3.0}, 1, invalidation_ledger)
+	invalidation_ledger.log_purchase(invalidation_card)
+	check(container.stats[damage].is_dirty and container.stats[cooldown].is_dirty and container.stats[crit_multiplier].is_dirty, "invalidation: every stat targeted by the stat_modifiers list is dirtied")
+	check(not container.stats[untouched].is_dirty, "invalidation: a stat no entry targets stays clean")
+	check(is_equal_approx(container.get_final_stat_value(damage), 3.0) and is_equal_approx(container.get_final_stat_value(cooldown), 1.5), "invalidation: the next read applies the card")
+
+	# A card with no modifiers at all contributes nothing and dirties nothing.
+	var empty_card := _l3_card("test_l3_empty")
+	var empty_ledger := _l3_ledger()
+	var empty_container := fx.make_stats({damage: 1.0, cooldown: 1.0}, 1, empty_ledger)
+	empty_ledger.log_purchase(empty_card)
+	check(empty_card.get_stat_modifiers().is_empty(), "empty card: get_stat_modifiers is empty")
+	check(empty_ledger.get_modifier_totals(1, no_tags, damage) == Vector3(0.0, 0.0, 1.0), "empty card: contributes nothing to totals")
+	check(not empty_container.stats[damage].is_dirty and not empty_container.stats[cooldown].is_dirty, "empty card: dirties no stat")
+
+	# Status resolution through the shared helper: two distinct cards, one effect_id, first in purchase order wins.
+	var first_status := StatusEffect.new()
+	first_status.effect_id = "test_l3_status"
+	var second_status := StatusEffect.new()
+	second_status.effect_id = "test_l3_status"
+	var status_card_a := _l3_card("test_l3_status_a")
+	status_card_a.status_effect_payload = first_status
+	var status_card_b := _l3_card("test_l3_status_b")
+	status_card_b.status_effect_payload = second_status
+	var status_ledger := _l3_ledger()
+	status_ledger.log_purchase(status_card_b)
+	status_ledger.log_purchase(status_card_a)
+	var resolved := status_ledger.get_status_effects(1, no_tags)
+	check(resolved.size() == 1 and resolved[0] == second_status, "statuses: two cards with one effect_id give the first purchased card's status")
+	check(status_ledger.get_status_effects(2, no_tags).is_empty(), "statuses: not offered to another slot")

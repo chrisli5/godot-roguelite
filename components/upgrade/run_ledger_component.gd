@@ -49,26 +49,17 @@ func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_ty
 	for def in active_upgrades:
 		# Tier is resolved lazily, only once a modifier of this card targets the stat.
 		var tier := -1
-		var payload := def.stat_modifier_payload
-		if payload != null and payload.target_stat_type == stat_type:
-			tier = _resolve_tier(def, slot_index, weapon_tags)
-			if tier > 0:
-				var contribution := _modifier_contribution(payload, tier)
-				flat_sum += contribution.x
-				percent_sum += contribution.y
-				multiplicative_product *= contribution.z
-
-		for extra in def.additional_stat_modifiers:
-			if extra == null or extra.target_stat_type != stat_type:
+		for modifier in def.get_stat_modifiers():
+			if modifier == null or modifier.target_stat_type != stat_type:
 				continue
 			if tier < 0:
 				tier = _resolve_tier(def, slot_index, weapon_tags)
 			if tier <= 0:
 				break
-			var extra_contribution := _modifier_contribution(extra, tier)
-			flat_sum += extra_contribution.x
-			percent_sum += extra_contribution.y
-			multiplicative_product *= extra_contribution.z
+			var contribution := _modifier_contribution(modifier, tier)
+			flat_sum += contribution.x
+			percent_sum += contribution.y
+			multiplicative_product *= contribution.z
 
 	return Vector3(flat_sum, percent_sum, multiplicative_product)
 
@@ -90,22 +81,7 @@ func _modifier_contribution(modifier: StatModifier, tier: int) -> Vector3:
 ## effect_id, first wins.
 func get_status_effects(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[StatusEffect]:
 	var effects: Array[StatusEffect] = []
-
-	for def in active_upgrades:
-		var status := def.status_effect_payload
-		if status == null:
-			continue
-		if _resolve_tier(def, slot_index, weapon_tags) <= 0:
-			continue
-
-		var already_present := false
-		for existing in effects:
-			if existing.effect_id == status.effect_id:
-				already_present = true
-				break
-		if not already_present:
-			effects.append(status)
-
+	_collect_unique_payloads(slot_index, weapon_tags, _status_payload_of, _status_key_of, effects)
 	return effects
 
 
@@ -114,23 +90,42 @@ func get_status_effects(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array
 ## (first wins).
 func get_impact_bursts(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[ImpactBurstDefinition]:
 	var bursts: Array[ImpactBurstDefinition] = []
+	_collect_unique_payloads(slot_index, weapon_tags, _burst_payload_of, _burst_key_of, bursts)
+	return bursts
 
+
+## Walks the purchased cards in purchase order and appends each card's payload to `result`, skipping cards that
+## do not apply to this slot (tier <= 0), null payloads, and payloads whose key was already added (first wins).
+## `get_payload` maps a card to its payload (Callable(UpgradeDefinition) -> Resource); `get_key` maps a payload to its dedup key.
+func _collect_unique_payloads(slot_index: int, weapon_tags: Array[Tags.Type], get_payload: Callable, get_key: Callable, result: Array) -> void:
+	var seen_keys: Array[String] = []
 	for def in active_upgrades:
-		var burst := def.impact_burst_payload
-		if burst == null:
+		var payload := get_payload.call(def) as Resource
+		if payload == null:
 			continue
 		if _resolve_tier(def, slot_index, weapon_tags) <= 0:
 			continue
+		var key := String(get_key.call(payload))
+		if seen_keys.has(key):
+			continue
+		seen_keys.append(key)
+		result.append(payload)
 
-		var already_present := false
-		for existing in bursts:
-			if existing.burst_id == burst.burst_id:
-				already_present = true
-				break
-		if not already_present:
-			bursts.append(burst)
 
-	return bursts
+func _status_payload_of(def: UpgradeDefinition) -> Resource:
+	return def.status_effect_payload
+
+
+func _status_key_of(payload: Resource) -> String:
+	return (payload as StatusEffect).effect_id
+
+
+func _burst_payload_of(def: UpgradeDefinition) -> Resource:
+	return def.impact_burst_payload
+
+
+func _burst_key_of(payload: Resource) -> String:
+	return String((payload as ImpactBurstDefinition).burst_id)
 
 
 ## Infusion level of `element` in `slot_index`: the sum of the slot-specific tiers of every infusion card

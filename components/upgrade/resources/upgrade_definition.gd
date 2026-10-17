@@ -31,7 +31,11 @@ enum Category { GENERAL, INFUSION }
 
 @export_group("Payload Configuration")
 @export var payload_type: PayloadType = PayloadType.STAT_MODIFIER
+## Every stat modifier this card carries, in order. Read through get_stat_modifiers().
+@export var stat_modifiers: Array[StatModifier] = []
+## Superseded by `stat_modifiers`; will be removed in a later task. Used only while `stat_modifiers` is empty.
 @export var stat_modifier_payload: StatModifier
+## Superseded by `stat_modifiers`; will be removed in a later task. Used only while `stat_modifiers` is empty.
 ## Extra stat modifiers carried by the same card, resolved by the ledger exactly like stat_modifier_payload.
 @export var additional_stat_modifiers: Array[StatModifier] = []
 @export var ability_data_payload: AbilityData
@@ -47,6 +51,49 @@ enum Category { GENERAL, INFUSION }
 @export var evolves_from: AbilityData
 ## Elements that must all be at the current soft cap for this evolution to be offered.
 @export var recipe_requirements: Array[Tags.Type] = []
+
+
+# Bridge cache for cards that still use the old fields: the list built from them, and what it was built from.
+var _legacy_modifiers: Array[StatModifier] = []
+var _legacy_primary_seen: StatModifier = null
+var _legacy_extras_seen: Array[StatModifier] = []
+var _legacy_built: bool = false
+
+
+## The stat modifiers this card carries, in order. Returns `stat_modifiers` itself (no copy) when it is not empty;
+## otherwise the legacy list: `stat_modifier_payload` first (if set), then `additional_stat_modifiers` without nulls.
+## The legacy list is cached and rebuilt only when the old fields changed (compared by reference), so a steady-state
+## call does not allocate. Callers must not modify the returned array.
+func get_stat_modifiers() -> Array[StatModifier]:
+	if not stat_modifiers.is_empty():
+		return stat_modifiers
+	if not _is_legacy_cache_current():
+		_rebuild_legacy_cache()
+	return _legacy_modifiers
+
+
+func _is_legacy_cache_current() -> bool:
+	if not _legacy_built or _legacy_primary_seen != stat_modifier_payload:
+		return false
+	var count := additional_stat_modifiers.size()
+	if _legacy_extras_seen.size() != count:
+		return false
+	for i in range(count):
+		if _legacy_extras_seen[i] != additional_stat_modifiers[i]:
+			return false
+	return true
+
+
+func _rebuild_legacy_cache() -> void:
+	_legacy_modifiers = []
+	if stat_modifier_payload != null:
+		_legacy_modifiers.append(stat_modifier_payload)
+	for extra in additional_stat_modifiers:
+		if extra != null:
+			_legacy_modifiers.append(extra)
+	_legacy_primary_seen = stat_modifier_payload
+	_legacy_extras_seen = additional_stat_modifiers.duplicate()
+	_legacy_built = true
 
 
 ## True if this card is an elemental socket infusion (decided by `category`, not by the id).

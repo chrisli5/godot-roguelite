@@ -175,8 +175,9 @@ func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 			_process_structural_ability_unlock(choice)
 		UpgradeDefinition.PayloadType.STAT_MODIFIER:
 			if definition.scope == UpgradeDefinition.ScopeType.CHARACTER_CORE:
-				if is_instance_valid(definition.stat_modifier_payload):
-					stats_container.get_final_stat_value(definition.stat_modifier_payload.target_stat_type)
+				var card_modifiers := definition.get_stat_modifiers()
+				if not card_modifiers.is_empty() and is_instance_valid(card_modifiers[0]):
+					stats_container.get_final_stat_value(card_modifiers[0].target_stat_type)
 
 
 func _process_structural_ability_unlock(choice: UpgradeChoice) -> void:
