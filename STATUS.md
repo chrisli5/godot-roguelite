@@ -10,7 +10,7 @@ Three levels of evidence are used below:
 - **Headless**: Claude Code ran it with the Godot executable and reported it (167 scripts, scenes and resources load (163 before Task I); the world scene runs 600 frames without errors; 108 logic checks passed in Task I (81 after Task H, 63 after Task G, 54 after Task F). The 38 in earlier reports was a miscount; Task E counted 36).
 - **Written**: not run.
 
-Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = `43fe19e`, Task I = `0bd6669`.
+Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = `43fe19e`, Task I = `0bd6669` (its design text is in `CLAUDE.md` and the GDD as of `f9eb7e3`).
 
 Verified:
 - Burn and Chill, triggered with B / C, apply and are removed on expiry. Burn tick damage and ramp (checked before the ramp retune).
