@@ -15,6 +15,7 @@ script = ExtResource("1_liq48")
 upgrade_id = "inf_earth"
 display_name = "Earth Infusion"
 description = "Earth"
+category = 1
 scope = 1
 target_tags = Array[int]([13])
 stat_modifier_payload = SubResource("Resource_earthmod")

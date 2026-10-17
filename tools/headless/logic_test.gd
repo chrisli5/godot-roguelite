@@ -39,6 +39,12 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_pending_drafts,
 		_section_fissure,
 		_section_impact_bursts,
+		_section_infusion_level_definition,
+		_section_tracker_reads_ledger,
+		_section_infusion_category,
+		_section_purchase_key,
+		_section_run_state_round_trip,
+		_section_real_infusion_categories,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -569,6 +575,126 @@ func _section_burst_ledger() -> void:
 	check(cast_copy.impact_bursts.size() == 1 and cast_copy.impact_bursts[0] == shared_a and cast_copy.is_burst, "payload.duplicate keeps impact_bursts and is_burst")
 
 
+const FIRE_CARD := "res://resources/infusions/inf_fire_upgrade_def.tres"
+const FROST_CARD := "res://resources/infusions/inf_frost_upgrade_def.tres"
+const LIGHTNING_CARD := "res://resources/infusions/inf_lightning_upgrade_def.tres"
+const WIND_CARD := "res://resources/infusions/inf_wind_upgrade_def.tres"
+const EARTH_CARD := "res://resources/infusions/inf_earth_upgrade_def.tres"
+
+
+## Sockets Fire and Frost `count` times each into slot 1 through the ledger.
+func _socket_fire_and_frost(player: Player, count: int) -> void:
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	for i in range(count):
+		player.run_ledger_component.log_slot_specific_purchase(fire, 1)
+		player.run_ledger_component.log_slot_specific_purchase(frost, 1)
+
+
+func _infusion_card(id: String, category: UpgradeDefinition.Category, element: Tags.Type) -> UpgradeDefinition:
+	var card := UpgradeDefinition.new()
+	card.upgrade_id = id
+	card.category = category
+	card.target_tags = [element]
+	return card
+
+
+func _section_infusion_level_definition() -> void:
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var second_fire := _infusion_card("test_second_fire", UpgradeDefinition.Category.INFUSION, Tags.Type.FIRE)
+	for i in range(2):
+		ledger.log_slot_specific_purchase(fire, 1)
+		ledger.log_slot_specific_purchase(second_fire, 1)
+	ledger.log_slot_specific_purchase(fire, 2)
+	for i in range(3):
+		ledger.log_slot_specific_purchase(earth, 1)
+	ledger.log_slot_specific_purchase(frost, 2)
+	check(ledger.get_infusion_level(1, Tags.Type.FIRE) == 4 and ledger.get_infusion_level(2, Tags.Type.FIRE) == 1 \
+			and ledger.get_infusion_level(1, Tags.Type.EARTH) == 3 and ledger.get_infusion_level(2, Tags.Type.FROST) == 1 \
+			and ledger.get_infusion_level(1, Tags.Type.FROST) == 0 and ledger.get_infusion_level(2, Tags.Type.EARTH) == 0,
+			"infusion level: sum of the tiers of that element's cards in that slot (duplicates, two cards, two slots)")
+	var expected_slot_1: Array[int] = [4, 0, 0, 0, 3]
+	check(ledger.get_infusion_levels(1) == expected_slot_1, "infusion levels: slot 1 reads [fire 4, earth 3] from the ledger")
+	check(ability.infusion_tracker_component.infusion_levels == expected_slot_1, "infusion level: the ability's tracker reports the same levels as the ledger")
+
+
+func _section_tracker_reads_ledger() -> void:
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	var tr := ability.infusion_tracker_component
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var T1 := EvolutionGateComponent.EvolutionState.TIER_1_BASE
+	var zeros: Array[int] = [0, 0, 0, 0, 0]
+	check(tr.infusion_levels == zeros and tr.is_element_socket_allowed(Tags.Type.FIRE, T1, false), "tracker: reads zero from an empty ledger")
+	ledger.log_slot_specific_purchase(fire, 1)
+	check(tr.infusion_levels[0] == 1 and tr.last_calculated_total_infusions == 1, "tracker holds no data of its own: a purchase made directly through the ledger changes its answer")
+	ledger.log_slot_specific_purchase(fire, 1)
+	ledger.log_slot_specific_purchase(fire, 1)
+	check(not tr.is_element_socket_allowed(Tags.Type.FIRE, T1, false), "tracker: the soft cap follows the ledger level (Fire 3)")
+	ledger.restore_state({}, [])
+	check(tr.infusion_levels == zeros and tr.is_element_socket_allowed(Tags.Type.FIRE, T1, false), "tracker: clearing the ledger clears what the tracker reports")
+
+
+func _section_infusion_category() -> void:
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	var prefixed_but_general := _infusion_card("inf_fake", UpgradeDefinition.Category.GENERAL, Tags.Type.FIRE)
+	var infusion_without_prefix := _infusion_card("plain_fire", UpgradeDefinition.Category.INFUSION, Tags.Type.FIRE)
+	check(not prefixed_but_general.is_infusion() and prefixed_but_general.get_infusion_element() == Tags.Type.NONE, "category: an inf_ id with category GENERAL is not an infusion")
+	check(infusion_without_prefix.is_infusion() and infusion_without_prefix.get_infusion_element() == Tags.Type.FIRE, "category: category INFUSION without the inf_ prefix is an infusion")
+	ledger.log_slot_specific_purchase(prefixed_but_general, 1)
+	ledger.log_slot_specific_purchase(prefixed_but_general, 1)
+	check(ledger.get_infusion_level(1, Tags.Type.FIRE) == 0 and not ability.tag_component.has_tag(Tags.Type.FIRE), "category: an inf_ id with category GENERAL adds no level and no element tag")
+	ledger.log_slot_specific_purchase(infusion_without_prefix, 1)
+	check(ledger.get_infusion_level(1, Tags.Type.FIRE) == 1 and ability.tag_component.has_tag(Tags.Type.FIRE), "category: an INFUSION card without the prefix adds a level and the element tag")
+
+
+func _section_purchase_key() -> void:
+	var cases: Array = [["inf_fire", 1], ["test_burst_card_a", 0], ["a_b_c_9", 4], ["x1_2_3", 12], ["inf_earth", 3], ["overclock", 2]]
+	var round_trips := true
+	for entry in cases:
+		var parsed := PurchaseKey.parse(PurchaseKey.make(entry[0], entry[1]))
+		round_trips = round_trips and parsed.get("upgrade_id", "") == entry[0] and parsed.get("slot", -1) == entry[1]
+	check(round_trips, "PurchaseKey: parse(make(id, slot)) round-trips ids with underscores and digits")
+	check(PurchaseKey.make("inf_fire", 1) == "inf_fire::slot_1", "PurchaseKey: the stored key format is unchanged")
+	check(PurchaseKey.parse("player_move_speed").is_empty() and PurchaseKey.parse("x::slot_").is_empty() and PurchaseKey.parse("::slot_1").is_empty() and PurchaseKey.parse("x::slot_a").is_empty(), "PurchaseKey: plain ids and malformed keys do not parse")
+
+
+func _section_run_state_round_trip() -> void:
+	# The same capture and restore a room change or the F3 respawn runs
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	ledger.log_slot_specific_purchase(fire, 1)
+	ledger.log_slot_specific_purchase(fire, 1)
+	ledger.log_slot_specific_purchase(earth, 1)
+	var before: Array[int] = ability.infusion_tracker_component.infusion_levels
+	player.capture_run_state()
+	check(RunSession.has_player_snapshot() and not RunSession.state.ability_states[1].has("infusion_levels"), "run state: capture writes a snapshot with no separate infusion levels")
+	ledger.restore_state({}, [])
+	player.ability_container.remove_ability_by_slot(1)
+	player._restore_run_state()
+	var restored := player.ability_container.get_ability_by_slot(1)
+	check(is_instance_valid(restored) and restored.infusion_tracker_component.infusion_levels == before and ledger.get_infusion_levels(1) == before, "run state round trip: levels survive and equal the ledger's")
+
+
+func _section_real_infusion_categories() -> void:
+	var all_infusions := true
+	for path in [FIRE_CARD, FROST_CARD, LIGHTNING_CARD, WIND_CARD, EARTH_CARD]:
+		var card := load(path) as UpgradeDefinition
+		all_infusions = all_infusions and card.category == UpgradeDefinition.Category.INFUSION and card.is_infusion()
+	check(all_infusions, "category: the five real infusion definitions all have category INFUSION")
+
+
 func _section_infusion_tracker() -> void:
 	var player := fx.fresh_player()
 	var ability := fx.mount_arcane_bolt(player)
@@ -576,7 +702,7 @@ func _section_infusion_tracker() -> void:
 	var gate := ability.evolution_gate_component
 	var T1 := EvolutionGateComponent.EvolutionState.TIER_1_BASE
 	var levels: Array[int] = [3, 3, 0, 0, 0]
-	tr.restore_levels(levels)
+	_socket_fire_and_frost(player, 3)
 	check(not tr.is_element_socket_allowed(Tags.Type.FIRE, T1, false), "fire at soft cap refused")
 	check(tr.is_element_socket_allowed(Tags.Type.FIRE, T1, true), "overclock lifts per-element cap")
 	check(not tr.is_element_socket_allowed(Tags.Type.EARTH, T1, true), "overclock keeps element-count limit")
@@ -589,14 +715,12 @@ func _section_infusion_tracker() -> void:
 func _section_offer_draft() -> void:
 	var player := fx.fresh_player()
 	var ability := fx.mount_arcane_bolt(player)
-	var tr := ability.infusion_tracker_component
 	var gate := ability.evolution_gate_component
-	var levels: Array[int] = [3, 3, 0, 0, 0]
 	var mgr := fx.get_upgrade_manager()
 	emitted.clear()
 	var listener := func(o: Array[UpgradeChoice]) -> void: emitted.append(o)
 	_eb.upgrade_options_ready.connect(listener)
-	tr.restore_levels(levels)
+	_socket_fire_and_frost(player, 3)
 	check(mgr._find_next_offer_slot(player) == 1, "offer slot found")
 	mgr._try_process_next_level_up()
 	check(emitted.size() == 1, "offer draft emitted")

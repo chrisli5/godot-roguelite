@@ -21,6 +21,7 @@ script = ExtResource("1_usa74")
 upgrade_id = "inf_fire"
 display_name = "Fire Infusion"
 description = "Adds fire infusion to selected ability."
+category = 1
 scope = 1
 target_tags = Array[int]([9])
 stat_modifier_payload = SubResource("Resource_firemod")

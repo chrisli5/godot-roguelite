@@ -60,6 +60,10 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 		ability.stats_container.configure_slot_context(slot_index, ledger, ability.tag_component)
 		ability.stats_container.initialize_profile(ability_data.stats_profile)
 
+	# The tracker keeps no levels of its own: it answers from the ledger for this slot.
+	if is_instance_valid(ability.infusion_tracker_component):
+		ability.infusion_tracker_component.configure_slot_context(slot_index, ledger)
+
 	# --- UNIFIED STRATEGY CONTRACT HANDOFF ---
 	# Automatically configures spatial query parameters and custom sorting hooks contextually
 	ability.swap_runtime_strategies(ability_data)

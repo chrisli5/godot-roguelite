@@ -84,7 +84,7 @@ func _recompile_tags() -> void:
 		for def in ledger.active_upgrades:
 			if def.is_infusion():
 				# Procedurally compile the exact key schema representing OUR slot index
-				var specialized_key := "%s::slot_%d" % [def.upgrade_id, _slot_owner_index]
+				var specialized_key := PurchaseKey.make(def.upgrade_id, _slot_owner_index)
 				
 				# Query the single source of truth: Did the player allocate this element to our lane?
 				var tier = ledger.purchase_registry.get(specialized_key, 0)

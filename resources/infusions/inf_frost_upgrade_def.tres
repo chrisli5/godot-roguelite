@@ -16,6 +16,7 @@ script = ExtResource("1_oi27b")
 upgrade_id = "inf_frost"
 display_name = "Frost Infusion"
 description = "Frost"
+category = 1
 scope = 1
 target_tags = Array[int]([10])
 stat_modifier_payload = SubResource("Resource_frostmod")

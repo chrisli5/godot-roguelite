@@ -11,10 +11,15 @@ enum ScopeType {
 	GLOBAL_TAG_MATCH   # Broadly targets ANY weapon possessing matching taxonomy tags (e.g., PROJECTILE)
 }
 
+## What kind of card this is. Append-only: stored as an integer in .tres files.
+## INFUSION cards are socketed into an ability slot and decide that slot's infusion level.
+enum Category { GENERAL, INFUSION }
+
 @export_group("Identification")
 @export var upgrade_id: String = ""
 @export var display_name: String = ""
 @export_multiline var description: String = ""
+@export var category: Category = Category.GENERAL
 
 @export_group("Targeting Architecture & Scope")
 ## Dictates how this upgrade scales and filters across your character core or hotbar weapons.
@@ -44,10 +49,9 @@ enum ScopeType {
 @export var recipe_requirements: Array[Tags.Type] = []
 
 
-## Helper utility checking if this card behaves as an elemental socket infusion
+## True if this card is an elemental socket infusion (decided by `category`, not by the id).
 func is_infusion() -> bool:
-	# Cleaned constraint: Checked contextually against target tags or a direct ID string mapping
-	return upgrade_id.begins_with("inf_")
+	return category == Category.INFUSION
 
 
 ## Extracted element positioning slot lookup pass matching rigid enum flags

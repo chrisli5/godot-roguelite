@@ -144,10 +144,9 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 	_start_cooldown_phase()
 
 
+## Called after the ledger has recorded a socket for this slot. The ledger holds the infusion level,
+## so nothing is stored here; this only refreshes the stats that depend on it.
 func apply_infusion_socket(element_tag: Tags.Type, _upgrade_id: String) -> void:
-	if is_instance_valid(infusion_tracker_component):
-		infusion_tracker_component.record_socket_transaction(element_tag)
-
 	print("[SOCKET] %s successfully registered inside local module layers." % Tags.Type.keys()[element_tag])
 	
 	# Force an immediate stat calculation update pass right now since tags changed
@@ -182,8 +181,6 @@ func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
 ## Runtime state that cannot be rebuilt from AbilityData or the run ledger.
 func export_runtime_state() -> Dictionary:
 	var snapshot: Dictionary = {}
-	if is_instance_valid(infusion_tracker_component):
-		snapshot["infusion_levels"] = infusion_tracker_component.infusion_levels.duplicate()
 	if is_instance_valid(evolution_gate_component):
 		snapshot["evolution_state"] = evolution_gate_component.current_state
 		snapshot["overclocked"] = evolution_gate_component.is_permanently_overclocked
@@ -192,7 +189,5 @@ func export_runtime_state() -> Dictionary:
 
 ## Call after the ability has been mounted from its saved AbilityData.
 func import_runtime_state(snapshot: Dictionary) -> void:
-	if is_instance_valid(infusion_tracker_component) and snapshot.has("infusion_levels"):
-		infusion_tracker_component.restore_levels(snapshot["infusion_levels"])
 	if is_instance_valid(evolution_gate_component) and snapshot.has("evolution_state"):
 		evolution_gate_component.restore_state(snapshot["evolution_state"], snapshot.get("overclocked", false))

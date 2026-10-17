@@ -27,7 +27,7 @@ func log_purchase(definition: UpgradeDefinition) -> void:
 func log_slot_specific_purchase(definition: UpgradeDefinition, chosen_slot_idx: int) -> void:
 	if not is_instance_valid(definition): return
 	
-	var specialized_id := "%s::slot_%d" % [definition.upgrade_id, chosen_slot_idx]
+	var specialized_id := PurchaseKey.make(definition.upgrade_id, chosen_slot_idx)
 	if not purchase_registry.has(specialized_id):
 		purchase_registry[specialized_id] = 0
 		if not active_upgrades.has(definition):
@@ -133,10 +133,32 @@ func get_impact_bursts(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[
 	return bursts
 
 
+## Infusion level of `element` in `slot_index`: the sum of the slot-specific tiers of every infusion card
+## of that element. This is the single definition of an infusion level.
+func get_infusion_level(slot_index: int, element: Tags.Type) -> int:
+	var level := 0
+	for def in active_upgrades:
+		if def.is_infusion() and def.get_infusion_element() == element:
+			level += purchase_registry.get(PurchaseKey.make(def.upgrade_id, slot_index), 0)
+	return level
+
+
+## Infusion levels of `slot_index` in element order (Tags.get_index_from_element: Fire, Frost, Lightning, Wind, Earth).
+func get_infusion_levels(slot_index: int) -> Array[int]:
+	var levels: Array[int] = [0, 0, 0, 0, 0]
+	for def in active_upgrades:
+		if not def.is_infusion():
+			continue
+		var element_index := Tags.get_index_from_element(def.get_infusion_element())
+		if element_index != -1:
+			levels[element_index] += purchase_registry.get(PurchaseKey.make(def.upgrade_id, slot_index), 0)
+	return levels
+
+
 ## Returns how many tiers of `def` apply to this slot (0 = not eligible).
 func _resolve_tier(def: UpgradeDefinition, slot_index: int, weapon_tags: Array[Tags.Type]) -> int:
 	# LAYER A: slot-specific purchases (e.g. infusions) always win for their own lane
-	var slot_key := "%s::slot_%d" % [def.upgrade_id, slot_index]
+	var slot_key := PurchaseKey.make(def.upgrade_id, slot_index)
 	if purchase_registry.has(slot_key):
 		return purchase_registry[slot_key]
 

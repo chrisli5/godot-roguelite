@@ -57,7 +57,7 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 	# tag-scoped upgrades on or off for any stat on that lane.
 	if definition.is_infusion():
 		if _slot_owner_index > 0 and is_instance_valid(_ledger) \
-				and _ledger.purchase_registry.has("%s::slot_%d" % [definition.upgrade_id, _slot_owner_index]):
+				and _ledger.purchase_registry.has(PurchaseKey.make(definition.upgrade_id, _slot_owner_index)):
 			invalidate_all_caches()
 		return
 
