@@ -2,7 +2,7 @@
 
 Oct 16, 2026 · @Christopher
 
-Last synced with code commit: `3dad139`. Update this line whenever this file changes.
+Last synced with code commit: `ac93a1e`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -22,7 +22,7 @@ This document holds design intent only. What was run, by whom and at which commi
 ## Glossary
 
 * **Ability tier**: TIER\_1\_BASE, TIER\_2\_EVOLVED, TIER\_3\_APEX (§7).
-* **Infusion tier / level**: how many times an element has been socketed into an ability (§7).
+* **Infusion tier / level**: how many times an element has been socketed into an ability (§7). Derived from the ledger.
 * **Card tier**: in the multiplicative formula (§5), the number of times a card has been drafted (its duplicate count). This is a third meaning, unrelated to the two above.
 * **Compound**: a fixed pair of elements that forms the same named effect on every ability (§4).
 * **Offer draft**: a forced draft for one eligible ability, holding its evolution cards plus Overclock (§7).
@@ -272,7 +272,7 @@ Room scenes are freed on every transition, so the player's ledger and upgrades l
 * **Capture.** `Player.\_exit\_tree` captures the state. It is skipped if the player is dead.
 * **Restore.** `Player.\_ready` restores the state before `player\_spawned` is emitted.
 * **Reset.** `MapGenerator` calls `RunSession.reset()` when a new run starts.
-* **Persisted.** Run ledger, ability runtime state (including the overclock flag), evolution gate, infusion levels, progression, current health, and the pending level-up draft queue (`pending\_draft\_levels`). Status cards and Overclock live in the ledger, so they persist with it.
+* **Persisted.** Run ledger, ability runtime state (including the overclock flag), evolution gate, progression, current health, and the pending level-up draft queue (`pending\_draft\_levels`). Infusion levels are derived from the ledger and are not saved separately. Status cards and Overclock live in the ledger, so they persist with it.
 * **Pending drafts.** `UpgradeManager` writes the on-screen level plus the queue through to `RunSession.state` on every change, because it is freed with the World scene. It reloads them in `\_ready`, and drafting resumes after the player spawns.
 * **Not persisted, on purpose.** Status effects, temporary modifiers, cooldown timers, uncollected pickups and offer drafts (eligibility is derived from persisted state).
 * **Adding new state.** Three edits: a field in `RunState`, capture in `Player.capture\_run\_state`, and restore in `Player.\_restore\_run\_state`.
@@ -323,7 +323,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |29|The impact-burst mechanism is built, but no card uses it yet. Earth's explosion and Lightning's overload still need authoring, level gating (item 33) and, for Lightning, `CRIT\_MULTIPLIER` (item 1). Magma would reuse it later|Gap|
 |31|Crit is rolled once per cast (decided, simplest). Revisit if the Lightning theme needs per-hit crit|Design decision|
 |32|Cast-time `damage\_scale` for Frost and Wind (applied to hit damage and `dot\_damage\_snapshot`, indirect bonuses summed then capped): the cap value and where the scale is computed|Design decision|
-|33|Level-gated infusion effects: how effect resolution checks the infusion level (depends on how the infusion tracker stores levels)|Gap|
+|33|Level-gated infusion effects: where an effect reads the infusion level at cast time and whether each effect carries its own unlock level. The level itself comes from the ledger (`get\_infusion\_level(slot, element)`)|Gap|
 |34|The damage budget, the hit/DoT split per specialization and the hit-to-DoT exchange rate are not in `balance\_notes.md`. The workbook solved Fire as an additive amount and needs re-solving for the potency model|Balance|
 |35|REFRESH takes the latest applier's snapshot, so a weaker Burn applied later can downgrade a stronger one, now that every ability can apply Burn. Left as is. Alternative: keep the higher `dot\_damage`|Design decision|
 |36|Wind's generic speed stat: reuse `PROJECTILE\_MOVEMENT\_SPEED` or add a stat, and what each driver reads as its speed (orbit rotation, sweep rate, melee swing rate)|Design decision|
