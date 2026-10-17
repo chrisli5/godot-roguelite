@@ -2,7 +2,7 @@
 
 Owner: Claude Code. This file records what the code actually does and how each claim was checked. The rules and design decisions live in `CLAUDE.md` (owned by the designer and Claude Chat). Claude Code updates this file in every task that changes anything listed here and shows its diff in the report. Claude Chat reads it but does not edit it; report mismatches to Claude Code instead.
 
-Last synced with code commit: `bb29491`. Update this line whenever this file changes.
+Last synced with code commit: `7a1124a`. Update this line whenever this file changes.
 
 ## Status (as of 2026-10-16, verify against the code)
 Three levels of evidence are used below:
@@ -10,7 +10,7 @@ Three levels of evidence are used below:
 - **Headless**: Claude Code ran it with the Godot executable and reported it (168 scripts, scenes and resources load (167 before Task K, 163 before Task I); the world scene runs 600 frames without errors; 125 logic checks passed in Task K (108 in Tasks I and J, plus 17 new in Task K) and 63 golden checks over 515 values (added in Task J, unchanged in Task K) (logic checks before: 81 after Task H, 63 after Task G, 54 after Task F). The 38 in earlier reports was a miscount; Task E counted 36).
 - **Written**: not run.
 
-Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = `43fe19e`, Task I = `0bd6669` (its design text is in `CLAUDE.md` and the GDD as of `f9eb7e3`), Task J = `dadf840`, Task K = `5b1fcd9`.
+Task letters used below map to commits: Task D = `c1cbdff`, Task E = `814f2ce`, Tasks F and G = `63afff2` (one commit), Task H = `43fe19e`, Task I = `0bd6669` (its design text is in `CLAUDE.md` and the GDD as of `f9eb7e3`), Task J = `dadf840`, Task K = `5b1fcd9` (its design text is in `CLAUDE.md` and the GDD as of `7a1124a`).
 
 Verified:
 - Burn and Chill, triggered with B / C, apply and are removed on expiry. Burn tick damage and ramp (checked before the ramp retune).
