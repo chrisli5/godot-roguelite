@@ -1,0 +1,705 @@
+{
+	"cards/character_core_scope": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [
+			"golden_core:1.0"
+		],
+		"slot_1/bursts": [],
+		"slot_1/statuses": [],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/duplicate_ids_a_then_b": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [],
+		"slot_1/bursts": [
+			"golden_dup:0.3"
+		],
+		"slot_1/statuses": [
+			"golden_dup:1.0"
+		],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/duplicate_ids_b_then_a": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [],
+		"slot_1/bursts": [
+			"golden_dup:0.6"
+		],
+		"slot_1/statuses": [
+			"golden_dup:2.0"
+		],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/fire_bought_3_times_slot_1": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [],
+		"slot_1/bursts": [],
+		"slot_1/statuses": [
+			"burn:0.0"
+		],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/fire_plain_only": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [
+			"burn:0.0"
+		],
+		"slot_1/bursts": [],
+		"slot_1/statuses": [],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/fire_slot_1_and_slot_2": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [],
+		"slot_1/bursts": [],
+		"slot_1/statuses": [
+			"burn:0.0"
+		],
+		"slot_2/bursts": [],
+		"slot_2/statuses": [
+			"burn:0.0"
+		]
+	},
+	"cards/fire_slot_1_plus_plain": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [
+			"burn:0.0"
+		],
+		"slot_1/bursts": [],
+		"slot_1/statuses": [
+			"burn:0.0"
+		],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/global_tag_match_projectile": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [],
+		"slot_1/bursts": [
+			"golden_tagged:0.4"
+		],
+		"slot_1/statuses": [
+			"golden_tagged:1.0"
+		],
+		"slot_2/bursts": [],
+		"slot_2/statuses": []
+	},
+	"cards/local_slot_restricted_to_2": {
+		"slot_0/bursts": [],
+		"slot_0/statuses": [],
+		"slot_1/bursts": [],
+		"slot_1/statuses": [],
+		"slot_2/bursts": [
+			"golden_slot_two:0.7"
+		],
+		"slot_2/statuses": []
+	},
+	"damage/burn_fire_3": {
+		"burn_still_active": false,
+		"health_lost_after_1.0_s": 0.161249999999995,
+		"health_lost_after_3.0_s": 0.528749999999945,
+		"health_lost_after_5.0_s": 0.956249999999955,
+		"health_lost_after_9.0_s": 1.98000000178808
+	},
+	"damage/hit_crit": {
+		"health_lost": 1.5
+	},
+	"damage/hit_normal": {
+		"health_lost": 1.0
+	},
+	"damage/on_crit_burst_crit_hit": {
+		"neighbor_health_lost": 0.75,
+		"neighbor_hits": 1,
+		"payload_final_damage": 1.5,
+		"payload_is_critical_hit": true,
+		"primary_health_lost": 1.5,
+		"primary_hits": 1
+	},
+	"damage/on_crit_burst_normal_hit": {
+		"neighbor_health_lost": 0.0,
+		"neighbor_hits": 0,
+		"payload_final_damage": 1.0,
+		"payload_is_critical_hit": false,
+		"primary_health_lost": 1.0,
+		"primary_hits": 1
+	},
+	"damage/on_hit_burst_crit_hit": {
+		"neighbor_health_lost": 0.75,
+		"neighbor_hits": 1,
+		"payload_final_damage": 1.5,
+		"payload_is_critical_hit": true,
+		"primary_health_lost": 1.5,
+		"primary_hits": 1
+	},
+	"damage/on_hit_burst_normal_hit": {
+		"neighbor_health_lost": 0.5,
+		"neighbor_hits": 1,
+		"payload_final_damage": 1.0,
+		"payload_is_critical_hit": false,
+		"primary_health_lost": 1.0,
+		"primary_hits": 1
+	},
+	"payload/burst_card_only/crit_off": {
+		"burst_ids": [
+			"golden_burst"
+		],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 0.0,
+		"status_ids": [],
+		"status_ramp_cap_snapshot": 0.0
+	},
+	"payload/burst_card_only/crit_on": {
+		"burst_ids": [
+			"golden_burst"
+		],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 0.0,
+		"status_ids": [],
+		"status_ramp_cap_snapshot": 0.0
+	},
+	"payload/fire_1/crit_off": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 3.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 0.100000001490116
+	},
+	"payload/fire_1/crit_on": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 3.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 0.100000001490116
+	},
+	"payload/fire_15_overclocked/crit_off": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 45.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 1.5
+	},
+	"payload/fire_15_overclocked/crit_on": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 45.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 1.5
+	},
+	"payload/fire_2_frost_2/crit_off": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 6.0,
+		"status_ids": [
+			"burn",
+			"chill"
+		],
+		"status_ramp_cap_snapshot": 0.200000002980232
+	},
+	"payload/fire_2_frost_2/crit_on": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 6.0,
+		"status_ids": [
+			"burn",
+			"chill"
+		],
+		"status_ramp_cap_snapshot": 0.200000002980232
+	},
+	"payload/fire_3/crit_off": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 9.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 0.300000011920929
+	},
+	"payload/fire_3/crit_on": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 9.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 0.300000011920929
+	},
+	"payload/fire_3_burst_card/crit_off": {
+		"burst_ids": [
+			"golden_burst"
+		],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 9.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 0.300000011920929
+	},
+	"payload/fire_3_burst_card/crit_on": {
+		"burst_ids": [
+			"golden_burst"
+		],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 9.0,
+		"status_ids": [
+			"burn"
+		],
+		"status_ramp_cap_snapshot": 0.300000011920929
+	},
+	"payload/frost_2/crit_off": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 0.0,
+		"status_ids": [
+			"chill"
+		],
+		"status_ramp_cap_snapshot": 0.0
+	},
+	"payload/frost_2/crit_on": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 0.0,
+		"status_ids": [
+			"chill"
+		],
+		"status_ramp_cap_snapshot": 0.0
+	},
+	"payload/none/crit_off": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.0,
+		"is_burst": false,
+		"is_critical_hit": false,
+		"status_duration_snapshot": 0.0,
+		"status_ids": [],
+		"status_ramp_cap_snapshot": 0.0
+	},
+	"payload/none/crit_on": {
+		"burst_ids": [],
+		"dot_damage_snapshot": 0.15,
+		"final_damage": 1.5,
+		"is_burst": false,
+		"is_critical_hit": true,
+		"status_duration_snapshot": 0.0,
+		"status_ids": [],
+		"status_ramp_cap_snapshot": 0.0
+	},
+	"stats/arcane_bolt/earth_1": {
+		"AOE_RADIUS": 11.0000000149012,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/earth_2": {
+		"AOE_RADIUS": 12.0000000298023,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/earth_3": {
+		"AOE_RADIUS": 13.0000001192093,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/fire_1": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 3.0,
+		"STATUS_RAMP_CAP": 0.100000001490116
+	},
+	"stats/arcane_bolt/fire_15_overclocked": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 45.0,
+		"STATUS_RAMP_CAP": 1.5
+	},
+	"stats/arcane_bolt/fire_2": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 6.0,
+		"STATUS_RAMP_CAP": 0.200000002980232
+	},
+	"stats/arcane_bolt/fire_3": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 9.0,
+		"STATUS_RAMP_CAP": 0.300000011920929
+	},
+	"stats/arcane_bolt/fire_3_earth_3": {
+		"AOE_RADIUS": 13.0000001192093,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 9.0,
+		"STATUS_RAMP_CAP": 0.300000011920929
+	},
+	"stats/arcane_bolt/frost_1": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 0.920000001788139,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/frost_2": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 0.840000003576279,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/frost_2_lightning_2": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 0.840000003576279,
+		"CRIT_CHANCE": 0.109999998658896,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/frost_3": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 0.760000005364418,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/lightning_1": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.0799999993294477,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/lightning_2": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.109999998658896,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/lightning_3": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.140000003576279,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/none": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/wind_1": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 550.000000745058,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/wind_1_earth_1": {
+		"AOE_RADIUS": 11.0000000149012,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 550.000000745058,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/wind_2": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 600.000001490116,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/arcane_bolt/wind_3": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.0,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 650.000005960464,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"stats/core/move_speed_card": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 150.0
+	},
+	"stats/core/move_speed_card_x2": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 200.0
+	},
+	"stats/core/no_upgrade": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 100.0
+	},
+	"transient/arcane_frost_2/all_three": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.10550000295043,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"transient/arcane_frost_2/flat": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 1.34000000357628,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"transient/arcane_frost_2/multiplicative": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 0.924000003933907,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"transient/arcane_frost_2/percent": {
+		"AOE_RADIUS": 10.0,
+		"BASE_DAMAGE": 1.0,
+		"COOLDOWN": 0.630000002682209,
+		"CRIT_CHANCE": 0.05,
+		"CRIT_MULTIPLIER": 1.5,
+		"DOT_DAMAGE": 0.15,
+		"DURATION": 3.0,
+		"PROJECTILE_AMOUNT": 1.0,
+		"PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"QUERY_RADIUS": 300.0,
+		"STATUS_DURATION": 0.0,
+		"STATUS_RAMP_CAP": 0.0
+	},
+	"transient/core_move_speed_card/burn_active": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 150.0
+	},
+	"transient/core_move_speed_card/chill_active": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 105.0
+	},
+	"transient/core_no_upgrade/burn_active": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 100.0
+	},
+	"transient/core_no_upgrade/chill_active": {
+		"MAX_HEALTH": 10.0,
+		"MOVEMENT_SPEED": 70.0
+	}
+}

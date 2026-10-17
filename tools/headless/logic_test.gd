@@ -1,8 +1,13 @@
 extends Node
+## Behavior checks for the headless runner. The test is split into sections; each section builds its own
+## fresh state through Fixtures (see fixtures.gd) and frees it, so section order does not matter.
+
+const Fixtures = preload("res://tools/headless/fixtures.gd")
 
 var fails: int = 0
 var tree: SceneTree
 var world: Node
+var fx: Fixtures
 var emitted: Array = []
 var _eb: Node
 
@@ -17,30 +22,37 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 	tree = scene_tree
 	world = world_node
 	_eb = tree.root.get_node("EventBus")
-	_run()
-	await _fissure_test()
-	await _burst_tests()
+	fx = Fixtures.new(tree, world)
+	var sections: Array[Callable] = [
+		_section_burn_ticks,
+		_section_chill,
+		_section_temporary_tags,
+		_section_duration_zero,
+		_section_refresh_ramp_cap,
+		_section_death_clears_effects,
+		_section_fire_ladder,
+		_section_projectile_hitbox,
+		_section_area_geometries,
+		_section_burst_ledger,
+		_section_infusion_tracker,
+		_section_offer_draft,
+		_section_pending_drafts,
+		_section_fissure,
+		_section_impact_bursts,
+	]
+	for section in sections:
+		fx.begin_section()
+		await section.call()
+		fx.end_section()
 	print("LOGICTEST done fails=%d" % fails)
 	return 1 if fails > 0 else 0
 
 func _spawn_bat() -> Enemy:
-	var e := (load("res://scenes/entities/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
-	e.initialize_entity(load("res://resources/entities/enemy/bat.tres"))
-	world.get_node("GameWorld/EntitiesContainer").add_child(e)
-	return e
+	return fx.spawn_bat()
 
 ## Builds an in-memory StatsContainer from {Stat.Type: float}. With a ledger it behaves like an ability lane in `slot`.
 func _make_stats(values: Dictionary, slot: int = 0, ledger: RunLedgerComponent = null) -> StatsContainer:
-	var container := StatsContainer.new()
-	if ledger != null:
-		container.configure_slot_context(slot, ledger)
-	var typed: Dictionary[Stat.Type, float] = {}
-	for key in values:
-		typed[key] = values[key]
-	var profile := StatsProfile.new()
-	profile.base_stats = typed
-	container.initialize_profile(profile)
-	return container
+	return fx.make_stats(values, slot, ledger)
 
 
 var _fissure_hits: Array[int] = []
@@ -54,6 +66,7 @@ func _count_fissure_hit(_payload: CombatPayload, index: int) -> void:
 func _cast_fissure(stats: StatsContainer, origin: Vector2, offsets: Array[Vector2]) -> Array[int]:
 	var fissure := FissureGeometry.new()
 	world.add_child(fissure)
+	fx.track(fissure)
 	_fissure_hits.clear()
 	var bats: Array[Enemy] = []
 	for i in range(offsets.size()):
@@ -75,7 +88,7 @@ func _cast_fissure(stats: StatsContainer, origin: Vector2, offsets: Array[Vector
 	return result
 
 
-func _fissure_test() -> void:
+func _section_fissure() -> void:
 	# Hurtbox circles have radius 10, so a strike of radius R hits a bat whose centre is within R + 10.
 	# Strikes sit at +70, +140, +210 on x with radii R, R + 15, R + 30 (R = AOE_RADIUS = 40).
 	var origin := Vector2(80000.0, 80000.0)
@@ -148,7 +161,7 @@ func _free_bats(bats: Array[Enemy]) -> void:
 		bat.queue_free()
 
 
-func _burst_tests() -> void:
+func _section_impact_bursts() -> void:
 	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
 	var on_hit := _make_burst(&"test_on_hit", ImpactBurstDefinition.Trigger.ON_HIT)
 	var on_crit := _make_burst(&"test_on_crit", ImpactBurstDefinition.Trigger.ON_CRIT)
@@ -250,6 +263,7 @@ func _burst_tests() -> void:
 	var projectile := (load("res://components/ability/projectile.tscn") as PackedScene).instantiate() as Projectile
 	projectile.initialize_volume(phys_origin, Vector2.RIGHT, 0, _burst_payload(phys_stats, 10.0, [wide]))
 	world.get_node("GameWorld/ProjectilesContainer").add_child(projectile)
+	fx.track(projectile)
 	for i in range(4):
 		await tree.physics_frame
 	await tree.process_frame
@@ -274,11 +288,8 @@ func _spawn_projectile_radius_from_payload(container: Node, payload: CombatPaylo
 	return radius
 
 
-func _run() -> void:
+func _section_burn_ticks() -> void:
 	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
-	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
-
-	# --- Burn on an enemy ---
 	var bat := _spawn_bat()
 	var comp := bat.status_effect_component
 	bat.health_component.update_max_health(1000.0, true)
@@ -303,7 +314,9 @@ func _run() -> void:
 			break
 	check(is_instance_valid(bat) and comp._active_effects.is_empty() and not bat.tag_component.has_tag(Tags.Type.BURNING), "burn run to expiry: effect cleared and BURNING released")
 
-	# --- Chill ---
+
+func _section_chill() -> void:
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
 	var bat2 := _spawn_bat()
 	var speed0 := bat2.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
 	bat2.status_effect_component.apply_effect(chill, 0.0, 0.0)
@@ -315,8 +328,9 @@ func _run() -> void:
 	check(is_equal_approx(bat2.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED), speed0), "speed restored on expiry")
 	check(not bat2.tag_component.has_tag(Tags.Type.CHILLED), "CHILLED removed on expiry")
 
-	# --- Temporary tag refcount ---
-	var tc := bat2.tag_component
+
+func _section_temporary_tags() -> void:
+	var tc := _spawn_bat().tag_component
 	tc.add_temporary_tag(Tags.Type.FROZEN)
 	tc.add_temporary_tag(Tags.Type.FROZEN)
 	tc.remove_temporary_tag(Tags.Type.FROZEN)
@@ -324,7 +338,10 @@ func _run() -> void:
 	tc.remove_temporary_tag(Tags.Type.FROZEN)
 	check(not tc.has_tag(Tags.Type.FROZEN), "tag gone after last removal")
 
-	# --- Duration 0: Burn is not applied (template base_duration is 0, no STATUS_DURATION) ---
+
+func _section_duration_zero() -> void:
+	# Burn is not applied when its template base_duration is 0 and there is no STATUS_DURATION
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
 	var bat6 := _spawn_bat()
 	bat6.health_component.update_max_health(1000.0, true)
 	bat6.health_component.set_to_full()
@@ -336,7 +353,10 @@ func _run() -> void:
 		bat6.status_effect_component._process(0.5)
 	check(is_equal_approx(bat6.health_component.current_health, hp6), "duration 0: no ticks, no damage")
 
-	# --- REFRESH takes the latest applier's ramp_cap_bonus ---
+
+func _section_refresh_ramp_cap() -> void:
+	# REFRESH takes the latest applier's ramp_cap_bonus
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
 	var bat7 := _spawn_bat()
 	var comp7 := bat7.status_effect_component
 	comp7.apply_effect(burn, 10.0, 3.0, 0.1)
@@ -350,18 +370,22 @@ func _run() -> void:
 		comp7._process(0.5)
 	check(comp7._active_effects.is_empty() and not bat7.tag_component.has_tag(Tags.Type.BURNING), "refreshed burn expires and BURNING is released")
 
-	# --- Death clears effects ---
+
+func _section_death_clears_effects() -> void:
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
 	var bat3 := _spawn_bat()
 	bat3.status_effect_component.apply_effect(burn, 10.0, 3.0)
 	bat3.health_component.take_damage(9999.0)
 	check(bat3.status_effect_component._active_effects.is_empty(), "death clears effects")
 
-	# --- Ledger -> payload ---
-	var player := instance_from_id(_eb.active_player_instance_id) as Player
+
+func _section_fire_ladder() -> void:
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var player := fx.fresh_player()
 	check(is_instance_valid(player), "player exists")
 	if not is_instance_valid(player):
 		return
-	var ability := player.ability_container.add_ability_from_data(load("res://resources/abilities/arcane_bolt/arcane_bolt_data.tres"))
+	var ability := fx.mount_arcane_bolt(player)
 	check(is_instance_valid(ability), "arcane bolt mounted")
 	var fire := load("res://resources/infusions/inf_fire_upgrade_def.tres") as UpgradeDefinition
 	var frost := load("res://resources/infusions/inf_frost_upgrade_def.tres") as UpgradeDefinition
@@ -416,22 +440,21 @@ func _run() -> void:
 	var d := p.duplicate() as CombatPayload
 	check(d.status_effects_to_apply.size() == 2, "duplicate keeps statuses")
 
-	# --- Projectile hitbox radius comes from AOE_RADIUS ---
+
+func _section_projectile_hitbox() -> void:
+	# Projectile hitbox radius comes from AOE_RADIUS
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var sc := ability.stats_container
 	var proj_container := world.get_node("GameWorld/ProjectilesContainer")
-	var custom := StatsContainer.new()
-	var custom_profile := StatsProfile.new()
 	var custom_stats: Dictionary[Stat.Type, float] = {}
 	custom_stats[Stat.Type.AOE_RADIUS] = 7.0
 	custom_stats[Stat.Type.DURATION] = 5.0
 	custom_stats[Stat.Type.PROJECTILE_MOVEMENT_SPEED] = 100.0
-	custom_profile.base_stats = custom_stats
-	custom.initialize_profile(custom_profile)
+	var custom := _make_stats(custom_stats)
 	check(is_equal_approx(_spawn_projectile_radius(proj_container, custom), 7.0), "hitbox radius follows AOE_RADIUS (7.0)")
 	custom_stats[Stat.Type.AOE_RADIUS] = 25.0
-	var custom2 := StatsContainer.new()
-	var custom_profile2 := StatsProfile.new()
-	custom_profile2.base_stats = custom_stats
-	custom2.initialize_profile(custom_profile2)
+	var custom2 := _make_stats(custom_stats)
 	check(is_equal_approx(_spawn_projectile_radius(proj_container, custom2), 25.0), "hitbox radius follows AOE_RADIUS (25.0)")
 
 	var bolt_payload := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
@@ -444,13 +467,10 @@ func _run() -> void:
 		print("INFO  earth level %d -> radius %.3f" % [earth_level, earth_radius])
 		check(is_equal_approx(earth_radius, 10.0 * (1.0 + 0.1 * earth_level)), "arcane bolt with Earth L%d: radius %.1f" % [earth_level, earth_radius])
 
-	var no_aoe := StatsContainer.new()
-	var no_aoe_profile := StatsProfile.new()
 	var no_aoe_stats: Dictionary[Stat.Type, float] = {}
 	no_aoe_stats[Stat.Type.DURATION] = 5.0
 	no_aoe_stats[Stat.Type.PROJECTILE_MOVEMENT_SPEED] = 100.0
-	no_aoe_profile.base_stats = no_aoe_stats
-	no_aoe.initialize_profile(no_aoe_profile)
+	var no_aoe := _make_stats(no_aoe_stats)
 	check(not CombatVolume._warned_missing_radius, "no warning issued before a profile lacks AOE_RADIUS")
 	var default_ok := true
 	for i in range(3):
@@ -458,9 +478,14 @@ func _run() -> void:
 	check(default_ok, "profile without AOE_RADIUS: default radius 10.0 on 3 spawns")
 	check(CombatVolume._warned_missing_radius, "missing AOE_RADIUS warns (flag set; exactly one warning line is counted in the output)")
 
-	# --- Area geometries read AOE_RADIUS (Task H) ---
+
+func _section_area_geometries() -> void:
+	# Area geometries read AOE_RADIUS (Task H)
+	var player := fx.fresh_player()
+	var earth := load("res://resources/infusions/inf_earth_upgrade_def.tres") as UpgradeDefinition
 	var area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0})
 	var pulse := RadialPulseGeometry.new()
+	fx.track(pulse)
 	check(is_equal_approx((pulse.get_query_shape(area_stats) as CircleShape2D).radius, 200.0), "radial pulse: query circle = AOE_RADIUS (200)")
 	player.run_ledger_component.log_slot_specific_purchase(earth, 2)
 	var earth_area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0}, 2, player.run_ledger_component)
@@ -476,12 +501,14 @@ func _run() -> void:
 	check(GeometryDriver._warned_area_fallback, "area fallback warns (flag set; exactly one warning line is counted in the output)")
 
 	var sweep := LinearSweepGeometry.new()
+	fx.track(sweep)
 	var wedge := sweep.get_query_shape(area_stats) as ConvexPolygonShape2D
 	check(is_equal_approx(wedge.points[1].length(), 200.0) and is_equal_approx(wedge.points[2].length(), 200.0), "linear sweep: far vertices at AOE_RADIUS (200)")
 	var default_wedge := sweep.get_query_shape(_make_stats({})) as ConvexPolygonShape2D
 	check(is_equal_approx(default_wedge.points[1].length(), 120.0) and is_equal_approx(default_wedge.points[2].length(), 120.0), "linear sweep: no AOE_RADIUS falls back to strike_length (120)")
 
 	var vortex := ConvergingVortexGeometry.new()
+	fx.track(vortex)
 	check(is_equal_approx((vortex.get_query_shape(area_stats) as CircleShape2D).radius, 200.0), "converging vortex: query circle = AOE_RADIUS (200)")
 	var vortex_origin := Vector2(60000.0, 60000.0)
 	var vortex_bat := _spawn_bat()
@@ -498,6 +525,7 @@ func _run() -> void:
 	check(is_equal_approx(vortex_bat.velocity.length(), vortex.horizontal_suction_force * 1.5), "converging vortex: weight 0.5 at half the radius (force 675), never negative")
 
 	var chain := ChainLinkGeometry.new()
+	fx.track(chain)
 	check(is_equal_approx((chain.get_query_shape(area_stats) as CircleShape2D).radius, 150.0), "chain link: still a QUERY_RADIUS circle (150)")
 	for scene_path in [
 		"res://components/ability/drivers/geometry/projectile/targeted_projectile_geometry.tscn",
@@ -505,14 +533,16 @@ func _run() -> void:
 		"res://components/ability/drivers/geometry/projectile/mouse_aim_projectile_geometry.tscn",
 	]:
 		var projectile_geometry := (load(scene_path) as PackedScene).instantiate() as GeometryDriver
+		fx.track(projectile_geometry)
 		var projectile_shape := projectile_geometry.get_query_shape(area_stats) as CircleShape2D
 		check(projectile_shape != null and is_equal_approx(projectile_shape.radius, 150.0), "%s: still a QUERY_RADIUS circle (150)" % scene_path.get_file().get_basename())
-		projectile_geometry.free()
-	vortex_bat.queue_free()
-	for geometry in [pulse, sweep, vortex, chain]:
-		geometry.free()
 
-	# --- Impact bursts: ledger resolver, cast-time fill, payload duplicate ---
+
+func _section_burst_ledger() -> void:
+	# Impact bursts: ledger resolver, cast-time fill, payload duplicate
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var sc := ability.stats_container
 	var shared_a := _make_burst(&"test_shared_burst", ImpactBurstDefinition.Trigger.ON_HIT)
 	var shared_b := _make_burst(&"test_shared_burst", ImpactBurstDefinition.Trigger.ON_CRIT)
 	var burst_card_a := UpgradeDefinition.new()
@@ -538,7 +568,10 @@ func _run() -> void:
 	var cast_copy := cast_payload.duplicate() as CombatPayload
 	check(cast_copy.impact_bursts.size() == 1 and cast_copy.impact_bursts[0] == shared_a and cast_copy.is_burst, "payload.duplicate keeps impact_bursts and is_burst")
 
-	# --- Infusion tracker / gate ---
+
+func _section_infusion_tracker() -> void:
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
 	var tr := ability.infusion_tracker_component
 	var gate := ability.evolution_gate_component
 	var T1 := EvolutionGateComponent.EvolutionState.TIER_1_BASE
@@ -552,9 +585,17 @@ func _run() -> void:
 	check(not gate.meets_recipe([Tags.Type.FIRE, Tags.Type.EARTH], levels), "recipe fire+earth not met")
 	check(not gate.meets_recipe([], levels), "empty recipe never met")
 
-	# --- Offer draft flow ---
-	var mgr := world.get_node("SystemControllers/UpgradeManager") as UpgradeManager
-	_eb.upgrade_options_ready.connect(func(o: Array[UpgradeChoice]) -> void: emitted.append(o))
+
+func _section_offer_draft() -> void:
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var tr := ability.infusion_tracker_component
+	var gate := ability.evolution_gate_component
+	var levels: Array[int] = [3, 3, 0, 0, 0]
+	var mgr := fx.get_upgrade_manager()
+	emitted.clear()
+	var listener := func(o: Array[UpgradeChoice]) -> void: emitted.append(o)
+	_eb.upgrade_options_ready.connect(listener)
 	tr.restore_levels(levels)
 	check(mgr._find_next_offer_slot(player) == 1, "offer slot found")
 	mgr._try_process_next_level_up()
@@ -568,8 +609,12 @@ func _run() -> void:
 		check(player.run_ledger_component.purchase_registry.get("overclock::slot_1", 0) == 1, "overclock logged under slot key")
 		check(mgr._find_next_offer_slot(player) == 0, "no re-offer after overclock")
 	tree.paused = false
+	_eb.upgrade_options_ready.disconnect(listener)
 
-	# --- Pending drafts write-through ---
+
+func _section_pending_drafts() -> void:
+	fx.fresh_player()
+	var mgr := fx.get_upgrade_manager()
 	mgr._level_up_queue.append(7)
 	mgr._sync_pending_to_run_state()
 	var seven: Array[int] = [7]

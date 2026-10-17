@@ -17,7 +17,6 @@ enum Role {
 
 @export_group("Core Blueprint Packages")
 @export var stats_profile: StatsProfile
-@export var upgrade_blueprints: Array[UpgradeBlueprintProfile] = []
 
 @export_group("Unified Wrapper Architecture Strategy Prefabs")
 @export var deployment_anchor_scene: PackedScene
