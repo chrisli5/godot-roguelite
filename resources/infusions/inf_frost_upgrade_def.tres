@@ -19,6 +19,6 @@ description = "Frost"
 category = 1
 scope = 1
 target_tags = Array[int]([10])
-stat_modifier_payload = SubResource("Resource_frostmod")
+stat_modifiers = Array[ExtResource("2_frostmod")]([SubResource("Resource_frostmod")])
 status_effect_payload = ExtResource("3_chill")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

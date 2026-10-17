@@ -17,5 +17,5 @@ description = "Lightning"
 category = 1
 scope = 1
 target_tags = Array[int]([11])
-stat_modifier_payload = SubResource("Resource_lightmod")
+stat_modifiers = Array[ExtResource("2_lightmod")]([SubResource("Resource_lightmod")])
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

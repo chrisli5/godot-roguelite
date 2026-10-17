@@ -18,5 +18,5 @@ description = "Wind"
 category = 1
 scope = 1
 target_tags = Array[int]([12])
-stat_modifier_payload = SubResource("Resource_windmod")
+stat_modifiers = Array[ExtResource("2_windmod")]([SubResource("Resource_windmod")])
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

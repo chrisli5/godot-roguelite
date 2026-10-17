@@ -15,5 +15,5 @@ script = ExtResource("1_71r6h")
 upgrade_id = "player_move_speed"
 display_name = "Player Movement"
 description = "50% increased movement speed"
-stat_modifier_payload = SubResource("Resource_l773n")
+stat_modifiers = Array[ExtResource("2_hlvyh")]([SubResource("Resource_l773n")])
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

@@ -46,6 +46,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_run_state_round_trip,
 		_section_real_infusion_categories,
 		_section_stat_modifier_list,
+		_section_real_cards_use_stat_modifiers,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -870,3 +871,24 @@ func _section_stat_modifier_list() -> void:
 	var resolved := status_ledger.get_status_effects(1, no_tags)
 	check(resolved.size() == 1 and resolved[0] == second_status, "statuses: two cards with one effect_id give the first purchased card's status")
 	check(status_ledger.get_status_effects(2, no_tags).is_empty(), "statuses: not offered to another slot")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task L4: the six real cards carry their modifiers in stat_modifiers only (structural checks)
+# ---------------------------------------------------------------------------------------------
+
+func _section_real_cards_use_stat_modifiers() -> void:
+	var paths: Array[String] = [
+		"res://resources/infusions/inf_fire_upgrade_def.tres",
+		"res://resources/infusions/inf_frost_upgrade_def.tres",
+		"res://resources/infusions/inf_earth_upgrade_def.tres",
+		"res://resources/infusions/inf_lightning_upgrade_def.tres",
+		"res://resources/infusions/inf_wind_upgrade_def.tres",
+		"res://resources/entities/player/player_move_speed_upgrade_def.tres",
+	]
+	for path in paths:
+		var card := load(path) as UpgradeDefinition
+		var card_name := path.get_file().get_basename()
+		check(card != null and not card.stat_modifiers.is_empty(), "%s: stat_modifiers is set" % card_name)
+		check(card != null and card.stat_modifier_payload == null, "%s: the old stat_modifier_payload is empty" % card_name)
+		check(card != null and card.additional_stat_modifiers.is_empty(), "%s: the old additional_stat_modifiers is empty" % card_name)
