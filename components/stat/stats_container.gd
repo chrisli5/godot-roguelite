@@ -61,7 +61,7 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 			invalidate_all_caches()
 		return
 
-	if definition.get_stat_modifiers().is_empty():
+	if definition.stat_modifiers.is_empty():
 		return
 
 	var is_impacted := false
@@ -87,7 +87,7 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 								break
 
 	if is_impacted:
-		for modifier in definition.get_stat_modifiers():
+		for modifier in definition.stat_modifiers:
 			_flag_modifier_stat_dirty(modifier)
 
 

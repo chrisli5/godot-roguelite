@@ -571,7 +571,8 @@ func _modifier(type: StatModifier.Type, value: float, stat: Stat.Type) -> StatMo
 func _stat_card(id: String, scope: UpgradeDefinition.ScopeType, restrict_to_slot: int, modifier: StatModifier) -> UpgradeDefinition:
 	var card := _card(id, scope, restrict_to_slot)
 	card.payload_type = UpgradeDefinition.PayloadType.STAT_MODIFIER
-	card.stat_modifier_payload = modifier
+	if modifier != null:
+		card.stat_modifiers = [modifier]
 	return card
 
 
@@ -652,15 +653,16 @@ func _section_card_stat_paths() -> void:
 		local_values["tier_%d/slot_2_total_percent" % tier] = _totals(local_ledger, 2, _arcane_tags(), speed)[1]
 	computed["cards/local_slot_stat_card"] = local_values
 
-	# 4. additional_stat_modifiers: contribution at tier 0, at tier 2, with a mismatched stat, and with no primary modifier.
-	var extras_card := _stat_card("test_extras", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, _modifier(StatModifier.Type.FLAT, 2.0, damage))
-	extras_card.additional_stat_modifiers = [
+	# 4. A card with several modifiers: contribution at tier 0, at tier 2, with a mismatched stat, and a second card with one modifier on a stat the first also targets.
+	var extras_card := _stat_card("test_extras", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, null)
+	extras_card.stat_modifiers = [
+		_modifier(StatModifier.Type.FLAT, 2.0, damage),
 		_modifier(StatModifier.Type.PERCENT, 0.1, damage),
 		_modifier(StatModifier.Type.FLAT, 0.5, Stat.Type.COOLDOWN),
 		_modifier(StatModifier.Type.MULTIPLICATIVE, 0.2, Stat.Type.CRIT_MULTIPLIER),
 	]
 	var extras_only := _stat_card("test_extras_only", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, null)
-	extras_only.additional_stat_modifiers = [_modifier(StatModifier.Type.FLAT, 0.25, damage)]
+	extras_only.stat_modifiers = [_modifier(StatModifier.Type.FLAT, 0.25, damage)]
 	var extras_ledger := _new_ledger()
 	var extras_lane := _lane(1, _arcane_tags(), extras_ledger)
 	var extras_values := {}

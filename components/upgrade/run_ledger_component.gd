@@ -49,7 +49,7 @@ func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_ty
 	for def in active_upgrades:
 		# Tier is resolved lazily, only once a modifier of this card targets the stat.
 		var tier := -1
-		for modifier in def.get_stat_modifiers():
+		for modifier in def.stat_modifiers:
 			if modifier == null or modifier.target_stat_type != stat_type:
 				continue
 			if tier < 0:
