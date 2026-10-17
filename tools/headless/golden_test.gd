@@ -728,17 +728,17 @@ func _section_card_stat_paths() -> void:
 	tag_values["after_card/slot_1"] = ability_1.stats_container.get_final_stat_value(damage)
 	tag_values["after_card/slot_2"] = ability_2.stats_container.get_final_stat_value(damage)
 	tag_values["after_card/slot_3"] = ability_3.stats_container.get_final_stat_value(damage)
-	tag_values["after_card/slot_1_total"] = _totals(ledger_a, 1, ability_1.tag_component.get_active_tags(), damage)
-	tag_values["after_card/slot_3_total"] = _totals(ledger_a, 3, ability_3.tag_component.get_active_tags(), damage)
+	tag_values["after_card/slot_1_total"] = _totals(ledger_a, 1, ability_1.tag_component.get_permanent_tags(), damage)
+	tag_values["after_card/slot_3_total"] = _totals(ledger_a, 3, ability_3.tag_component.get_permanent_tags(), damage)
 	# The matching tag appears on slot 1 through a Fire infusion
 	ledger_a.log_slot_specific_purchase(fire, 1)
 	tag_values["after_fire_infusion/slot_1_has_fire_tag"] = ability_1.tag_component.has_tag(Tags.Type.FIRE)
 	tag_values["after_fire_infusion/slot_1"] = ability_1.stats_container.get_final_stat_value(damage)
 	tag_values["after_fire_infusion/slot_2"] = ability_2.stats_container.get_final_stat_value(damage)
-	# A temporary tag (a status effect's tag) appears on slot 2: the ledger sees it, but nothing marks the cache dirty.
-	# Pins current behavior; may be a bug (TagComponent.tags_changed has no listener).
+	# A temporary tag (a status effect's tag) appears on slot 2: stat cards ignore it (Task L6a; before, the ledger saw it
+	# and the cache went stale).
 	ability_2.tag_component.add_temporary_tag(Tags.Type.FIRE)
-	tag_values["temp_tag_on_slot_2/ledger_total"] = _totals(ledger_a, 2, ability_2.tag_component.get_active_tags(), damage)
+	tag_values["temp_tag_on_slot_2/ledger_total"] = _totals(ledger_a, 2, ability_2.tag_component.get_permanent_tags(), damage)
 	tag_values["temp_tag_on_slot_2/cached_final"] = ability_2.stats_container.get_final_stat_value(damage)
 	ability_2.stats_container.invalidate_all_caches()
 	tag_values["temp_tag_on_slot_2/final_after_manual_invalidate"] = ability_2.stats_container.get_final_stat_value(damage)
@@ -752,15 +752,15 @@ func _section_card_stat_paths() -> void:
 	var late_ability := _mount(player, 3, fire_tags)
 	var late_values := {
 		"mounted_with_fire_tag": late_ability.tag_component.has_tag(Tags.Type.FIRE),
-		"ledger_total": _totals(player.run_ledger_component, 3, late_ability.tag_component.get_active_tags(), damage),
+		"ledger_total": _totals(player.run_ledger_component, 3, late_ability.tag_component.get_permanent_tags(), damage),
 		"cached_final_right_after_mount": late_ability.stats_container.get_final_stat_value(damage),
 	}
 	late_ability.stats_container.invalidate_all_caches()
 	late_values["final_after_manual_invalidate"] = late_ability.stats_container.get_final_stat_value(damage)
 	computed["cards/tag_match_card_bought_before_mount"] = late_values
 
-	# 5. A slot-specific purchase of a NON-infusion card that has modifiers. The ledger resolves it (the slot key wins);
-	#    invalidation looks at the card's scope instead. Pins current behavior; may be a bug.
+	# 5. A slot-specific purchase of a NON-infusion card that has modifiers. The ledger resolves it (the slot key wins),
+	#    and since Task L6a the cache invalidation asks the ledger too, so the cached stat follows the purchase.
 	var scopes := {
 		"core_scope": [UpgradeDefinition.ScopeType.CHARACTER_CORE, 0],
 		"local_slot_2": [UpgradeDefinition.ScopeType.LOCAL_SLOT, 2],
@@ -773,7 +773,7 @@ func _section_card_stat_paths() -> void:
 		var before := ability.stats_container.get_final_stat_value(damage)
 		player.run_ledger_component.log_slot_specific_purchase(scoped_card, 1)
 		var cached_after := ability.stats_container.get_final_stat_value(damage)
-		var ledger_total := _totals(player.run_ledger_component, 1, ability.tag_component.get_active_tags(), damage)
+		var ledger_total := _totals(player.run_ledger_component, 1, ability.tag_component.get_permanent_tags(), damage)
 		ability.stats_container.invalidate_all_caches()
 		var recomputed := ability.stats_container.get_final_stat_value(damage)
 		computed["cards/slot_specific_general_card_%s" % scope_name] = {

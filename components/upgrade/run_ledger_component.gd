@@ -53,7 +53,7 @@ func get_modifier_totals(slot_index: int, weapon_tags: Array[Tags.Type], stat_ty
 			if modifier == null or modifier.target_stat_type != stat_type:
 				continue
 			if tier < 0:
-				tier = _resolve_tier(def, slot_index, weapon_tags)
+				tier = get_card_tier(def, slot_index, weapon_tags)
 			if tier <= 0:
 				break
 			var contribution := _modifier_contribution(modifier, tier)
@@ -103,7 +103,7 @@ func _collect_unique_payloads(slot_index: int, weapon_tags: Array[Tags.Type], ge
 		var payload := get_payload.call(def) as Resource
 		if payload == null:
 			continue
-		if _resolve_tier(def, slot_index, weapon_tags) <= 0:
+		if get_card_tier(def, slot_index, weapon_tags) <= 0:
 			continue
 		var key := String(get_key.call(payload))
 		if seen_keys.has(key):
@@ -150,8 +150,10 @@ func get_infusion_levels(slot_index: int) -> Array[int]:
 	return levels
 
 
-## Returns how many tiers of `def` apply to this slot (0 = not eligible).
-func _resolve_tier(def: UpgradeDefinition, slot_index: int, weapon_tags: Array[Tags.Type]) -> int:
+## How many tiers of `def` apply to this slot (0 = not eligible). A slot-specific purchase beats the plain key and
+## ignores the card's scope; the scope applies only to plain purchases. `weapon_tags` are the slot's PERMANENT tags
+## (base and infusion tags, never temporary ones).
+func get_card_tier(def: UpgradeDefinition, slot_index: int, weapon_tags: Array[Tags.Type]) -> int:
 	# LAYER A: slot-specific purchases (e.g. infusions) always win for their own lane
 	var slot_key := PurchaseKey.make(def.upgrade_id, slot_index)
 	if purchase_registry.has(slot_key):

@@ -299,9 +299,9 @@
 		"empty_slot_2/registry_slot_key": 1
 	},
 	"cards/slot_specific_general_card_core_scope": {
-		"cache_updated_by_purchase": false,
+		"cache_updated_by_purchase": true,
 		"final_after_manual_invalidate": 1.5,
-		"final_after_without_recompute": 1.0,
+		"final_after_without_recompute": 1.5,
 		"final_before": 1.0,
 		"ledger_total": [
 			0.0,
@@ -321,9 +321,9 @@
 		]
 	},
 	"cards/slot_specific_general_card_local_slot_2": {
-		"cache_updated_by_purchase": false,
+		"cache_updated_by_purchase": true,
 		"final_after_manual_invalidate": 1.5,
-		"final_after_without_recompute": 1.0,
+		"final_after_without_recompute": 1.5,
 		"final_before": 1.0,
 		"ledger_total": [
 			0.0,
@@ -363,10 +363,10 @@
 		"slot_1_has_fire_tag": false,
 		"slot_3_has_fire_tag": true,
 		"temp_tag_on_slot_2/cached_final": 1.0,
-		"temp_tag_on_slot_2/final_after_manual_invalidate": 1.5,
+		"temp_tag_on_slot_2/final_after_manual_invalidate": 1.0,
 		"temp_tag_on_slot_2/ledger_total": [
 			0.0,
-			0.5,
+			0.0,
 			1.0
 		]
 	},

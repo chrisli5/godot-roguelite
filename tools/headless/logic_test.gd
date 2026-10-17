@@ -47,6 +47,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_real_infusion_categories,
 		_section_stat_modifier_list,
 		_section_real_cards_use_stat_modifiers,
+		_section_invalidation_follows_ledger,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -848,3 +849,120 @@ func _section_real_cards_use_stat_modifiers() -> void:
 		var card := load(path) as UpgradeDefinition
 		var card_name := path.get_file().get_basename()
 		check(card != null and not card.stat_modifiers.is_empty(), "%s: stat_modifiers is set" % card_name)
+
+
+# ---------------------------------------------------------------------------------------------
+# Task L6a: stat-card invalidation follows the ledger; stat queries ignore temporary tags
+# ---------------------------------------------------------------------------------------------
+
+func _l6_mount(player: Player, slot: int, tags: Array[Tags.Type]) -> Ability:
+	var data := (load(Fixtures.ARCANE_BOLT_DATA) as AbilityData).duplicate() as AbilityData
+	data.slot_index = slot as AbilityData.Role
+	data.structural_tags = tags
+	return player.ability_container.add_ability_from_data(data)
+
+
+func _l6_ints(tags: Array[Tags.Type]) -> Array:
+	var out: Array = []
+	for tag in tags:
+		out.append(int(tag))
+	return out
+
+
+func _section_invalidation_follows_ledger() -> void:
+	var damage := Stat.Type.BASE_DAMAGE
+	var no_fire: Array[Tags.Type] = [Tags.Type.METAMAGIC, Tags.Type.PROJECTILE]
+	var fire_infusion := load(FIRE_CARD) as UpgradeDefinition
+
+	# A slot-specific purchase of a non-infusion card updates the cached stat, whatever the card's scope.
+	var scopes := {
+		"CHARACTER_CORE": [UpgradeDefinition.ScopeType.CHARACTER_CORE, 0],
+		"LOCAL_SLOT restricted to another slot": [UpgradeDefinition.ScopeType.LOCAL_SLOT, 2],
+		"LOCAL_SLOT restricted to the same slot": [UpgradeDefinition.ScopeType.LOCAL_SLOT, 1],
+	}
+	for scope_name in scopes:
+		var player := fx.fresh_player()
+		var ability := fx.mount_arcane_bolt(player)
+		var card := _l3_card("test_l6_slot_specific")
+		card.scope = scopes[scope_name][0]
+		card.restrict_to_slot = scopes[scope_name][1]
+		card.stat_modifiers = [_l3_modifier(StatModifier.Type.PERCENT, 0.5, damage)]
+		var before := ability.stats_container.get_final_stat_value(damage)
+		player.run_ledger_component.log_slot_specific_purchase(card, 1)
+		var cached := ability.stats_container.get_final_stat_value(damage)
+		ability.stats_container.invalidate_all_caches()
+		var recomputed := ability.stats_container.get_final_stat_value(damage)
+		check(is_equal_approx(before, 1.0) and is_equal_approx(cached, 1.5) and is_equal_approx(cached, recomputed), "slot-specific non-infusion card (%s): cached stat equals the recomputed value right after the purchase" % scope_name)
+
+	# No needless invalidation: a card restricted to slot 2, bought plainly, leaves slot 1 clean.
+	var other_player := fx.fresh_player()
+	var slot_one := fx.mount_arcane_bolt(other_player)
+	var slot_two_card := _l3_card("test_l6_slot_two")
+	slot_two_card.restrict_to_slot = 2
+	slot_two_card.stat_modifiers = [_l3_modifier(StatModifier.Type.PERCENT, 0.5, damage)]
+	slot_one.stats_container.get_final_stat_value(damage)
+	other_player.run_ledger_component.log_purchase(slot_two_card)
+	check(not slot_one.stats_container.stats[damage].is_dirty, "a plain card restricted to slot 2 does not dirty slot 1")
+	check(is_equal_approx(slot_one.stats_container.get_final_stat_value(damage), 1.0), "a plain card restricted to slot 2 does not change slot 1")
+
+	# Temporary tags: in the active tags (after the permanent ones), never in the permanent tags.
+	var tag_player := fx.fresh_player()
+	var tagged := _l6_mount(tag_player, 1, no_fire)
+	tag_player.run_ledger_component.log_slot_specific_purchase(fire_infusion, 1)
+	var tags := tagged.tag_component
+	var permanent_before := _l6_ints(tags.get_permanent_tags())
+	tags.add_temporary_tag(Tags.Type.EARTH)
+	check(tags.get_active_tags().has(Tags.Type.EARTH) and tags.has_tag(Tags.Type.EARTH), "temporary tag: in the active tags")
+	check(not tags.get_permanent_tags().has(Tags.Type.EARTH) and not tags.has_permanent_tag(Tags.Type.EARTH), "temporary tag: not in the permanent tags")
+	check(_l6_ints(tags.get_permanent_tags()) == permanent_before and permanent_before == [int(Tags.Type.METAMAGIC), int(Tags.Type.PROJECTILE), int(Tags.Type.FIRE)], "permanent tags are base then infusion tags")
+	check(_l6_ints(tags.get_active_tags()) == permanent_before + [int(Tags.Type.EARTH)], "active tags keep the order: base, infusion, temporary")
+	tags.remove_temporary_tag(Tags.Type.EARTH)
+	check(not tags.get_active_tags().has(Tags.Type.EARTH), "temporary tag: gone from the active tags after remove_temporary_tag")
+
+	# A tag-scoped stat card follows permanent tags only.
+	var scoped_player := fx.fresh_player()
+	var scoped := _l6_mount(scoped_player, 1, no_fire)
+	var tag_card := _l3_card("test_l6_tag_card")
+	tag_card.scope = UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH
+	tag_card.target_tags = [Tags.Type.FIRE]
+	tag_card.stat_modifiers = [_l3_modifier(StatModifier.Type.PERCENT, 0.5, damage)]
+	scoped_player.run_ledger_component.log_purchase(tag_card)
+	scoped.tag_component.add_temporary_tag(Tags.Type.FIRE)
+	scoped.stats_container.invalidate_all_caches()
+	check(is_equal_approx(scoped.stats_container.get_final_stat_value(damage), 1.0), "tag card: a temporary matching tag does not switch it on")
+	scoped_player.run_ledger_component.log_slot_specific_purchase(fire_infusion, 1)
+	check(is_equal_approx(scoped.stats_container.get_final_stat_value(damage), 1.5), "tag card: a permanent matching tag (infusion) switches it on")
+	scoped.tag_component.remove_temporary_tag(Tags.Type.FIRE)
+	var fire_base: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.FIRE]
+	var base_ability := _l6_mount(scoped_player, 3, fire_base)
+	base_ability.stats_container.invalidate_all_caches()
+	check(is_equal_approx(base_ability.stats_container.get_final_stat_value(damage), 1.5), "tag card: a permanent matching tag (base tag) switches it on")
+
+	# Statuses and bursts ignore a temporary matching tag.
+	var granted_player := fx.fresh_player()
+	var granted := _l6_mount(granted_player, 1, no_fire)
+	var tag_status := StatusEffect.new()
+	tag_status.effect_id = "test_l6_status"
+	var tag_burst := ImpactBurstDefinition.new()
+	tag_burst.burst_id = &"test_l6_burst"
+	var grant_card := _l3_card("test_l6_grant_card")
+	grant_card.scope = UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH
+	grant_card.target_tags = [Tags.Type.EARTH]
+	grant_card.status_effect_payload = tag_status
+	grant_card.impact_burst_payload = tag_burst
+	granted_player.run_ledger_component.log_purchase(grant_card)
+	granted.tag_component.add_temporary_tag(Tags.Type.EARTH)
+	check(granted.stats_container.get_status_effects().is_empty(), "status card: a temporary matching tag does not grant the status")
+	check(granted.stats_container.get_impact_bursts().is_empty(), "burst card: a temporary matching tag does not grant the burst")
+	granted.tag_component.remove_temporary_tag(Tags.Type.EARTH)
+	var earth_base: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.EARTH]
+	var permanent_ability := _l6_mount(granted_player, 3, earth_base)
+	check(permanent_ability.stats_container.get_status_effects().size() == 1 and permanent_ability.stats_container.get_impact_bursts().size() == 1, "status and burst cards: a permanent matching tag grants them")
+
+	# An infusion purchase still invalidates every cache of its slot.
+	var infusion_player := fx.fresh_player()
+	var infused := fx.mount_arcane_bolt(infusion_player)
+	infused.stats_container.get_final_stat_value(damage)
+	check(not infused.stats_container.stats[damage].is_dirty, "infusion test setup: the stat is clean after a read")
+	infusion_player.run_ledger_component.log_slot_specific_purchase(fire_infusion, 1)
+	check(infused.stats_container.stats[damage].is_dirty, "an infusion purchase still dirties every stat of its slot")

@@ -10,6 +10,8 @@ var _slot_owner_index: int = 0
 var _ledger: RunLedgerComponent = null
 ## Source of the live tag set used for tag-scoped upgrades (null for the player core).
 var _tag_component: TagComponent = null
+## Handed to the ledger when there is no tag component (never modified).
+var _no_tags: Array[Tags.Type] = []
 
 
 func configure_slot_context(slot_idx: int, ledger: RunLedgerComponent = null, tag_component: TagComponent = null) -> void:
@@ -64,31 +66,19 @@ func _on_stats_invalidated(definition: UpgradeDefinition) -> void:
 	if definition.stat_modifiers.is_empty():
 		return
 
-	var is_impacted := false
-
-	match definition.scope:
-		UpgradeDefinition.ScopeType.CHARACTER_CORE:
-			if _slot_owner_index == 0:
-				is_impacted = true
-				
-		UpgradeDefinition.ScopeType.LOCAL_SLOT:
-			if definition.restrict_to_slot == _slot_owner_index:
-				is_impacted = true
-				
-		UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
-			if _slot_owner_index > 0:
-				var parent_weapon = get_parent()
-				if is_instance_valid(parent_weapon) and "tag_component" in parent_weapon:
-					var tags_container = parent_weapon.tag_component
-					if is_instance_valid(tags_container):
-						for req_tag in definition.target_tags:
-							if tags_container.has_tag(req_tag):
-								is_impacted = true
-								break
-
-	if is_impacted:
+	# The ledger decides whether the card applies to this slot (slot-specific purchase, scope, tags).
+	if not is_instance_valid(_ledger):
+		return
+	if _ledger.get_card_tier(definition, _slot_owner_index, _get_permanent_tags()) > 0:
 		for modifier in definition.stat_modifiers:
 			_flag_modifier_stat_dirty(modifier)
+
+
+## The slot's permanent tags (base and infusion tags); empty when there is no tag component.
+func _get_permanent_tags() -> Array[Tags.Type]:
+	if is_instance_valid(_tag_component):
+		return _tag_component.get_permanent_tags()
+	return _no_tags
 
 
 func _flag_modifier_stat_dirty(modifier: StatModifier) -> void:
@@ -105,12 +95,9 @@ func _calculate_stat(stat_type: Stat.Type) -> void:
 	var calculated_baseline := tracking_stat.base_value
 	
 	if is_instance_valid(_ledger):
-		var active_tags: Array[Tags.Type] = []
-		if is_instance_valid(_tag_component):
-			active_tags = _tag_component.get_active_tags()
-
 		# Vector3(flat_sum, percent_sum, multiplicative_product): no temporary modifier resources are created.
-		var totals := _ledger.get_modifier_totals(_slot_owner_index, active_tags, stat_type)
+		# Tag-scoped cards read the slot's permanent tags only (temporary status tags never switch a card on).
+		var totals := _ledger.get_modifier_totals(_slot_owner_index, _get_permanent_tags(), stat_type)
 		calculated_baseline = (calculated_baseline + totals.x) * (1.0 + totals.y) * totals.z
 
 	var final_computed_value = tracking_stat.recalculate_runtime_value(calculated_baseline)
@@ -121,29 +108,21 @@ func _calculate_stat(stat_type: Stat.Type) -> void:
 
 
 ## Status effects granted to this container's slot by the owner's upgrades.
-## Empty for ledger-less owners (enemies). Tags come from the container's own TagComponent.
+## Empty for ledger-less owners (enemies). Tags come from the container's own TagComponent (permanent tags only).
 func get_status_effects() -> Array[StatusEffect]:
 	if not is_instance_valid(_ledger):
 		return []
 
-	var active_tags: Array[Tags.Type] = []
-	if is_instance_valid(_tag_component):
-		active_tags = _tag_component.get_active_tags()
-
-	return _ledger.get_status_effects(_slot_owner_index, active_tags)
+	return _ledger.get_status_effects(_slot_owner_index, _get_permanent_tags())
 
 
 ## Impact bursts granted to this container's slot by the owner's upgrades.
-## Empty for ledger-less owners (enemies). Tags come from the container's own TagComponent.
+## Empty for ledger-less owners (enemies). Tags come from the container's own TagComponent (permanent tags only).
 func get_impact_bursts() -> Array[ImpactBurstDefinition]:
 	if not is_instance_valid(_ledger):
 		return []
 
-	var active_tags: Array[Tags.Type] = []
-	if is_instance_valid(_tag_component):
-		active_tags = _tag_component.get_active_tags()
-
-	return _ledger.get_impact_bursts(_slot_owner_index, active_tags)
+	return _ledger.get_impact_bursts(_slot_owner_index, _get_permanent_tags())
 
 
 # --- REAL-TIME COMBAT INTERFACES (Autonomous, single-argument API signatures) ---

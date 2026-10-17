@@ -8,6 +8,8 @@ signal tags_changed(active_tags: Array[Tags.Type])
 
 ## The Active Cache Pool: Read out of RAM instantly by external subsystems
 var _cached_active_tags: Array[Tags.Type] = []
+## Base tags plus infusion tags, without temporary tags (see get_permanent_tags).
+var _cached_permanent_tags: Array[Tags.Type] = []
 var _is_dirty: bool = true
 var _slot_owner_index: int = 0
 var _ledger: RunLedgerComponent = null
@@ -17,6 +19,7 @@ var _temporary_tag_counts: Dictionary[Tags.Type, int] = {}
 
 
 func _ready() -> void:
+	_cached_permanent_tags = base_tags.duplicate()
 	_cached_active_tags = base_tags.duplicate()
 
 
@@ -51,6 +54,21 @@ func has_tag(tag_type: Tags.Type) -> bool:
 	return _cached_active_tags.has(tag_type)
 
 
+## Base tags plus infusion tags, WITHOUT temporary (status effect) tags. Stat cards, statuses, bursts and
+## draft eligibility use these. Damage payload tags use get_active_tags(). Live read-only cache, like get_active_tags().
+func get_permanent_tags() -> Array[Tags.Type]:
+	if _is_dirty:
+		_recompile_tags()
+	return _cached_permanent_tags
+
+
+## True if the tag is a base or infusion tag. Temporary tags do not count.
+func has_permanent_tag(tag_type: Tags.Type) -> bool:
+	if _is_dirty:
+		_recompile_tags()
+	return _cached_permanent_tags.has(tag_type)
+
+
 ## Replaces the permanent identity tags (layer 1). Infusion and temporary tags are untouched.
 func set_base_tags(tags: Array[Tags.Type]) -> void:
 	base_tags = tags.duplicate()
@@ -75,7 +93,7 @@ func remove_temporary_tag(tag_type: Tags.Type) -> void:
 
 func _recompile_tags() -> void:
 	# LAYER 1: Re-seed the baseline designer identity tags from the current weapon blueprint
-	_cached_active_tags = base_tags.duplicate()
+	var permanent_tags: Array[Tags.Type] = base_tags.duplicate()
 	
 	# LAYER 2: Pull dynamic upgrades from the player's centralized ledger vault
 	if is_instance_valid(_ledger):
@@ -92,14 +110,18 @@ func _recompile_tags() -> void:
 				if tier > 0:
 					# Merge the infusion element tags seamlessly into our active taxonomy profile!
 					for tag in def.target_tags:
-						if not _cached_active_tags.has(tag):
-							_cached_active_tags.append(tag)
+						if not permanent_tags.has(tag):
+							permanent_tags.append(tag)
 							
-	# LAYER 3: Temporary tags (status effects) with at least one live reference
+	# LAYER 3: Temporary tags (status effects) with at least one live reference. Active tags = permanent + temporary.
+	var active_tags: Array[Tags.Type] = permanent_tags.duplicate()
 	for temp_tag in _temporary_tag_counts:
-		if not _cached_active_tags.has(temp_tag):
-			_cached_active_tags.append(temp_tag)
+		if not active_tags.has(temp_tag):
+			active_tags.append(temp_tag)
 
+	# Always NEW arrays: callers may hold the previous ones.
+	_cached_permanent_tags = permanent_tags
+	_cached_active_tags = active_tags
 	_is_dirty = false
 	tags_changed.emit(_cached_active_tags)
 
