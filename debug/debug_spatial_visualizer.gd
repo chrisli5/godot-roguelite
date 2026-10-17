@@ -2,6 +2,8 @@ class_name DebugSpatialVisualizer
 extends Node2D
 
 static var instance: DebugSpatialVisualizer = null
+## Debug panel switch: when false, register_debug_draw ignores every request.
+static var enabled: bool = true
 
 ## The running memory buffer queue holding shapes currently waiting to be rendered on canvas
 var _draw_queue: Array[Dictionary] = []
@@ -40,7 +42,7 @@ func _process(delta: float) -> void:
 
 ## Public Request Hook: Adds a spatial shape query configuration data map straight into the render queue
 static func register_debug_draw(shape: Shape2D, new_position: Vector2, color: Color, duration: float) -> void:
-	if not OS.is_debug_build() or not is_instance_valid(instance):
+	if not enabled or not OS.is_debug_build() or not is_instance_valid(instance):
 		return
 		
 	var package := {

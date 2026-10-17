@@ -123,6 +123,13 @@ func _try_process_next_level_up() -> void:
 		EventBus.upgrade_options_ready.emit(rolled_options)
 
 
+## Debug/support entry point: re-runs the offer and queued level-up check without touching draft state. Does nothing while a draft is on screen.
+func recheck_offers() -> void:
+	if _is_presenting_ui:
+		return
+	_try_process_next_level_up.call_deferred()
+
+
 func trigger_infusion_draft_event() -> void:
 	var current_player: Player = instance_from_id(EventBus.active_player_instance_id) as Player
 	if not is_instance_valid(current_player):

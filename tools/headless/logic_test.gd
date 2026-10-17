@@ -48,6 +48,8 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_stat_modifier_list,
 		_section_real_cards_use_stat_modifiers,
 		_section_invalidation_follows_ledger,
+		_section_debug_actions,
+		_section_debug_infusion_grant,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -966,3 +968,302 @@ func _section_invalidation_follows_ledger() -> void:
 	check(not infused.stats_container.stats[damage].is_dirty, "infusion test setup: the stat is clean after a read")
 	infusion_player.run_ledger_component.log_slot_specific_purchase(fire_infusion, 1)
 	check(infused.stats_container.stats[damage].is_dirty, "an infusion purchase still dirties every stat of its slot")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task N1: the debug panel's actions (DebugActions, DebugStatusWatcher, DebugHub)
+# ---------------------------------------------------------------------------------------------
+
+const DBG_OVERCLOCK_CARD := "res://resources/infusions/overclock_upgrade_def.tres"
+const DBG_UNLOCK_CARD := "res://resources/abilities/arcane_bolt/arcane_bolt_upgrade_def.tres"
+const DBG_MOVE_SPEED_CARD := "res://resources/entities/player/player_move_speed_upgrade_def.tres"
+
+
+func _dbg_choice(definition: UpgradeDefinition, slot: int) -> UpgradeChoice:
+	var tracker := UpgradeTracker.new()
+	tracker.definition = definition
+	tracker.max_purchases = 5
+	var choice := UpgradeChoice.new()
+	choice.source_tracker = tracker
+	choice.target_slot_index = slot
+	return choice
+
+
+## Everything an infusion grant could change in `slot`, for before / after comparisons.
+func _dbg_snapshot(player: Player, slot: int) -> Dictionary:
+	var ledger := player.run_ledger_component
+	var ability := player.ability_container.get_ability_by_slot(slot)
+	var snap := {
+		"registry": ledger.purchase_registry.duplicate(),
+		"active_upgrades": ledger.active_upgrades.size(),
+		"levels": ledger.get_infusion_levels(slot),
+	}
+	if is_instance_valid(ability):
+		var tags := ability.tag_component.get_permanent_tags()
+		snap["tags"] = _l6_ints(tags)
+		snap["overclocked"] = ability.evolution_gate_component.is_permanently_overclocked
+		snap["state"] = int(ability.evolution_gate_component.current_state)
+		snap["duration_total"] = ledger.get_modifier_totals(slot, tags, Stat.Type.STATUS_DURATION)
+		snap["ramp_total"] = ledger.get_modifier_totals(slot, tags, Stat.Type.STATUS_RAMP_CAP)
+		snap["statuses"] = ledger.get_status_effects(slot, tags).size()
+	return snap
+
+
+func _section_debug_actions() -> void:
+	var manager := fx.get_upgrade_manager()
+	var core_card := load(DBG_MOVE_SPEED_CARD) as UpgradeDefinition
+	var unlock_card := load(DBG_UNLOCK_CARD) as UpgradeDefinition
+
+	# grantable_cards: includes the plain cards, excludes infusion / Overclock / evolution cards, no duplicate ids.
+	var ids: Array[String] = []
+	var excluded_found := false
+	for entry in DebugActions.grantable_cards(manager):
+		var definition: UpgradeDefinition = entry["definition"]
+		ids.append(definition.upgrade_id)
+		excluded_found = excluded_found or definition.is_infusion() or definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK
+	check(ids.has("player_move_speed") and ids.has("upgrade_arcane_bolt"), "grantable cards: include Player Movement and the Arcane Bolt unlock")
+	check(not excluded_found and not ids.has("overclock") and not ids.has("inf_fire"), "grantable cards: no infusion or Overclock card")
+
+	var saved_pool := manager.master_upgrade_pool.duplicate()
+	var test_evolution := UpgradeDefinition.new()
+	test_evolution.upgrade_id = "test_debug_evolution"
+	test_evolution.payload_type = UpgradeDefinition.PayloadType.ABILITY_UNLOCK
+	test_evolution.evolves_from = AbilityData.new()
+	var test_unlock := UpgradeDefinition.new()
+	test_unlock.upgrade_id = "test_debug_plain_unlock"
+	test_unlock.payload_type = UpgradeDefinition.PayloadType.ABILITY_UNLOCK
+	var extra_definitions: Array[UpgradeDefinition] = [test_evolution, test_unlock, core_card]
+	var extra_profile := UpgradeBlueprintProfile.new()
+	extra_profile.definition_bundle = extra_definitions
+	manager.master_upgrade_pool.append(extra_profile)
+	var with_extras: Array[String] = []
+	for entry in DebugActions.grantable_cards(manager):
+		with_extras.append(entry["definition"].upgrade_id)
+	manager.master_upgrade_pool = saved_pool
+	var unique_ids := true
+	for id in with_extras:
+		unique_ids = unique_ids and with_extras.count(id) == 1
+	check(not with_extras.has("test_debug_evolution"), "grantable cards: an evolution card is excluded")
+	check(with_extras.has("test_debug_plain_unlock"), "grantable cards: an unlock card without evolves_from is included")
+	check(unique_ids, "grantable cards: no duplicate ids even when a card is in two profiles")
+
+	# grant_card: a plain card raises its registry tier and its stat; the unlock mounts Arcane Bolt in slot 1.
+	var player := fx.fresh_player()
+	var speed_before := player.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
+	var tier_before: int = player.run_ledger_component.purchase_registry.get("player_move_speed", 0)
+	DebugActions.grant_card(player, core_card, 5)
+	check(player.run_ledger_component.purchase_registry.get("player_move_speed", 0) == tier_before + 1, "grant_card: Player Movement's plain registry tier goes up by 1")
+	check(player.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED) > speed_before, "grant_card: Player Movement raises the movement speed stat")
+	DebugActions.grant_card(player, unlock_card, 1)
+	var mounted := player.ability_container.get_ability_by_slot(1)
+	check(is_instance_valid(mounted) and mounted.display_name == "Arcane Bolt", "grant_card: the Arcane Bolt unlock mounts Arcane Bolt in slot 1")
+
+	# level_up: the progression component reports 100.0 experience. The player's progression is restored afterwards.
+	player = fx.fresh_player()
+	var progression := player.progression_component
+	var saved_level := progression.current_level
+	var saved_xp := progression.current_xp
+	var saved_total := progression.total_accumulated_xp
+	var gained: Array[float] = []
+	var on_gained := func(amount: float, _total: float) -> void: gained.append(amount)
+	progression.experience_gained.connect(on_gained)
+	DebugActions.level_up(player)
+	progression.experience_gained.disconnect(on_gained)
+	progression.restore_state(saved_level, saved_xp, saved_total)
+	check(gained.has(100.0), "level_up: experience_gained fires with 100.0")
+
+	# apply_status_to_nearest
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var detached: Array[Dictionary] = []
+	for node in tree.root.find_children("*", "Enemy", true, false):
+		detached.append({"enemy": node, "parent": node.get_parent()})
+		node.get_parent().remove_child(node)
+	check(not DebugActions.apply_status_to_nearest(tree, burn, 5.0, 3.0), "apply_status_to_nearest: false when there is no enemy")
+	check(not DebugActions.apply_status_to_nearest(tree, null, 5.0, 3.0), "apply_status_to_nearest: false without an effect")
+	var bat := _spawn_bat()
+	check(DebugActions.apply_status_to_nearest(tree, burn, 5.0, 3.0), "apply_status_to_nearest: true with an enemy")
+	check(bat.tag_component.has_tag(Tags.Type.BURNING), "apply_status_to_nearest: the enemy is burning")
+
+	# DebugStatusWatcher.enabled silences the status lines
+	await tree.process_frame
+	await tree.process_frame
+	DebugStatusWatcher.enabled = true
+	var lines_before := DebugStatusWatcher.lines_logged
+	DebugActions.apply_status_to_nearest(tree, burn, 5.0, 3.0)
+	check(DebugStatusWatcher.lines_logged > lines_before, "status watcher: a refresh is logged while enabled")
+	DebugStatusWatcher.enabled = false
+	var lines_silent := DebugStatusWatcher.lines_logged
+	DebugActions.apply_status_to_nearest(tree, burn, 5.0, 3.0)
+	check(DebugStatusWatcher.lines_logged == lines_silent, "status watcher: nothing is logged while disabled")
+	DebugStatusWatcher.enabled = true
+
+	for item in detached:
+		if is_instance_valid(item["enemy"]) and is_instance_valid(item["parent"]):
+			item["parent"].add_child(item["enemy"])
+
+	# The hub exists in the world, starts hidden, and F1 toggles it and rebuilds the grant list.
+	var hub := world.get_node_or_null("DebugHub") as DebugHub
+	check(hub != null and not hub.visible, "debug hub: exists in the world and starts hidden")
+	if hub != null:
+		var f1 := InputEventKey.new()
+		f1.keycode = KEY_F1
+		f1.pressed = true
+		hub._unhandled_input(f1)
+		check(hub.visible, "debug hub: F1 opens it")
+		await tree.process_frame
+		check(hub._grant_list.get_child_count() == DebugActions.grantable_cards(manager).size(), "debug hub: the grant list is rebuilt on open")
+		hub._unhandled_input(f1)
+		check(not hub.visible, "debug hub: F1 closes it")
+
+
+func _section_debug_infusion_grant() -> void:
+	var manager := fx.get_upgrade_manager()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var overclock := load(DBG_OVERCLOCK_CARD) as UpgradeDefinition
+	var fire_element := int(Tags.Type.FIRE)
+
+	check(DebugActions.grantable_infusions(manager).size() == 5, "grantable infusions: the five real infusion cards")
+
+	# 1. A legal grant
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	check(DebugActions.grant_infusion(player, manager, fire, fire_element, 1) == "", "infusion grant: Fire into an empty slot is accepted")
+	check(ledger.get_infusion_level(1, Tags.Type.FIRE) == 1, "infusion grant: the Fire level in the slot is +1")
+	check(ability.tag_component.get_permanent_tags().has(Tags.Type.FIRE), "infusion grant: the slot gained the Fire tag")
+	var burn_found := false
+	for effect in ledger.get_status_effects(1, ability.tag_component.get_permanent_tags()):
+		burn_found = burn_found or effect.effect_id == "burn"
+	check(burn_found, "infusion grant: the slot now carries Burn")
+	var granted_snapshot := _dbg_snapshot(player, 1)
+
+	# 2. The same choice applied by hand gives the same state
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	var tracker := UpgradeTracker.new()
+	tracker.definition = fire
+	tracker.max_purchases = 5
+	var by_hand := UpgradeChoice.new()
+	by_hand.source_tracker = tracker
+	by_hand.target_slot_index = 1
+	player.apply_contextual_upgrade(by_hand)
+	check(_dbg_snapshot(player, 1) == granted_snapshot, "infusion grant: identical ledger, levels, tags and totals to applying the choice by hand")
+
+	# 3. Soft cap: the 4th Fire is refused and nothing changes
+	player = fx.fresh_player()
+	ability = fx.mount_arcane_bolt(player)
+	for i in range(3):
+		DebugActions.grant_infusion(player, manager, fire, fire_element, 1)
+	var capped_snapshot := _dbg_snapshot(player, 1)
+	var cap_reason := DebugActions.grant_infusion(player, manager, fire, fire_element, 1)
+	check(capped_snapshot["levels"][0] == 3, "infusion grant: three Fire grants reach the soft cap of 3")
+	check(not cap_reason.is_empty(), "infusion grant: a 4th Fire at the soft cap is refused with a reason")
+	check(_dbg_snapshot(player, 1) == capped_snapshot, "infusion grant: a refused grant changes nothing")
+
+	# 4. Element-count limit
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	DebugActions.grant_infusion(player, manager, fire, fire_element, 1)
+	DebugActions.grant_infusion(player, manager, frost, int(Tags.Type.FROST), 1)
+	var two_active := _dbg_snapshot(player, 1)
+	check(not DebugActions.grant_infusion(player, manager, earth, int(Tags.Type.EARTH), 1).is_empty(), "infusion grant: a third new element is refused")
+	check(_dbg_snapshot(player, 1) == two_active, "infusion grant: the refused third element changes nothing")
+	check(DebugActions.grant_infusion(player, manager, fire, fire_element, 1) == "", "infusion grant: an element already present is still accepted")
+
+	# 5. Overclock lifts the per-element cap to 15
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	for i in range(3):
+		DebugActions.grant_infusion(player, manager, fire, fire_element, 1)
+	player.apply_contextual_upgrade(_dbg_choice(overclock, 1))
+	var accepted_above_cap := true
+	for i in range(12):
+		accepted_above_cap = accepted_above_cap and DebugActions.grant_infusion(player, manager, fire, fire_element, 1) == ""
+	check(accepted_above_cap and player.run_ledger_component.get_infusion_level(1, Tags.Type.FIRE) == 15, "infusion grant: an Overclocked slot accepts Fire from 3 up to 15")
+	var at_hard_cap := _dbg_snapshot(player, 1)
+	check(not DebugActions.grant_infusion(player, manager, fire, fire_element, 1).is_empty() and _dbg_snapshot(player, 1) == at_hard_cap, "infusion grant: Fire 16 is refused and changes nothing")
+
+	# 6. Empty and out-of-range slots
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	var before_bad := _dbg_snapshot(player, 1)
+	for bad_slot in [2, 0, 5]:
+		check(not DebugActions.grant_infusion(player, manager, fire, fire_element, bad_slot).is_empty(), "infusion grant: slot %d is refused with a reason" % bad_slot)
+	check(_dbg_snapshot(player, 1) == before_bad and player.run_ledger_component.purchase_registry.is_empty(), "infusion grant: refused slots change nothing")
+
+	# 7. can_grant_infusion is read-only
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	DebugActions.grant_infusion(player, manager, fire, fire_element, 1)
+	var before_query := _dbg_snapshot(player, 1)
+	DebugActions.can_grant_infusion(player, fire, fire_element, 1)
+	DebugActions.can_grant_infusion(player, earth, int(Tags.Type.EARTH), 2)
+	DebugActions.can_grant_infusion(player, earth, int(Tags.Type.EARTH), 0)
+	check(_dbg_snapshot(player, 1) == before_query, "can_grant_infusion: leaves the ledger and the ability unchanged")
+
+	# 8. Offer re-check: a grant that reaches the soft cap brings the forced offer draft.
+	# Each accepted grant queues a deferred offer check, so let the earlier grants' checks run first.
+	await tree.process_frame
+	player = fx.fresh_player()
+	ability = fx.mount_arcane_bolt(player)
+	ledger = player.run_ledger_component
+	for i in range(2):
+		ledger.log_slot_specific_purchase(fire, 1)
+	for i in range(3):
+		ledger.log_slot_specific_purchase(frost, 1)
+	emitted.clear()
+	var listener := func(options: Array[UpgradeChoice]) -> void: emitted.append(options)
+	_eb.upgrade_options_ready.connect(listener)
+	check(not ability.evolution_gate_component.is_offer_eligible(ability.infusion_tracker_component.infusion_levels), "offer re-check: not eligible before the grant")
+	DebugActions.grant_infusion(player, manager, fire, fire_element, 1)
+	check(ability.evolution_gate_component.is_offer_eligible(ability.infusion_tracker_component.infusion_levels), "offer re-check: eligible after the grant reaches the soft cap")
+	await tree.process_frame
+	await tree.process_frame
+	check(emitted.size() == 1 and emitted[0].size() > 0 and emitted[0][0].is_forced_offer, "offer re-check: the forced offer draft is presented after the grant")
+	# While a draft is on screen, recheck_offers changes nothing
+	var queue_before := manager._level_up_queue.duplicate()
+	var presenting_before := manager._presenting_level
+	var offer_flag_before := manager._is_offer_draft
+	emitted.clear()
+	manager.recheck_offers()
+	await tree.process_frame
+	await tree.process_frame
+	check(emitted.is_empty() and manager._level_up_queue == queue_before and manager._presenting_level == presenting_before and manager._is_offer_draft == offer_flag_before and manager._is_presenting_ui, "offer re-check: does nothing while a draft is on screen")
+	_eb.upgrade_options_ready.disconnect(listener)
+	tree.paused = false
+
+	# 9. A refused grant does not re-check offers (the slot is offer-eligible, so a re-check would present a draft)
+	player = fx.fresh_player()
+	ability = fx.mount_arcane_bolt(player)
+	ledger = player.run_ledger_component
+	for i in range(3):
+		ledger.log_slot_specific_purchase(fire, 1)
+		ledger.log_slot_specific_purchase(frost, 1)
+	emitted.clear()
+	var refused_listener := func(options: Array[UpgradeChoice]) -> void: emitted.append(options)
+	_eb.upgrade_options_ready.connect(refused_listener)
+	check(not DebugActions.grant_infusion(player, manager, fire, fire_element, 1).is_empty(), "refused grant: Fire 4 is refused")
+	await tree.process_frame
+	await tree.process_frame
+	check(emitted.is_empty() and not manager._is_presenting_ui, "refused grant: no offer re-check ran")
+	_eb.upgrade_options_ready.disconnect(refused_listener)
+
+	# The panel's grant button runs the same code and reports the result
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	var hub := world.get_node_or_null("DebugHub") as DebugHub
+	if hub != null:
+		hub._refresh()
+		var fire_index := -1
+		for i in range(hub._element_picker.item_count):
+			if hub._element_picker.get_item_text(i) == "FIRE":
+				fire_index = i
+		hub._element_picker.select(fire_index)
+		hub._slot_picker.select(0)
+		hub._on_grant_infusion_pressed()
+		check(hub._infusion_result.text.begins_with("OK") and player.run_ledger_component.get_infusion_level(1, Tags.Type.FIRE) == 1, "debug hub: the grant button reports OK and grants")
+		hub._slot_picker.select(1)
+		hub._on_grant_infusion_pressed()
+		check(hub._infusion_result.text.begins_with("Refused"), "debug hub: an empty slot is reported as refused")
