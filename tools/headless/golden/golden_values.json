@@ -1,4 +1,89 @@
 {
+	"cards/additional_modifiers": {
+		"tier_0/BASE_DAMAGE/final": 1.0,
+		"tier_0/BASE_DAMAGE/total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"tier_0/COOLDOWN/final": 1.0,
+		"tier_0/COOLDOWN/total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"tier_0/CRIT_MULTIPLIER/final": 1.5,
+		"tier_0/CRIT_MULTIPLIER/total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"tier_0/DURATION/final": 3.0,
+		"tier_0/DURATION/total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"tier_1/BASE_DAMAGE/final": 3.30000000447035,
+		"tier_1/BASE_DAMAGE/total": [
+			2.0,
+			0.100000001490116,
+			1.0
+		],
+		"tier_1/COOLDOWN/final": 1.5,
+		"tier_1/COOLDOWN/total": [
+			0.5,
+			0.0,
+			1.0
+		],
+		"tier_1/CRIT_MULTIPLIER/final": 1.80000007152557,
+		"tier_1/CRIT_MULTIPLIER/total": [
+			0.0,
+			0.0,
+			1.20000004768372
+		],
+		"tier_1/DURATION/final": 3.0,
+		"tier_1/DURATION/total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"tier_2/BASE_DAMAGE/final": 6.00000001490116,
+		"tier_2/BASE_DAMAGE/total": [
+			4.0,
+			0.200000002980232,
+			1.0
+		],
+		"tier_2/COOLDOWN/final": 2.0,
+		"tier_2/COOLDOWN/total": [
+			1.0,
+			0.0,
+			1.0
+		],
+		"tier_2/CRIT_MULTIPLIER/final": 2.16000008583069,
+		"tier_2/CRIT_MULTIPLIER/total": [
+			0.0,
+			0.0,
+			1.44000005722046
+		],
+		"tier_2/DURATION/final": 3.0,
+		"tier_2/DURATION/total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"tier_2/slot_2_damage_total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"with_extras_only_card/damage_final": 6.30000001564622,
+		"with_extras_only_card/damage_total": [
+			4.25,
+			0.200000002980232,
+			1.0
+		]
+	},
 	"cards/character_core_scope": {
 		"slot_0/bursts": [],
 		"slot_0/statuses": [
@@ -89,6 +174,62 @@
 		"slot_2/bursts": [],
 		"slot_2/statuses": []
 	},
+	"cards/infusion_level_queries": {
+		"elementless_infusion/level_for_NONE_slot_1": 1,
+		"elementless_infusion/level_for_PROJECTILE_slot_1": 0,
+		"elementless_infusion/levels_slot_1": [
+			1,
+			0,
+			0,
+			0,
+			0
+		],
+		"general_card_slot_specific_x2/fire_level_slot_1": 0,
+		"general_card_slot_specific_x2/levels_slot_1": [
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		"plus_plain_fire_x2/fire_level_slot_0": 0,
+		"plus_plain_fire_x2/fire_level_slot_1": 0,
+		"plus_plain_fire_x2/levels_slot_0": [
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		"plus_plain_fire_x2/levels_slot_1": [
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		"plus_slot_fire_x1/levels_slot_0": [
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		"plus_slot_fire_x1/levels_slot_1": [
+			1,
+			0,
+			0,
+			0,
+			0
+		],
+		"slot_fire_in_slot_3/levels_slot_3": [
+			1,
+			0,
+			0,
+			0,
+			0
+		]
+	},
 	"cards/local_slot_restricted_to_2": {
 		"slot_0/bursts": [],
 		"slot_0/statuses": [],
@@ -98,6 +239,172 @@
 			"golden_slot_two:0.7"
 		],
 		"slot_2/statuses": []
+	},
+	"cards/local_slot_stat_card": {
+		"tier_0/slot_1": 500.0,
+		"tier_0/slot_2": 500.0,
+		"tier_1/slot_1": 750.0,
+		"tier_1/slot_1_total_percent": 0.5,
+		"tier_1/slot_2": 500.0,
+		"tier_1/slot_2_total_percent": 0.0,
+		"tier_2/slot_1": 1000.0,
+		"tier_2/slot_1_total_percent": 1.0,
+		"tier_2/slot_2": 500.0,
+		"tier_2/slot_2_total_percent": 0.0
+	},
+	"cards/multiplicative_plain": {
+		"base": 1.0,
+		"slot_2_tier_3/total_multiplicative": 1.0,
+		"tier_1/final": 1.10000002384186,
+		"tier_1/total_flat": 0.0,
+		"tier_1/total_multiplicative": 1.10000002384186,
+		"tier_1/total_percent": 0.0,
+		"tier_2/final": 1.21000003814697,
+		"tier_2/total_flat": 0.0,
+		"tier_2/total_multiplicative": 1.21000003814697,
+		"tier_2/total_percent": 0.0,
+		"tier_3/final": 1.3309999704361,
+		"tier_3/total_flat": 0.0,
+		"tier_3/total_multiplicative": 1.3309999704361,
+		"tier_3/total_percent": 0.0
+	},
+	"cards/multiplicative_slot_specific": {
+		"base": 1.0,
+		"slot_2_tier_3/total_multiplicative": 1.0,
+		"tier_1/final": 1.10000002384186,
+		"tier_1/total_flat": 0.0,
+		"tier_1/total_multiplicative": 1.10000002384186,
+		"tier_1/total_percent": 0.0,
+		"tier_2/final": 1.21000003814697,
+		"tier_2/total_flat": 0.0,
+		"tier_2/total_multiplicative": 1.21000003814697,
+		"tier_2/total_percent": 0.0,
+		"tier_3/final": 1.3309999704361,
+		"tier_3/total_flat": 0.0,
+		"tier_3/total_multiplicative": 1.3309999704361,
+		"tier_3/total_percent": 0.0
+	},
+	"cards/overclock_purchase": {
+		"after/active_upgrades": 1,
+		"after/exported_evolution_state": 0,
+		"after/exported_overclocked": true,
+		"after/flag": true,
+		"after/offer_eligible_at_fire3_frost3": false,
+		"after/registry_plain_key": 0,
+		"after/registry_size": 1,
+		"after/registry_slot_key": 1,
+		"before/exported_overclocked": false,
+		"before/flag": false,
+		"before/offer_eligible_at_fire3_frost3": true,
+		"empty_slot_2/registry_slot_key": 1
+	},
+	"cards/slot_specific_general_card_core_scope": {
+		"cache_updated_by_purchase": false,
+		"final_after_manual_invalidate": 1.5,
+		"final_after_without_recompute": 1.0,
+		"final_before": 1.0,
+		"ledger_total": [
+			0.0,
+			0.5,
+			1.0
+		]
+	},
+	"cards/slot_specific_general_card_local_slot_1": {
+		"cache_updated_by_purchase": true,
+		"final_after_manual_invalidate": 1.5,
+		"final_after_without_recompute": 1.5,
+		"final_before": 1.0,
+		"ledger_total": [
+			0.0,
+			0.5,
+			1.0
+		]
+	},
+	"cards/slot_specific_general_card_local_slot_2": {
+		"cache_updated_by_purchase": false,
+		"final_after_manual_invalidate": 1.5,
+		"final_after_without_recompute": 1.0,
+		"final_before": 1.0,
+		"ledger_total": [
+			0.0,
+			0.5,
+			1.0
+		]
+	},
+	"cards/tag_match_card_bought_before_mount": {
+		"cached_final_right_after_mount": 1.5,
+		"final_after_manual_invalidate": 1.5,
+		"ledger_total": [
+			0.0,
+			0.5,
+			1.0
+		],
+		"mounted_with_fire_tag": true
+	},
+	"cards/tag_match_stat_card": {
+		"after_card/slot_1": 1.0,
+		"after_card/slot_1_total": [
+			0.0,
+			0.0,
+			1.0
+		],
+		"after_card/slot_2": 1.0,
+		"after_card/slot_3": 1.5,
+		"after_card/slot_3_total": [
+			0.0,
+			0.5,
+			1.0
+		],
+		"after_fire_infusion/slot_1": 1.5,
+		"after_fire_infusion/slot_1_has_fire_tag": true,
+		"after_fire_infusion/slot_2": 1.0,
+		"before_card/slot_1": 1.0,
+		"before_card/slot_3": 1.0,
+		"slot_1_has_fire_tag": false,
+		"slot_3_has_fire_tag": true,
+		"temp_tag_on_slot_2/cached_final": 1.0,
+		"temp_tag_on_slot_2/final_after_manual_invalidate": 1.5,
+		"temp_tag_on_slot_2/ledger_total": [
+			0.0,
+			0.5,
+			1.0
+		]
+	},
+	"cards/unlock_card": {
+		"after/ability_in_slot": true,
+		"after/data_path": "res://resources/abilities/arcane_bolt/arcane_bolt_data.tres",
+		"after/display_name": "Arcane Bolt",
+		"after/evolution_state": 0,
+		"after/infusion_levels": [
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		"after/overclocked": false,
+		"after/pool_offers_unlock_at_level_1": false,
+		"after/pool_offers_unlock_at_level_99": false,
+		"after/registry_unlock": 1,
+		"after/slot": 1,
+		"after/stat/AOE_RADIUS": 10.0,
+		"after/stat/BASE_DAMAGE": 1.0,
+		"after/stat/COOLDOWN": 1.0,
+		"after/stat/CRIT_CHANCE": 0.05,
+		"after/stat/CRIT_MULTIPLIER": 1.5,
+		"after/stat/DOT_DAMAGE": 0.15,
+		"after/stat/DURATION": 3.0,
+		"after/stat/PROJECTILE_AMOUNT": 1.0,
+		"after/stat/PROJECTILE_MOVEMENT_SPEED": 500.0,
+		"after/stat/QUERY_RADIUS": 300.0,
+		"after/stat/STATUS_DURATION": 0.0,
+		"after/stat/STATUS_RAMP_CAP": 0.0,
+		"after/tags": [
+			2,
+			7
+		],
+		"before/ability_in_slot": false,
+		"before/pool_offers_unlock": true
 	},
 	"damage/burn_fire_3": {
 		"burn_still_active": false,
@@ -143,6 +450,128 @@
 		"payload_is_critical_hit": false,
 		"primary_health_lost": 1.0,
 		"primary_hits": 1
+	},
+	"evolution/fire2_frost3": {
+		"draft_pool_ids_level_99": [
+			"player_move_speed",
+			"upgrade_arcane_bolt"
+		],
+		"evaluate_returns": [],
+		"infusion_levels": [
+			2,
+			3,
+			0,
+			0,
+			0
+		],
+		"next_offer_slot": 0,
+		"offer_build_returns": [
+			"overclock"
+		],
+		"offer_eligible": false
+	},
+	"evolution/fire3_frost2": {
+		"draft_pool_ids_level_99": [
+			"player_move_speed",
+			"upgrade_arcane_bolt"
+		],
+		"evaluate_returns": [],
+		"infusion_levels": [
+			3,
+			2,
+			0,
+			0,
+			0
+		],
+		"next_offer_slot": 0,
+		"offer_build_returns": [
+			"overclock"
+		],
+		"offer_eligible": false
+	},
+	"evolution/fire3_frost3": {
+		"draft_pool_ids_level_99": [
+			"player_move_speed",
+			"upgrade_arcane_bolt"
+		],
+		"evaluate_returns": [
+			"test_evo_fire_frost"
+		],
+		"infusion_levels": [
+			3,
+			3,
+			0,
+			0,
+			0
+		],
+		"next_offer_slot": 1,
+		"offer_build_returns": [
+			"test_evo_fire_frost",
+			"overclock"
+		],
+		"offer_eligible": true
+	},
+	"evolution/fire3_frost3_evolution_already_bought": {
+		"draft_pool_ids_level_99": [
+			"player_move_speed",
+			"upgrade_arcane_bolt"
+		],
+		"evaluate_returns": [
+			"test_evo_fire_frost"
+		],
+		"infusion_levels": [
+			3,
+			3,
+			0,
+			0,
+			0
+		],
+		"next_offer_slot": 1,
+		"offer_build_returns": [
+			"overclock"
+		],
+		"offer_eligible": true
+	},
+	"evolution/fire3_frost3_overclocked": {
+		"draft_pool_ids_level_99": [
+			"player_move_speed",
+			"upgrade_arcane_bolt"
+		],
+		"evaluate_returns": [],
+		"infusion_levels": [
+			3,
+			3,
+			0,
+			0,
+			0
+		],
+		"next_offer_slot": 0,
+		"offer_build_returns": [
+			"overclock"
+		],
+		"offer_eligible": false
+	},
+	"evolution/fire5_frost5": {
+		"draft_pool_ids_level_99": [
+			"player_move_speed",
+			"upgrade_arcane_bolt"
+		],
+		"evaluate_returns": [
+			"test_evo_fire_frost"
+		],
+		"infusion_levels": [
+			5,
+			5,
+			0,
+			0,
+			0
+		],
+		"next_offer_slot": 1,
+		"offer_build_returns": [
+			"test_evo_fire_frost",
+			"overclock"
+		],
+		"offer_eligible": true
 	},
 	"payload/burst_card_only/crit_off": {
 		"burst_ids": [
@@ -337,6 +766,68 @@
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
 		"status_ramp_cap_snapshot": 0.0
+	},
+	"pool/after_overclock": {
+		"level_1": [
+			"player_move_speed|Character Core|slot0|0/5"
+		],
+		"level_99": [
+			"player_move_speed|Character Core|slot0|0/5"
+		]
+	},
+	"pool/after_unlock": {
+		"level_1": [
+			"player_move_speed|Character Core|slot0|0/5"
+		],
+		"level_99": [
+			"player_move_speed|Character Core|slot0|0/5"
+		]
+	},
+	"pool/every_card_exhausted": {
+		"level_1": [],
+		"level_99": []
+	},
+	"pool/fresh_run": {
+		"level_1": [
+			"player_move_speed|Character Core|slot0|0/5",
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		],
+		"level_99": [
+			"player_move_speed|Character Core|slot0|0/5",
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		]
+	},
+	"pool/level_gating_move_speed": {
+		"tier_0/first_level_offered": 1,
+		"tier_1/first_level_offered": 2,
+		"tier_2/first_level_offered": 3,
+		"tier_3/first_level_offered": 4,
+		"tier_4/first_level_offered": 5,
+		"tier_5/first_level_offered": -1
+	},
+	"pool/move_speed_ceiling": {
+		"level_5": [
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		],
+		"level_6": [
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		],
+		"level_99": [
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		]
+	},
+	"pool/move_speed_tier_4": {
+		"level_4": [
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		],
+		"level_5": [
+			"player_move_speed|Character Core|slot0|4/5",
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		],
+		"level_99": [
+			"player_move_speed|Character Core|slot0|4/5",
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		]
 	},
 	"stats/arcane_bolt/earth_1": {
 		"AOE_RADIUS": 11.0000000149012,

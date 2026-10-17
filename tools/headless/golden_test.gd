@@ -30,6 +30,8 @@ const FROST := "res://resources/infusions/inf_frost_upgrade_def.tres"
 const LIGHTNING := "res://resources/infusions/inf_lightning_upgrade_def.tres"
 const WIND := "res://resources/infusions/inf_wind_upgrade_def.tres"
 const EARTH := "res://resources/infusions/inf_earth_upgrade_def.tres"
+const OVERCLOCK_CARD := "res://resources/infusions/overclock_upgrade_def.tres"
+const UNLOCK_CARD := "res://resources/abilities/arcane_bolt/arcane_bolt_upgrade_def.tres"
 
 var fails: int = 0
 var tree: SceneTree
@@ -58,6 +60,10 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_payload_snapshots,
 		_section_card_resolution,
 		_section_damage_received,
+		_section_card_stat_paths,
+		_section_card_actions,
+		_section_draft_pool,
+		_section_evolution_offer,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -547,3 +553,442 @@ func _burst_damage(origin: Vector2, trigger: ImpactBurstDefinition.Trigger, crit
 	for bat in bats:
 		bat.queue_free()
 	return values
+
+
+# ---------------------------------------------------------------------------------------------
+# 6. Card paths added before the card-effects refactor (Task L2). Test-only cards are built in code,
+#    their ids start with "test_", and none is ever saved as a resource.
+# ---------------------------------------------------------------------------------------------
+
+func _modifier(type: StatModifier.Type, value: float, stat: Stat.Type) -> StatModifier:
+	var modifier := StatModifier.new()
+	modifier.type = type
+	modifier.value = value
+	modifier.target_stat_type = stat
+	return modifier
+
+
+func _stat_card(id: String, scope: UpgradeDefinition.ScopeType, restrict_to_slot: int, modifier: StatModifier) -> UpgradeDefinition:
+	var card := _card(id, scope, restrict_to_slot)
+	card.payload_type = UpgradeDefinition.PayloadType.STAT_MODIFIER
+	card.stat_modifier_payload = modifier
+	return card
+
+
+## The ledger's Vector3(flat, percent, multiplicative) for one stat, as three numbers.
+func _totals(ledger: RunLedgerComponent, slot: int, tags: Array[Tags.Type], stat: Stat.Type) -> Array:
+	var totals := ledger.get_modifier_totals(slot, tags, stat)
+	return [totals.x, totals.y, totals.z]
+
+
+func _choice(definition: UpgradeDefinition, slot: int, max_tiers: int = 1) -> UpgradeChoice:
+	var tracker := UpgradeTracker.new()
+	tracker.definition = definition
+	tracker.max_purchases = max_tiers
+	var choice := UpgradeChoice.new()
+	choice.source_tracker = tracker
+	choice.target_slot_index = slot
+	return choice
+
+
+## Mounts a copy of Arcane Bolt's AbilityData in `slot` (optionally with other structural tags).
+func _mount(player: Player, slot: int, tags: Array[Tags.Type] = []) -> Ability:
+	var data := (load(Fixtures.ARCANE_BOLT_DATA) as AbilityData).duplicate() as AbilityData
+	data.slot_index = slot as AbilityData.Role
+	if not tags.is_empty():
+		data.structural_tags = tags
+	return player.ability_container.add_ability_from_data(data)
+
+
+func _tag_ints(tags: Array[Tags.Type]) -> Array:
+	var out: Array = []
+	for tag in tags:
+		out.append(int(tag))
+	return out
+
+
+func _stat_name(stat: Stat.Type) -> String:
+	return Stat.Type.keys()[stat]
+
+
+func _section_card_stat_paths() -> void:
+	var damage := Stat.Type.BASE_DAMAGE
+
+	# 1. A ledger MULTIPLICATIVE stat card, bought 1, 2 and 3 times: (1 + v)^tier. Plain and slot-specific purchases.
+	for purchase_kind in ["plain", "slot_specific"]:
+		var card := _stat_card("test_multiplicative", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, _modifier(StatModifier.Type.MULTIPLICATIVE, 0.1, damage))
+		var ledger := _new_ledger()
+		var lane := _lane(1, _arcane_tags(), ledger)
+		var values := {"base": lane["stats"].get_final_stat_value(damage)}
+		for tier in [1, 2, 3]:
+			if purchase_kind == "plain":
+				ledger.log_purchase(card)
+			else:
+				ledger.log_slot_specific_purchase(card, 1)
+			var totals := _totals(ledger, 1, _arcane_tags(), damage)
+			values["tier_%d/total_flat" % tier] = totals[0]
+			values["tier_%d/total_percent" % tier] = totals[1]
+			values["tier_%d/total_multiplicative" % tier] = totals[2]
+			values["tier_%d/final" % tier] = lane["stats"].get_final_stat_value(damage)
+		var other := _totals(ledger, 2, _arcane_tags(), damage)
+		values["slot_2_tier_3/total_multiplicative"] = other[2]
+		computed["cards/multiplicative_%s" % purchase_kind] = values
+
+	# 3. A LOCAL_SLOT stat card (restrict_to_slot 1, PERCENT 0.5 on projectile speed): slot 1 only, tiers 1 and 2.
+	var speed := Stat.Type.PROJECTILE_MOVEMENT_SPEED
+	var local_card := _stat_card("test_local_speed", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, _modifier(StatModifier.Type.PERCENT, 0.5, speed))
+	var local_ledger := _new_ledger()
+	var lane_one := _lane(1, _arcane_tags(), local_ledger)
+	var lane_two := _lane(2, _arcane_tags(), local_ledger)
+	var local_values := {
+		"tier_0/slot_1": lane_one["stats"].get_final_stat_value(speed),
+		"tier_0/slot_2": lane_two["stats"].get_final_stat_value(speed),
+	}
+	for tier in [1, 2]:
+		local_ledger.log_purchase(local_card)
+		local_values["tier_%d/slot_1" % tier] = lane_one["stats"].get_final_stat_value(speed)
+		local_values["tier_%d/slot_2" % tier] = lane_two["stats"].get_final_stat_value(speed)
+		local_values["tier_%d/slot_1_total_percent" % tier] = _totals(local_ledger, 1, _arcane_tags(), speed)[1]
+		local_values["tier_%d/slot_2_total_percent" % tier] = _totals(local_ledger, 2, _arcane_tags(), speed)[1]
+	computed["cards/local_slot_stat_card"] = local_values
+
+	# 4. additional_stat_modifiers: contribution at tier 0, at tier 2, with a mismatched stat, and with no primary modifier.
+	var extras_card := _stat_card("test_extras", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, _modifier(StatModifier.Type.FLAT, 2.0, damage))
+	extras_card.additional_stat_modifiers = [
+		_modifier(StatModifier.Type.PERCENT, 0.1, damage),
+		_modifier(StatModifier.Type.FLAT, 0.5, Stat.Type.COOLDOWN),
+		_modifier(StatModifier.Type.MULTIPLICATIVE, 0.2, Stat.Type.CRIT_MULTIPLIER),
+	]
+	var extras_only := _stat_card("test_extras_only", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, null)
+	extras_only.additional_stat_modifiers = [_modifier(StatModifier.Type.FLAT, 0.25, damage)]
+	var extras_ledger := _new_ledger()
+	var extras_lane := _lane(1, _arcane_tags(), extras_ledger)
+	var extras_values := {}
+	var probe_stats: Array[Stat.Type] = [damage, Stat.Type.COOLDOWN, Stat.Type.CRIT_MULTIPLIER, Stat.Type.DURATION]
+	for stage in ["tier_0", "tier_1", "tier_2"]:
+		if stage != "tier_0":
+			extras_ledger.log_purchase(extras_card)
+		for stat in probe_stats:
+			extras_values["%s/%s/total" % [stage, _stat_name(stat)]] = _totals(extras_ledger, 1, _arcane_tags(), stat)
+			extras_values["%s/%s/final" % [stage, _stat_name(stat)]] = extras_lane["stats"].get_final_stat_value(stat)
+	extras_values["tier_2/slot_2_damage_total"] = _totals(extras_ledger, 2, _arcane_tags(), damage)
+	extras_ledger.log_purchase(extras_only)
+	extras_values["with_extras_only_card/damage_total"] = _totals(extras_ledger, 1, _arcane_tags(), damage)
+	extras_values["with_extras_only_card/damage_final"] = extras_lane["stats"].get_final_stat_value(damage)
+	computed["cards/additional_modifiers"] = extras_values
+
+	# 7. Infusion level queries for cards that are not slot-specific infusions.
+	var fire := load(FIRE) as UpgradeDefinition
+	var general_fire_tagged := _stat_card("test_general_fire_tagged", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, _modifier(StatModifier.Type.FLAT, 1.0, damage))
+	general_fire_tagged.target_tags = [Tags.Type.FIRE]
+	var elementless_infusion := _stat_card("test_elementless_infusion", UpgradeDefinition.ScopeType.LOCAL_SLOT, 1, _modifier(StatModifier.Type.FLAT, 1.0, damage))
+	elementless_infusion.category = UpgradeDefinition.Category.INFUSION
+	var query_ledger := _new_ledger()
+	var query_values := {}
+	query_ledger.log_slot_specific_purchase(general_fire_tagged, 1)
+	query_ledger.log_slot_specific_purchase(general_fire_tagged, 1)
+	query_values["general_card_slot_specific_x2/levels_slot_1"] = query_ledger.get_infusion_levels(1)
+	query_values["general_card_slot_specific_x2/fire_level_slot_1"] = query_ledger.get_infusion_level(1, Tags.Type.FIRE)
+	query_ledger.log_purchase(fire)
+	query_ledger.log_purchase(fire)
+	query_values["plus_plain_fire_x2/levels_slot_0"] = query_ledger.get_infusion_levels(0)
+	query_values["plus_plain_fire_x2/levels_slot_1"] = query_ledger.get_infusion_levels(1)
+	query_values["plus_plain_fire_x2/fire_level_slot_0"] = query_ledger.get_infusion_level(0, Tags.Type.FIRE)
+	query_values["plus_plain_fire_x2/fire_level_slot_1"] = query_ledger.get_infusion_level(1, Tags.Type.FIRE)
+	query_ledger.log_slot_specific_purchase(fire, 1)
+	query_values["plus_slot_fire_x1/levels_slot_1"] = query_ledger.get_infusion_levels(1)
+	query_values["plus_slot_fire_x1/levels_slot_0"] = query_ledger.get_infusion_levels(0)
+	query_ledger.log_slot_specific_purchase(fire, 3)
+	query_values["slot_fire_in_slot_3/levels_slot_3"] = query_ledger.get_infusion_levels(3)
+	query_ledger.log_slot_specific_purchase(elementless_infusion, 1)
+	query_values["elementless_infusion/levels_slot_1"] = query_ledger.get_infusion_levels(1)
+	query_values["elementless_infusion/level_for_NONE_slot_1"] = query_ledger.get_infusion_level(1, Tags.Type.NONE)
+	query_values["elementless_infusion/level_for_PROJECTILE_slot_1"] = query_ledger.get_infusion_level(1, Tags.Type.PROJECTILE)
+	computed["cards/infusion_level_queries"] = query_values
+
+	# 2. A GLOBAL_TAG_MATCH stat card on real mounted abilities (the invalidation path reads the ability's tag component).
+	var tag_card := _stat_card("test_tag_match", UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH, 0, _modifier(StatModifier.Type.PERCENT, 0.5, damage))
+	tag_card.target_tags = [Tags.Type.FIRE]
+	var player := fx.fresh_player()
+	var ledger_a := player.run_ledger_component
+	var fire_tags: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.FIRE]
+	var ability_1 := _mount(player, 1)
+	var ability_2 := _mount(player, 2)
+	var ability_3 := _mount(player, 3, fire_tags)
+	var tag_values := {
+		"before_card/slot_1": ability_1.stats_container.get_final_stat_value(damage),
+		"before_card/slot_3": ability_3.stats_container.get_final_stat_value(damage),
+		"slot_3_has_fire_tag": ability_3.tag_component.has_tag(Tags.Type.FIRE),
+		"slot_1_has_fire_tag": ability_1.tag_component.has_tag(Tags.Type.FIRE),
+	}
+	ability_2.stats_container.get_final_stat_value(damage)
+	ledger_a.log_purchase(tag_card)
+	tag_values["after_card/slot_1"] = ability_1.stats_container.get_final_stat_value(damage)
+	tag_values["after_card/slot_2"] = ability_2.stats_container.get_final_stat_value(damage)
+	tag_values["after_card/slot_3"] = ability_3.stats_container.get_final_stat_value(damage)
+	tag_values["after_card/slot_1_total"] = _totals(ledger_a, 1, ability_1.tag_component.get_active_tags(), damage)
+	tag_values["after_card/slot_3_total"] = _totals(ledger_a, 3, ability_3.tag_component.get_active_tags(), damage)
+	# The matching tag appears on slot 1 through a Fire infusion
+	ledger_a.log_slot_specific_purchase(fire, 1)
+	tag_values["after_fire_infusion/slot_1_has_fire_tag"] = ability_1.tag_component.has_tag(Tags.Type.FIRE)
+	tag_values["after_fire_infusion/slot_1"] = ability_1.stats_container.get_final_stat_value(damage)
+	tag_values["after_fire_infusion/slot_2"] = ability_2.stats_container.get_final_stat_value(damage)
+	# A temporary tag (a status effect's tag) appears on slot 2: the ledger sees it, but nothing marks the cache dirty.
+	# Pins current behavior; may be a bug (TagComponent.tags_changed has no listener).
+	ability_2.tag_component.add_temporary_tag(Tags.Type.FIRE)
+	tag_values["temp_tag_on_slot_2/ledger_total"] = _totals(ledger_a, 2, ability_2.tag_component.get_active_tags(), damage)
+	tag_values["temp_tag_on_slot_2/cached_final"] = ability_2.stats_container.get_final_stat_value(damage)
+	ability_2.stats_container.invalidate_all_caches()
+	tag_values["temp_tag_on_slot_2/final_after_manual_invalidate"] = ability_2.stats_container.get_final_stat_value(damage)
+	ability_2.tag_component.remove_temporary_tag(Tags.Type.FIRE)
+	computed["cards/tag_match_stat_card"] = tag_values
+
+	# The card is bought BEFORE the ability with the matching tag is mounted (the stats are built before the
+	# ability's base tags are set). Recorded: the cached value is already correct right after the mount.
+	player = fx.fresh_player()
+	player.run_ledger_component.log_purchase(tag_card)
+	var late_ability := _mount(player, 3, fire_tags)
+	var late_values := {
+		"mounted_with_fire_tag": late_ability.tag_component.has_tag(Tags.Type.FIRE),
+		"ledger_total": _totals(player.run_ledger_component, 3, late_ability.tag_component.get_active_tags(), damage),
+		"cached_final_right_after_mount": late_ability.stats_container.get_final_stat_value(damage),
+	}
+	late_ability.stats_container.invalidate_all_caches()
+	late_values["final_after_manual_invalidate"] = late_ability.stats_container.get_final_stat_value(damage)
+	computed["cards/tag_match_card_bought_before_mount"] = late_values
+
+	# 5. A slot-specific purchase of a NON-infusion card that has modifiers. The ledger resolves it (the slot key wins);
+	#    invalidation looks at the card's scope instead. Pins current behavior; may be a bug.
+	var scopes := {
+		"core_scope": [UpgradeDefinition.ScopeType.CHARACTER_CORE, 0],
+		"local_slot_2": [UpgradeDefinition.ScopeType.LOCAL_SLOT, 2],
+		"local_slot_1": [UpgradeDefinition.ScopeType.LOCAL_SLOT, 1],
+	}
+	for scope_name in scopes:
+		player = fx.fresh_player()
+		var scoped_card := _stat_card("test_slot_specific_general", scopes[scope_name][0], scopes[scope_name][1], _modifier(StatModifier.Type.PERCENT, 0.5, damage))
+		var ability := _mount(player, 1)
+		var before := ability.stats_container.get_final_stat_value(damage)
+		player.run_ledger_component.log_slot_specific_purchase(scoped_card, 1)
+		var cached_after := ability.stats_container.get_final_stat_value(damage)
+		var ledger_total := _totals(player.run_ledger_component, 1, ability.tag_component.get_active_tags(), damage)
+		ability.stats_container.invalidate_all_caches()
+		var recomputed := ability.stats_container.get_final_stat_value(damage)
+		computed["cards/slot_specific_general_card_%s" % scope_name] = {
+			"final_before": before,
+			"final_after_without_recompute": cached_after,
+			"ledger_total": ledger_total,
+			"final_after_manual_invalidate": recomputed,
+			"cache_updated_by_purchase": absf(cached_after - recomputed) <= TOLERANCE,
+		}
+
+
+func _section_card_actions() -> void:
+	# 6. Overclock purchase through the real purchase path.
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var gate := ability.evolution_gate_component
+	var overclock := load(OVERCLOCK_CARD) as UpgradeDefinition
+	var fire_frost_levels: Array[int] = [3, 3, 0, 0, 0]
+	var overclock_values := {
+		"before/flag": gate.is_permanently_overclocked,
+		"before/exported_overclocked": ability.export_runtime_state().get("overclocked"),
+		"before/offer_eligible_at_fire3_frost3": gate.is_offer_eligible(fire_frost_levels),
+	}
+	player.apply_contextual_upgrade(_choice(overclock, 1))
+	var registry := player.run_ledger_component.purchase_registry
+	var exported := ability.export_runtime_state()
+	overclock_values["after/registry_slot_key"] = registry.get("overclock::slot_1", 0)
+	overclock_values["after/registry_plain_key"] = registry.get("overclock", 0)
+	overclock_values["after/registry_size"] = registry.size()
+	overclock_values["after/active_upgrades"] = player.run_ledger_component.active_upgrades.size()
+	overclock_values["after/flag"] = gate.is_permanently_overclocked
+	overclock_values["after/exported_overclocked"] = exported.get("overclocked")
+	overclock_values["after/exported_evolution_state"] = int(exported.get("evolution_state"))
+	overclock_values["after/offer_eligible_at_fire3_frost3"] = gate.is_offer_eligible(fire_frost_levels)
+	# An Overclock bought for a slot with no ability is still written to the ledger.
+	player.apply_contextual_upgrade(_choice(overclock, 2))
+	overclock_values["empty_slot_2/registry_slot_key"] = registry.get("overclock::slot_2", 0)
+	computed["cards/overclock_purchase"] = overclock_values
+
+	# 8. The real Arcane Bolt unlock card through Player.apply_contextual_upgrade.
+	player = fx.fresh_player()
+	var unlock := load(UNLOCK_CARD) as UpgradeDefinition
+	var slot := unlock.ability_data_payload.slot_index
+	var unlock_values := {
+		"before/ability_in_slot": is_instance_valid(player.ability_container.get_ability_by_slot(slot)),
+		"before/pool_offers_unlock": _pool_ids(player, 1).has("upgrade_arcane_bolt"),
+	}
+	player.apply_contextual_upgrade(_choice(unlock, 0))
+	var mounted := player.ability_container.get_ability_by_slot(slot)
+	unlock_values["after/ability_in_slot"] = is_instance_valid(mounted)
+	unlock_values["after/slot"] = int(slot)
+	unlock_values["after/registry_unlock"] = player.run_ledger_component.purchase_registry.get("upgrade_arcane_bolt", 0)
+	unlock_values["after/data_path"] = mounted.data.resource_path
+	unlock_values["after/display_name"] = mounted.display_name
+	unlock_values["after/tags"] = _tag_ints(mounted.tag_component.get_active_tags())
+	unlock_values["after/evolution_state"] = int(mounted.evolution_gate_component.current_state)
+	unlock_values["after/overclocked"] = mounted.evolution_gate_component.is_permanently_overclocked
+	unlock_values["after/infusion_levels"] = mounted.infusion_tracker_component.infusion_levels
+	unlock_values.merge(_prefixed("after/stat", _all_stats(mounted.stats_container)))
+	unlock_values["after/pool_offers_unlock_at_level_1"] = _pool_ids(player, 1).has("upgrade_arcane_bolt")
+	unlock_values["after/pool_offers_unlock_at_level_99"] = _pool_ids(player, 99).has("upgrade_arcane_bolt")
+	computed["cards/unlock_card"] = unlock_values
+
+
+# ---------------------------------------------------------------------------------------------
+# 7. Draft pool candidates. generate_selection_pool is deterministic (the random pick happens later, in
+#    _roll_random_subset), so the whole candidate set is pinned, never a random pick.
+# ---------------------------------------------------------------------------------------------
+
+func _pool_entries(player: Player, level: int) -> Array:
+	var pool := fx.get_upgrade_manager().generate_selection_pool(player, level)
+	var out: Array = []
+	for choice in pool:
+		out.append("%s|%s|slot%d|%d/%d" % [
+			choice.definition.upgrade_id, choice.target_display_name, choice.target_slot_index,
+			choice.source_tracker.current_purchases, choice.source_tracker.max_purchases,
+		])
+	out.sort()
+	return out
+
+
+func _pool_ids(player: Player, level: int) -> Array:
+	var ids: Array = []
+	for entry in _pool_entries(player, level):
+		ids.append(String(entry).split("|")[0])
+	return ids
+
+
+func _pool_state(state_name: String, player: Player, levels: Array) -> void:
+	var values := {}
+	for level in levels:
+		values["level_%d" % level] = _pool_entries(player, level)
+	computed["pool/%s" % state_name] = values
+
+
+func _section_draft_pool() -> void:
+	var core_card := load(CORE_CARD) as UpgradeDefinition
+	var overclock := load(OVERCLOCK_CARD) as UpgradeDefinition
+	var unlock := load(UNLOCK_CARD) as UpgradeDefinition
+
+	var player := fx.fresh_player()
+	_pool_state("fresh_run", player, [1, 99])
+
+	player = fx.fresh_player()
+	player.apply_contextual_upgrade(_choice(unlock, 0))
+	_pool_state("after_unlock", player, [1, 99])
+
+	# 11. The core Player Movement card leaves the pool at its profile's total_tiers (5).
+	player = fx.fresh_player()
+	for i in range(4):
+		player.run_ledger_component.log_purchase(core_card)
+	_pool_state("move_speed_tier_4", player, [4, 5, 99])
+	player.run_ledger_component.log_purchase(core_card)
+	_pool_state("move_speed_ceiling", player, [5, 6, 99])
+
+	player = fx.fresh_player()
+	player.apply_contextual_upgrade(_choice(unlock, 0))
+	player.apply_contextual_upgrade(_choice(overclock, 1))
+	_pool_state("after_overclock", player, [1, 99])
+
+	player = fx.fresh_player()
+	player.apply_contextual_upgrade(_choice(unlock, 0))
+	for i in range(5):
+		player.run_ledger_component.log_purchase(core_card)
+	player.apply_contextual_upgrade(_choice(overclock, 1))
+	_pool_state("every_card_exhausted", player, [1, 99])
+
+	# Level gating: the lowest character level at which Player Movement is offered, per tier already bought (-1 = never).
+	var gating := {}
+	for tier in range(6):
+		player = fx.fresh_player()
+		for i in range(tier):
+			player.run_ledger_component.log_purchase(core_card)
+		var first_level := -1
+		for level in range(1, 13):
+			if _pool_ids(player, level).has("player_move_speed"):
+				first_level = level
+				break
+		gating["tier_%d/first_level_offered" % tier] = first_level
+	computed["pool/level_gating_move_speed"] = gating
+
+
+# ---------------------------------------------------------------------------------------------
+# 8. Evolution offers with test-only evolution cards
+# ---------------------------------------------------------------------------------------------
+
+func _evolution_card(id: String, evolves_from: AbilityData, recipe: Array[Tags.Type]) -> UpgradeDefinition:
+	var card := _card(id, UpgradeDefinition.ScopeType.CHARACTER_CORE)
+	card.payload_type = UpgradeDefinition.PayloadType.ABILITY_UNLOCK
+	card.evolves_from = evolves_from
+	card.recipe_requirements = recipe
+	return card
+
+
+func _ids_of(definitions: Array) -> Array:
+	var ids: Array = []
+	for definition in definitions:
+		ids.append(definition.upgrade_id)
+	return ids
+
+
+func _section_evolution_offer() -> void:
+	var manager := fx.get_upgrade_manager()
+	var saved_pool := manager.master_upgrade_pool.duplicate()
+	var arcane_data := load(Fixtures.ARCANE_BOLT_DATA) as AbilityData
+	var fire_frost: Array[Tags.Type] = [Tags.Type.FIRE, Tags.Type.FROST]
+	var fire_earth: Array[Tags.Type] = [Tags.Type.FIRE, Tags.Type.EARTH]
+	var no_recipe: Array[Tags.Type] = []
+	var evo_fire_frost := _evolution_card("test_evo_fire_frost", arcane_data, fire_frost)
+	var evo_fire_earth := _evolution_card("test_evo_fire_earth", arcane_data, fire_earth)
+	var evo_other_ability := _evolution_card("test_evo_other_ability", AbilityData.new(), fire_frost)
+	var evo_no_recipe := _evolution_card("test_evo_no_recipe", arcane_data, no_recipe)
+	var test_definitions: Array[UpgradeDefinition] = [evo_fire_frost, evo_fire_earth, evo_other_ability, evo_no_recipe]
+	var test_profile := UpgradeBlueprintProfile.new()
+	test_profile.definition_bundle = test_definitions
+	test_profile.total_tiers = 1
+	manager.master_upgrade_pool.append(test_profile)
+
+	var fire := load(FIRE) as UpgradeDefinition
+	var frost := load(FROST) as UpgradeDefinition
+	var overclock := load(OVERCLOCK_CARD) as UpgradeDefinition
+	var cases := {
+		"fire2_frost3": [2, 3, "none"],
+		"fire3_frost2": [3, 2, "none"],
+		"fire3_frost3": [3, 3, "none"],
+		"fire3_frost3_evolution_already_bought": [3, 3, "bought"],
+		"fire3_frost3_overclocked": [3, 3, "overclocked"],
+		"fire5_frost5": [5, 5, "none"],
+	}
+	for case_name in cases:
+		var player := fx.fresh_player()
+		var ability := fx.mount_arcane_bolt(player)
+		var spec: Array = cases[case_name]
+		for i in range(spec[0]):
+			player.run_ledger_component.log_slot_specific_purchase(fire, 1)
+		for i in range(spec[1]):
+			player.run_ledger_component.log_slot_specific_purchase(frost, 1)
+		if spec[2] == "bought":
+			player.run_ledger_component.log_purchase(evo_fire_frost)
+		elif spec[2] == "overclocked":
+			player.apply_contextual_upgrade(_choice(overclock, 1))
+		var levels := ability.infusion_tracker_component.infusion_levels
+		var all_definitions: Array[UpgradeDefinition] = []
+		for profile in manager.master_upgrade_pool:
+			for definition in profile.definition_bundle:
+				all_definitions.append(definition)
+		var evaluated := ability.evolution_gate_component.evaluate_evolution_recipes(all_definitions, levels, ability.data)
+		var offer := manager._build_offer_choices(player, 1)
+		var offer_ids: Array = []
+		for choice in offer:
+			offer_ids.append(choice.definition.upgrade_id)
+		computed["evolution/%s" % case_name] = {
+			"infusion_levels": levels,
+			"offer_eligible": ability.evolution_gate_component.is_offer_eligible(levels),
+			"next_offer_slot": manager._find_next_offer_slot(player),
+			"evaluate_returns": _ids_of(evaluated),
+			"offer_build_returns": offer_ids,
+			"draft_pool_ids_level_99": _pool_ids(player, 99),
+		}
+	manager.master_upgrade_pool = saved_pool
