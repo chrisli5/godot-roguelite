@@ -1,6 +1,6 @@
 # Project: Action Roguelite (Godot 4, GDScript)
 
-Last synced with code commit: `3221239`. Update this line whenever this file changes.
+Last synced with code commit: `6d2e2c5`. Update this line whenever this file changes.
 
 Auto-attack action roguelite (Vampire Survivors-style combat) with a Slay the Spire-style room map.
 Engine: Godot 4.x. The code uses `@abstract` and typed Dictionaries, so assume 4.5 or newer.
@@ -79,8 +79,9 @@ The repo is public, so some folders are deliberately not in it (both are in `.gi
 - Headless checks (Godot 4.5; `$GODOT` is `C:\Users\chris\Desktop\Godot_v4.5-stable_win64.exe`; run from the project root):
   - Import / project scan: `$GODOT --headless --path . --import`
   - World run (600 frames, read the errors; about 4 s): `$GODOT --headless --path . res://scenes/world/world.tscn --quit-after 600`
-  - Load check (163 scripts and resources; about 1 s): `$GODOT --headless --path . -s res://tools/headless/load_all.gd`. It skips `res://tools/`, because it crashed Godot by reloading itself.
-  - Logic test (81 checks as of Task H; about 1 s): `$GODOT --headless --path . -s res://tools/headless/runner.gd`. It runs `res://tools/headless/logic_test.gd` unless the `LOGIC_TEST` environment variable names another script. It prints `ERROR: N resources still in use at exit` (N was 5 as of Task G; it grows when a check creates objects it does not free) because the harness quits early; that is expected.
+  - Load check: `$GODOT --headless --path . -s res://tools/headless/load_all.gd`. It tries to open every `.gd`, `.tscn` and `.tres` outside `addons/` and `tools/`, which catches parse errors and broken references. It skips `res://tools/`, because it crashed Godot by reloading itself. The latest count is in `STATUS.md`.
+  - Logic test: `$GODOT --headless --path . -s res://tools/headless/runner.gd`. Each `check(...)` is one assertion about behavior; the latest count is in `STATUS.md`. It runs `res://tools/headless/logic_test.gd` unless the `LOGIC_TEST` environment variable names another script. It prints `ERROR: N resources still in use at exit` (N grows when a check creates objects it does not free) because the harness quits early; that is expected.
+  - These checks do not use GUT (`addons/gut`), and the GUT folder does not run them.
   - The three scripts live in `tools/headless/`. Put new checks in `logic_test.gd`. Most working-tree files use CRLF line endings, but at least `combat_volume.gd` uses LF, so check each file before matching text.
   - Custom check scripts run with `-s <script>`. Autoloads (`EventBus`) do not exist when an `-s` script compiles: load project code from `_process` after the first frame, and reach autoloads with `root.get_node("EventBus")`.
   - Headless runs cannot show visuals or take key presses (B / C, drafts on screen): those still need a manual playthrough.
