@@ -64,6 +64,8 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_card_actions,
 		_section_draft_pool,
 		_section_evolution_offer,
+		_section_infusion_pool,
+		_section_tag_card_draft,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -993,4 +995,112 @@ func _section_evolution_offer() -> void:
 			"offer_build_returns": offer_ids,
 			"draft_pool_ids_level_99": _pool_ids(player, 99),
 		}
+	manager.master_upgrade_pool = saved_pool
+
+
+# ---------------------------------------------------------------------------------------------
+# 9. The infusion draft pool (UpgradeManager._generate_infusion_pool), pinned before Task L6b
+# ---------------------------------------------------------------------------------------------
+
+func _infusion_pool_values(player: Player) -> Dictionary:
+	var pool := fx.get_upgrade_manager()._generate_infusion_pool(player)
+	var ids: Array = []
+	var entries: Array = []
+	for choice in pool:
+		ids.append(choice.definition.upgrade_id)
+		entries.append("%s|slot%d|%s|%d/%d" % [
+			choice.definition.upgrade_id, choice.target_slot_index, choice.target_display_name,
+			choice.source_tracker.current_purchases, choice.source_tracker.max_purchases,
+		])
+	ids.sort()
+	entries.sort()
+	return {"ids": ids, "entries": entries}
+
+
+func _section_infusion_pool() -> void:
+	var fire := load(FIRE) as UpgradeDefinition
+	var frost := load(FROST) as UpgradeDefinition
+	var overclock := load(OVERCLOCK_CARD) as UpgradeDefinition
+
+	# a. no abilities mounted
+	var player := fx.fresh_player()
+	computed["infusion_pool/a_no_abilities"] = _infusion_pool_values(player)
+
+	# b. Arcane Bolt mounted, no infusions
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	computed["infusion_pool/b_arcane_bolt_no_infusions"] = _infusion_pool_values(player)
+
+	# c. Fire at level 3 (the tier 1 soft cap): Fire is not offered, the others are
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	_buy(player.run_ledger_component, FIRE, 1, 3)
+	computed["infusion_pool/c_fire_level_3"] = _infusion_pool_values(player)
+
+	# d. two elements active in the slot: a third new element is not offered, the two active ones still are
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	_buy(player.run_ledger_component, FIRE, 1, 1)
+	_buy(player.run_ledger_component, FROST, 1, 1)
+	computed["infusion_pool/d_two_elements_active"] = _infusion_pool_values(player)
+
+	# e. the same slot as c after Overclock: Fire is offered again
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	_buy(player.run_ledger_component, FIRE, 1, 3)
+	player.apply_contextual_upgrade(_choice(overclock, 1))
+	computed["infusion_pool/e_fire_level_3_overclocked"] = _infusion_pool_values(player)
+
+	# f. two abilities, one at the cap and the other not: still offered if ANY ability accepts the element
+	player = fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	_mount(player, 2)
+	_buy(player.run_ledger_component, FIRE, 1, 3)
+	computed["infusion_pool/f_two_abilities_one_capped"] = _infusion_pool_values(player)
+
+	# f2. both abilities at the cap: Fire is not offered
+	_buy(player.run_ledger_component, FIRE, 2, 3)
+	computed["infusion_pool/f2_two_abilities_both_capped"] = _infusion_pool_values(player)
+
+
+# ---------------------------------------------------------------------------------------------
+# 10. Draft eligibility of a GLOBAL_TAG_MATCH card: permanent tags only, all four slots (recorded after Task L6b)
+# ---------------------------------------------------------------------------------------------
+
+func _section_tag_card_draft() -> void:
+	var manager := fx.get_upgrade_manager()
+	var saved_pool := manager.master_upgrade_pool.duplicate()
+	var tag_card := _stat_card("test_draft_tag_card", UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH, 0, _modifier(StatModifier.Type.PERCENT, 0.5, Stat.Type.BASE_DAMAGE))
+	tag_card.target_tags = [Tags.Type.FIRE]
+	var test_definitions: Array[UpgradeDefinition] = [tag_card]
+	var test_profile := UpgradeBlueprintProfile.new()
+	test_profile.definition_bundle = test_definitions
+	manager.master_upgrade_pool.append(test_profile)
+	var fire := load(FIRE) as UpgradeDefinition
+	var plain_tags: Array[Tags.Type] = [Tags.Type.METAMAGIC, Tags.Type.PROJECTILE]
+	var fire_tags: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.FIRE]
+
+	var player := fx.fresh_player()
+	_mount(player, 1, plain_tags)
+	var values := {"no_matching_tag/offered": _pool_ids(player, 99).has("test_draft_tag_card")}
+	var ability := player.ability_container.get_ability_by_slot(1)
+	ability.tag_component.add_temporary_tag(Tags.Type.FIRE)
+	values["temporary_tag_only/offered"] = _pool_ids(player, 99).has("test_draft_tag_card")
+	ability.tag_component.remove_temporary_tag(Tags.Type.FIRE)
+	_buy(player.run_ledger_component, FIRE, 1, 1)
+	values["infusion_tag/offered"] = _pool_ids(player, 99).has("test_draft_tag_card")
+
+	player = fx.fresh_player()
+	_mount(player, 3, fire_tags)
+	values["base_tag_on_slot_3/offered"] = _pool_ids(player, 99).has("test_draft_tag_card")
+	computed["pool/tag_card_eligibility"] = values
+
+	# Four abilities: only slot 4 carries the matching base tag, so the slot range must reach slot 4.
+	player = fx.fresh_player()
+	_mount(player, 1, plain_tags)
+	_mount(player, 2, plain_tags)
+	_mount(player, 3, plain_tags)
+	_mount(player, 4, fire_tags)
+	computed["pool/four_abilities_tag_card_on_slot_4"] = {"level_99": _pool_entries(player, 99)}
+
 	manager.master_upgrade_pool = saved_pool

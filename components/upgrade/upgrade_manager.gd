@@ -152,8 +152,10 @@ func _generate_infusion_pool(target_player: Player) -> Array[UpgradeChoice]:
 			if definition.is_infusion():
 				if not _any_ability_accepts_element(target_player, definition.get_infusion_element()):
 					continue
+				# The per-element ceiling is per ability and is enforced above, in _any_ability_accepts_element ->
+				# InfusionTrackerComponent.is_element_socket_allowed. Infusions are bought under slot-specific keys, so a
+				# plain-key tier check here would never fire.
 				var current_tier = target_player.run_ledger_component.purchase_registry.get(definition.upgrade_id, 0)
-				if current_tier >= profile.total_tiers: continue
 				
 				var choice = UpgradeChoice.new()
 				var tracker := UpgradeTracker.new()
@@ -310,11 +312,11 @@ func generate_selection_pool(target_player: Player, processing_level: int) -> Ar
 				UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
 					# Broad Passive: Loops through active weapons to see if ANY match the requested taxonomy tags
 					var match_found := false
-					for slot_idx in range(1, 5):
+					for slot_idx in range(AbilityContainer.MIN_SLOT, AbilityContainer.MAX_SLOT + 1):
 						var ability = container.get_ability_by_slot(slot_idx)
 						if is_instance_valid(ability) and is_instance_valid(ability.tag_component):
 							for req_tag in definition.target_tags:
-								if ability.tag_component.has_tag(req_tag):
+								if ability.tag_component.has_permanent_tag(req_tag):
 									match_found = true
 									break
 									

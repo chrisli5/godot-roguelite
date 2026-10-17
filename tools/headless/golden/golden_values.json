@@ -573,6 +573,96 @@
 		],
 		"offer_eligible": true
 	},
+	"infusion_pool/a_no_abilities": {
+		"entries": [],
+		"ids": []
+	},
+	"infusion_pool/b_arcane_bolt_no_infusions": {
+		"entries": [
+			"inf_earth|slot0|Global Elements|0/5",
+			"inf_fire|slot0|Global Elements|0/5",
+			"inf_frost|slot0|Global Elements|0/5",
+			"inf_lightning|slot0|Global Elements|0/5",
+			"inf_wind|slot0|Global Elements|0/5"
+		],
+		"ids": [
+			"inf_earth",
+			"inf_fire",
+			"inf_frost",
+			"inf_lightning",
+			"inf_wind"
+		]
+	},
+	"infusion_pool/c_fire_level_3": {
+		"entries": [
+			"inf_earth|slot0|Global Elements|0/5",
+			"inf_frost|slot0|Global Elements|0/5",
+			"inf_lightning|slot0|Global Elements|0/5",
+			"inf_wind|slot0|Global Elements|0/5"
+		],
+		"ids": [
+			"inf_earth",
+			"inf_frost",
+			"inf_lightning",
+			"inf_wind"
+		]
+	},
+	"infusion_pool/d_two_elements_active": {
+		"entries": [
+			"inf_fire|slot0|Global Elements|0/5",
+			"inf_frost|slot0|Global Elements|0/5"
+		],
+		"ids": [
+			"inf_fire",
+			"inf_frost"
+		]
+	},
+	"infusion_pool/e_fire_level_3_overclocked": {
+		"entries": [
+			"inf_earth|slot0|Global Elements|0/5",
+			"inf_fire|slot0|Global Elements|0/5",
+			"inf_frost|slot0|Global Elements|0/5",
+			"inf_lightning|slot0|Global Elements|0/5",
+			"inf_wind|slot0|Global Elements|0/5"
+		],
+		"ids": [
+			"inf_earth",
+			"inf_fire",
+			"inf_frost",
+			"inf_lightning",
+			"inf_wind"
+		]
+	},
+	"infusion_pool/f2_two_abilities_both_capped": {
+		"entries": [
+			"inf_earth|slot0|Global Elements|0/5",
+			"inf_frost|slot0|Global Elements|0/5",
+			"inf_lightning|slot0|Global Elements|0/5",
+			"inf_wind|slot0|Global Elements|0/5"
+		],
+		"ids": [
+			"inf_earth",
+			"inf_frost",
+			"inf_lightning",
+			"inf_wind"
+		]
+	},
+	"infusion_pool/f_two_abilities_one_capped": {
+		"entries": [
+			"inf_earth|slot0|Global Elements|0/5",
+			"inf_fire|slot0|Global Elements|0/5",
+			"inf_frost|slot0|Global Elements|0/5",
+			"inf_lightning|slot0|Global Elements|0/5",
+			"inf_wind|slot0|Global Elements|0/5"
+		],
+		"ids": [
+			"inf_earth",
+			"inf_fire",
+			"inf_frost",
+			"inf_lightning",
+			"inf_wind"
+		]
+	},
 	"payload/burst_card_only/crit_off": {
 		"burst_ids": [
 			"golden_burst"
@@ -787,6 +877,13 @@
 		"level_1": [],
 		"level_99": []
 	},
+	"pool/four_abilities_tag_card_on_slot_4": {
+		"level_99": [
+			"player_move_speed|Character Core|slot0|0/5",
+			"test_draft_tag_card|Matching Active Tags|slot0|0/5",
+			"upgrade_arcane_bolt|Character Core|slot0|0/1"
+		]
+	},
 	"pool/fresh_run": {
 		"level_1": [
 			"player_move_speed|Character Core|slot0|0/5",
@@ -828,6 +925,12 @@
 			"player_move_speed|Character Core|slot0|4/5",
 			"upgrade_arcane_bolt|Character Core|slot0|0/1"
 		]
+	},
+	"pool/tag_card_eligibility": {
+		"base_tag_on_slot_3/offered": true,
+		"infusion_tag/offered": true,
+		"no_matching_tag/offered": false,
+		"temporary_tag_only/offered": false
 	},
 	"stats/arcane_bolt/earth_1": {
 		"AOE_RADIUS": 11.0000000149012,
