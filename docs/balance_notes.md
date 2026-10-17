@@ -49,7 +49,7 @@ Both specializations must be viable, and hit scaling must not be the best invest
 - Time step is 0.25 s. Fight lengths must be multiples of it, up to 240 steps.
 ## Differences between the workbook and the current design
  
-- The workbook gives Lightning both a crit chance tier (+5%) and a crit multiplier tier (+0.15). The design now says a Lightning definition holds one `stat_modifier_payload` carrying **crit chance only**. Where crit multiplier comes from is an open item. Re-run the Hit build with the multiplier tier removed before trusting hit-side numbers.
+- The workbook gives Lightning both a crit chance tier (+5%) and a crit multiplier tier (+0.15). The design now says a Lightning definition holds one stat modifier carrying **crit chance only**. Where crit multiplier comes from is an open item. Re-run the Hit build with the multiplier tier removed before trusting hit-side numbers.
 - The workbook uses relative units (base damage 10). Arcane Bolt currently ships with base damage 1.0 and no crit stats.
 ## How to re-run
  
