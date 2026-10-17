@@ -2,7 +2,7 @@
 
 Oct 16, 2026 · @Christopher
 
-Last synced with code commit: `09b3456`. Update this line whenever this file changes.
+Last synced with code commit: `3dad139`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -105,10 +105,24 @@ Rules:
 
 * **Both channels.** Indirect bonuses apply to hit damage and to DoT. Frost and Wind compute one cast-time `damage\_scale` and apply it to the final hit damage and to `dot\_damage\_snapshot`, so ticks never read anything later. Indirect bonuses are summed into one scale and capped (open item 32). Fire's indirect is DoT only by nature.
 * **Cast time, not impact time.** Wind's description says "at the point of impact". The scale is read at cast time instead, for the same reason crit is rolled once per cast.
-* **One shared impact burst.** Earth's explosion and Lightning's overload are both secondary area damage on hit, so they share one component. A burst never crits and never triggers another burst or overload. It would also serve Magma later.
+* **One shared impact burst.** Earth's explosion and Lightning's overload are both secondary area damage centered on a hit enemy, so they share one mechanism, described below. It would also serve Magma later.
 * **Burst effects scale off hit damage.** A DoT specialist gets less from the overload and the explosion. This is accepted for now.
 * **Fire.** Fire deals no damage itself. Burn's damage comes from the ability's own `DOT\_DAMAGE`, and Fire turns it on by supplying duration. Implemented: flat +3.0 s duration and +0.1 ramp cap per level. Flat modifiers scale as value times tier, so level 3 is 9.0 s and +0.3. Burn's `base\_duration` is 0. All numbers are placeholders.
 * **Staged unlocks.** Indirect effects unlock by infusion level (open item 33). Placeholder levels: Frost 2, Wind 2, Lightning 3, Earth 3.
+
+### Impact bursts
+
+**Status:** Implemented for the mechanism. Decided, not built, for the Earth and Lightning cards that use it.
+
+A burst is not an ability. It has no slot, cooldown, anchor, stats profile or tags: it is a one-shot effect that fires when a hit lands, borrows the casting ability's numbers, and leaves nothing behind.
+
+* **Centered on the enemy hit.** The origin is that enemy's position at the moment of the hit. The burst is not attached to the enemy, so it survives the enemy dying. Damage is credited to the casting ability.
+* **Defined as data.** A burst definition holds a trigger (on hit, or on crit), a shape, a damage fraction, an optional bonus per enemy caught with a cap, and an optional visual. A card carries one, chosen at cast time like a status.
+* **Shapes only find targets.** The shape decides where the burst reaches. Earth's explosion is a circle sized from the ability's `AOE\_RADIUS`. Lightning's overload could emit a series of sparks around the impact. Damage and every rule below are applied by one runner, so a new shape cannot skip them.
+* **Damage.** A fraction of the hit's final damage (a crit's extra damage is included). With a per-enemy bonus, the fraction grows with the number of enemies caught, up to a cap.
+* **Limits.** A burst never crits, never applies a status, and never triggers another burst. The enemy just hit is not hit again by its own burst.
+* **Every hit, no per-cast cap.** A fan, a chain or an area hit with many targets produces a burst per qualifying hit. Open items 39 and 40 revisit this.
+* **Timing.** The burst runs one frame after the hit, because a hit can land inside a physics callback.
 
 A card can now carry more than one modifier through `UpgradeDefinition.additional\_stat\_modifiers`, and the single `stat\_modifier\_payload` still works. Fire uses it. Lightning's `CRIT\_MULTIPLIER` can use it later. See the open items.
 
@@ -306,7 +320,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |26|Room transitions are not implemented. Missing: room completion (nothing emits `room\_completion\_confirmed`, nothing counts remaining enemies, and `EnemySpawnerComponent`'s `wave\_completed` and `campaign\_cleared` have no listeners) and a death or game-over flow (nothing handles `Entity.died`). See items 7 to 9|Gap|
 |27|Projectile hitboxes and area abilities both read `AOE\_RADIUS` for their size and reach. Chain link and the projectile geometries keep `QUERY\_RADIUS` / `CHAIN\_RADIUS`. Still open: the sprite is not scaled with the hitbox, and every future area, projectile or orbit profile needs `AOE\_RADIUS`|Gap|
 |28|No pierce: `CombatVolume` frees itself on every hit, and orbit shards (same class) vanish after one hit|Gap|
-|29|No on-impact burst: the spawner's `projectile\_impacted` signal is unused. Needed for Earth's explosion and Lightning's overload (one shared component, Decided) and for Magma later|Gap|
+|29|The impact-burst mechanism is built, but no card uses it yet. Earth's explosion and Lightning's overload still need authoring, level gating (item 33) and, for Lightning, `CRIT\_MULTIPLIER` (item 1). Magma would reuse it later|Gap|
 |31|Crit is rolled once per cast (decided, simplest). Revisit if the Lightning theme needs per-hit crit|Design decision|
 |32|Cast-time `damage\_scale` for Frost and Wind (applied to hit damage and `dot\_damage\_snapshot`, indirect bonuses summed then capped): the cap value and where the scale is computed|Design decision|
 |33|Level-gated infusion effects: how effect resolution checks the infusion level (depends on how the infusion tracker stores levels)|Gap|
@@ -315,6 +329,11 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |36|Wind's generic speed stat: reuse `PROJECTILE\_MOVEMENT\_SPEED` or add a stat, and what each driver reads as its speed (orbit rotation, sweep rate, melee swing rate)|Design decision|
 |37|Every ability profile needs nonzero `BASE\_DAMAGE` and `DOT\_DAMAGE`, plus `STATUS\_DURATION` and `STATUS\_RAMP\_CAP` entries (a missing stat ignores modifiers). Only Arcane Bolt's profile has them (`DOT\_DAMAGE` 0.15, placeholder). A headless warning for zeros was offered, not requested|Gap|
 |38|Fire's duration does little for fast abilities, by arithmetic from the numbers: Arcane Bolt's cooldown is 1.0 s and Burn lasts 3.0 s at level 1, so REFRESH keeps it up, and the ramp keeps running because a refresh keeps `elapsed`. The ramp cap and Frost's cooldown cuts matter more there. Duration matters for slow abilities and after target changes|Balance|
+|39|Per-hit or per-cast bursts. Today a burst fires on every qualifying hit, so a chain, a fan or an area hit produces many. A per-cast cap needs shared per-cast state, which the shared payload cannot hold|Design decision|
+|40|Earth's explosion on area abilities. A radial pulse already hits everything in range, so an explosion per target is mostly redundant. Option: projectile hits only, with area abilities getting only the larger radius|Design decision|
+|41|Statuses on bursts. Today a burst deals plain damage and applies none. Revisit if burst-heavy builds need Burn or Chill from it|Design decision|
+|42|Lightning's spark shape: spark count, reach, spread pattern, whether each spark hits like a ray or jumps like a chain, and how damage splits per spark. `BurstShape` is built so it can be added as a new shape|Design decision|
+|43|A burst's visual is spawned only when it hits at least one enemy, so a burst that catches nothing shows no effect. Confirm that is wanted, and add visuals for Earth and Lightning|Design decision|
 
 
 
