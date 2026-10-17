@@ -12,7 +12,6 @@
 [ext_resource type="Resource" uid="uid://pcrlpft4inv5" path="res://resources/entities/player/player_core_blueprint.tres" id="5_bt7bg"]
 [ext_resource type="Script" uid="uid://cw76aherq025s" path="res://components/world/resources/enemy_wave_profile.gd" id="5_dlabj"]
 [ext_resource type="Resource" uid="uid://dkyvrtfd3xlwo" path="res://resources/world/wave_profiles/wave_1.tres" id="6_srmg5"]
-[ext_resource type="Resource" uid="uid://e13hr42hwx8a" path="res://resources/abilities/arcane_bolt/arcane_bolt_speed_blueprint.tres" id="6_wbwoo"]
 [ext_resource type="PackedScene" uid="uid://cvyt2nvnh6xne" path="res://scenes/entities/enemies/enemy.tscn" id="7_gb53w"]
 [ext_resource type="Resource" uid="uid://dq1b4yxwe6q2y" path="res://resources/infusions/inf_blueprint.tres" id="7_t634p"]
 [ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://components/utility/debug_spatial_visualizer.gd" id="8_gb53w"]
@@ -38,7 +37,7 @@ pickups_container = NodePath("GameWorld/PickupsContainer")
 
 [node name="UpgradeManager" type="Node" parent="SystemControllers"]
 script = ExtResource("2_ujq7m")
-master_upgrade_pool = Array[ExtResource("3_mxkvs")]([ExtResource("4_71ii3"), ExtResource("5_bt7bg"), ExtResource("6_wbwoo"), ExtResource("7_t634p"), ExtResource("8_x0nq1")])
+master_upgrade_pool = Array[ExtResource("3_mxkvs")]([ExtResource("4_71ii3"), ExtResource("5_bt7bg"), ExtResource("7_t634p"), ExtResource("8_x0nq1")])
 
 [node name="DebugInfusionTrigger" type="Node" parent="SystemControllers" node_paths=PackedStringArray("upgrade_manager")]
 script = ExtResource("3_j2gmx")
