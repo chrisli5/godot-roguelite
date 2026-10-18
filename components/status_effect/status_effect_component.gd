@@ -65,6 +65,13 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 	applied.emit(instance)
 
 
+## Live instances, for the debug inspector and tests. Returns a new array; changing it does not affect the component.
+func get_active_instances() -> Array[StatusEffectInstance]:
+	var instances: Array[StatusEffectInstance] = []
+	instances.assign(_active_effects.values())
+	return instances
+
+
 ## Expires every active effect (emitting `expired` for each so listeners can clean up).
 func clear_all_effects() -> void:
 	for instance in _active_effects.values():

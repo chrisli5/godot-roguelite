@@ -11,6 +11,9 @@ const CHILL: StatusEffect = preload("res://resources/status_effects/chill.tres")
 @export var debug_duration_bonus: float = 3.0
 
 var _watcher: DebugStatusWatcher
+var _hit_recorder: DebugHitRecorder
+var _tabs: TabContainer
+var _inspect_view: TextEdit
 var _grant_list: VBoxContainer
 var _element_picker: OptionButton
 var _slot_picker: OptionButton
@@ -27,6 +30,8 @@ func _ready() -> void:
 	# The watcher keeps logging while the panel is closed.
 	_watcher = DebugStatusWatcher.new()
 	add_child(_watcher)
+	_hit_recorder = DebugHitRecorder.new()
+	add_child(_hit_recorder)
 	_build_ui()
 
 
@@ -55,10 +60,12 @@ func _build_ui() -> void:
 	hint.text = "F1 toggles this panel"
 	root.add_child(hint)
 
-	var tabs := TabContainer.new()
-	root.add_child(tabs)
-	tabs.add_child(_build_run_tab())
-	tabs.add_child(_build_combat_tab())
+	_tabs = TabContainer.new()
+	root.add_child(_tabs)
+	_tabs.add_child(_build_run_tab())
+	_tabs.add_child(_build_combat_tab())
+	_tabs.add_child(_build_inspect_tab())
+	_tabs.tab_changed.connect(_on_tab_changed)
 
 
 func _build_run_tab() -> Control:
@@ -113,6 +120,24 @@ func _build_combat_tab() -> Control:
 	return tab
 
 
+func _build_inspect_tab() -> Control:
+	var tab := VBoxContainer.new()
+	tab.name = "Inspect"
+
+	var buttons := HBoxContainer.new()
+	buttons.add_child(_make_button("Refresh", _refresh_inspector))
+	buttons.add_child(_make_button("Copy to clipboard", _on_copy_pressed))
+	tab.add_child(buttons)
+
+	# Read-only, but selectable. Refreshed on demand only (no polling).
+	_inspect_view = TextEdit.new()
+	_inspect_view.editable = false
+	_inspect_view.custom_minimum_size = Vector2(460, 300)
+	_inspect_view.wrap_mode = TextEdit.LINE_WRAPPING_NONE
+	tab.add_child(_inspect_view)
+	return tab
+
+
 func _make_button(text: String, handler: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
@@ -134,6 +159,28 @@ func _make_section_label(text: String) -> Label:
 func _refresh() -> void:
 	_refresh_grant_list()
 	_refresh_infusion_pickers()
+	_refresh_inspector()
+
+
+## Rebuilds the Inspect text from the current game state. Read-only; called on open, on selecting the tab and by the button.
+func _refresh_inspector() -> void:
+	if not is_instance_valid(_inspect_view):
+		return
+	var hits := _hit_recorder.get_hits()
+	var now := Time.get_ticks_msec()
+	for slot in hits:
+		hits[slot]["age_s"] = (now - int(hits[slot]["msec"])) / 1000.0
+	var description := StateInspector.describe(DebugActions.find_player(), DebugActions.find_nearest_enemy(get_tree()), hits)
+	_inspect_view.text = StateInspector.to_text(description)
+
+
+func _on_tab_changed(tab_index: int) -> void:
+	if _tabs.get_tab_title(tab_index) == "Inspect":
+		_refresh_inspector()
+
+
+func _on_copy_pressed() -> void:
+	DisplayServer.clipboard_set(_inspect_view.text)
 
 
 func _refresh_grant_list() -> void:

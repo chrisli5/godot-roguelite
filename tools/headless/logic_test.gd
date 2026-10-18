@@ -50,6 +50,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_invalidation_follows_ledger,
 		_section_debug_actions,
 		_section_debug_infusion_grant,
+		_section_state_inspector,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -1267,3 +1268,217 @@ func _section_debug_infusion_grant() -> void:
 		hub._slot_picker.select(1)
 		hub._on_grant_infusion_pressed()
 		check(hub._infusion_result.text.begins_with("Refused"), "debug hub: an empty slot is reported as refused")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task N2: the Inspect tab (StateInspector, DebugHitRecorder, StatusEffectComponent.get_active_instances)
+# ---------------------------------------------------------------------------------------------
+
+## Every stat of `container` as [is_dirty, current_value, base_value, transient count], keyed by stat name.
+func _insp_stat_state(container: StatsContainer) -> Dictionary:
+	var state := {}
+	for stat_type in container.stats:
+		var stat: Stat = container.stats[stat_type]
+		state[int(stat_type)] = [stat.is_dirty, stat.current_value, stat.base_value, stat.transient_modifiers.size()]
+	return state
+
+
+func _insp_row(rows: Array, stat_name: String) -> Dictionary:
+	for row in rows:
+		if row["name"] == stat_name:
+			return row
+	return {}
+
+
+func _insp_all_states(rows: Array) -> Array:
+	var states: Array = []
+	for row in rows:
+		states.append(row["cache_state"])
+	return states
+
+
+func _section_state_inspector() -> void:
+	var manager := fx.get_upgrade_manager()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var fire_tags: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.FIRE]
+
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+
+	# 2. Cache states: clean caches are "ok"; after invalidate_all_caches every ledger-backed row is "dirty".
+	for stat_type in player.stats_container.stats:
+		player.stats_container.get_final_stat_value(stat_type)
+	for stat_type in ability.stats_container.stats:
+		ability.stats_container.get_final_stat_value(stat_type)
+	var description := StateInspector.describe(player, null, {})
+	var all_ok := true
+	for state in _insp_all_states(description["player"]["stats"]) + _insp_all_states(description["slots"][0]["stats"]):
+		all_ok = all_ok and state == "ok"
+	check(all_ok, "inspector: freshly read caches are all ok")
+
+	# 1. Read-only: a stat left dirty stays dirty, nothing changes, no stat signal fires
+	player.stats_container.invalidate_all_caches()
+	ability.stats_container.invalidate_all_caches()
+	var signal_count := [0]
+	var count_signal := func(_a = null, _b = null) -> void: signal_count[0] += 1
+	player.stats_container.stat_updated.connect(count_signal)
+	ability.stats_container.stat_updated.connect(count_signal)
+	for stat in player.stats_container.stats.values():
+		stat.value_changed.connect(count_signal)
+	for stat in ability.stats_container.stats.values():
+		stat.value_changed.connect(count_signal)
+	var before_core := _insp_stat_state(player.stats_container)
+	var before_ability := _insp_stat_state(ability.stats_container)
+	var before_registry := ledger.purchase_registry.duplicate()
+	var before_upgrades := ledger.active_upgrades.size()
+	description = StateInspector.describe(player, null, {})
+	check(_insp_stat_state(player.stats_container) == before_core and _insp_stat_state(ability.stats_container) == before_ability, "inspector: describe leaves every stat's dirty flag, value, base and transient count unchanged")
+	check(ledger.purchase_registry == before_registry and ledger.active_upgrades.size() == before_upgrades, "inspector: describe leaves the ledger unchanged")
+	check(signal_count[0] == 0, "inspector: describe fires no stat_updated or value_changed signal")
+	check(ability.stats_container.stats[Stat.Type.BASE_DAMAGE].is_dirty and _insp_row(description["slots"][0]["stats"], "BASE_DAMAGE")["cache_state"] == "dirty", "inspector: a stat left dirty stays dirty and its row says dirty")
+	player.stats_container.stat_updated.disconnect(count_signal)
+	ability.stats_container.stat_updated.disconnect(count_signal)
+	for stat in player.stats_container.stats.values():
+		stat.value_changed.disconnect(count_signal)
+	for stat in ability.stats_container.stats.values():
+		stat.value_changed.disconnect(count_signal)
+
+	# 2b. A clean stat with a wrong cached value is a MISMATCH
+	for stat_type in ability.stats_container.stats:
+		ability.stats_container.get_final_stat_value(stat_type)
+	var cooldown_stat: Stat = ability.stats_container.stats[Stat.Type.COOLDOWN]
+	var real_cooldown := cooldown_stat.current_value
+	cooldown_stat.current_value = real_cooldown + 5.0
+	description = StateInspector.describe(player, null, {})
+	check(_insp_row(description["slots"][0]["stats"], "COOLDOWN")["cache_state"] == "MISMATCH", "inspector: a clean stat with a wrong cached value says MISMATCH")
+	check(StateInspector.to_text(description).contains("MISMATCH"), "inspector: to_text contains MISMATCH")
+	cooldown_stat.current_value = real_cooldown
+	description = StateInspector.describe(player, null, {})
+	check(_insp_row(description["slots"][0]["stats"], "COOLDOWN")["cache_state"] == "ok", "inspector: the row is ok again after restoring the value")
+
+	# 3. Totals shown equal the ledger's
+	DebugActions.grant_infusion(player, manager, fire, int(Tags.Type.FIRE), 1)
+	for stat_type in ability.stats_container.stats:
+		ability.stats_container.get_final_stat_value(stat_type)
+	description = StateInspector.describe(player, null, {})
+	var duration_totals := ledger.get_modifier_totals(1, ability.tag_component.get_permanent_tags(), Stat.Type.STATUS_DURATION)
+	var duration_row := _insp_row(description["slots"][0]["stats"], "STATUS_DURATION")
+	check(duration_row["flat"] == duration_totals.x and duration_row["percent"] == duration_totals.y and duration_row["multiplicative"] == duration_totals.z, "inspector: the shown totals equal ledger.get_modifier_totals")
+	check(duration_row["cache_state"] == "ok" and is_equal_approx(duration_row["cached"], 3.0), "inspector: the Fire grant shows in the stat row and the cache is ok")
+
+	# 4. Infusion levels, applying cards, resolved statuses and tags after a Fire grant
+	var slot_one: Dictionary = description["slots"][0]
+	check(slot_one["infusion_levels"] == ["FIRE 1"], "inspector: shows Fire level 1")
+	check(slot_one["cards"].size() == 1 and slot_one["cards"][0]["name"] == "Fire Infusion" and slot_one["cards"][0]["tier"] == 1 and slot_one["cards"][0]["category"] == "INFUSION", "inspector: lists the Fire card with its tier and category")
+	check(slot_one["statuses"] == ["burn"], "inspector: lists the Burn effect_id")
+	check(slot_one["permanent_tags"].has("FIRE") and slot_one["active_tags"].has("FIRE"), "inspector: the Fire tag is in the permanent and active tags")
+
+	# 5. Offer eligibility equals the gate's own predicate, below and at the soft cap
+	var gate := ability.evolution_gate_component
+	check(slot_one["offer_eligible"] == gate.is_offer_eligible(ledger.get_infusion_levels(1)) and not slot_one["offer_eligible"], "inspector: offer eligibility below the soft cap matches the gate")
+	for i in range(2):
+		ledger.log_slot_specific_purchase(fire, 1)
+	for i in range(3):
+		ledger.log_slot_specific_purchase(frost, 1)
+	description = StateInspector.describe(player, null, {})
+	check(description["slots"][0]["offer_eligible"] == gate.is_offer_eligible(ledger.get_infusion_levels(1)) and description["slots"][0]["offer_eligible"], "inspector: offer eligibility at the soft cap matches the gate")
+
+	# 6. Empty slots
+	check(description["slots"][1]["empty"] and StateInspector.to_text(description).contains("Slot 2: empty"), "inspector: an empty slot prints Slot 2: empty")
+	check(StateInspector.to_text(StateInspector.describe(null, null, {})) == "no player", "inspector: no player gives a plain message")
+
+	# 11. to_text is deterministic
+	check(StateInspector.to_text(description) == StateInspector.to_text(description), "inspector: to_text gives identical text for the same description")
+
+	# 7. StatusEffectComponent.get_active_instances
+	var bat := _spawn_bat()
+	var component := bat.status_effect_component
+	check(component.get_active_instances().is_empty(), "get_active_instances: empty on a fresh component")
+	component.apply_effect(burn, 5.0, 3.0)
+	var instances := component.get_active_instances()
+	check(instances.size() == 1 and instances[0].template.effect_id == burn.effect_id, "get_active_instances: returns the Burn instance after apply_effect")
+	instances.clear()
+	check(component.get_active_instances().size() == 1, "get_active_instances: changing the returned array leaves the component unchanged")
+
+	# 8. The nearest enemy's status rows match the live instance
+	description = StateInspector.describe(player, bat, {})
+	var live := component.get_active_instances()[0]
+	var enemy_status: Dictionary = description["enemy"]["statuses"][0]
+	check(enemy_status["effect_id"] == live.template.effect_id and enemy_status["time_remaining"] == live.time_remaining and enemy_status["stacks"] == live.stacks and enemy_status["dot_damage"] == live.dot_damage and enemy_status["duration_bonus"] == live.duration_bonus, "inspector: the enemy's status row matches its live instance")
+	check(StateInspector.to_text(description).contains("Nearest enemy: %s" % bat.name), "inspector: the text names the nearest enemy")
+
+	# 9. Hit recorder (the hub's own recorder in the world)
+	var hub := world.get_node_or_null("DebugHub") as DebugHub
+	check(hub != null and is_instance_valid(hub._hit_recorder), "hit recorder: the hub owns one")
+	if hub != null:
+		var recorder := hub._hit_recorder
+		recorder.clear()
+		var second := _l6_mount(player, 2, fire_tags)
+		await tree.process_frame
+		await tree.process_frame
+		var payload := CombatPayload.new()
+		payload.stats_container_id = ability.stats_container.get_instance_id()
+		payload.final_damage = 7.0
+		payload.is_critical_hit = true
+		payload.dot_damage_snapshot = 2.5
+		var payload_statuses: Array[StatusEffect] = [burn]
+		payload.status_effects_to_apply = payload_statuses
+		bat.hurtbox_component.take_hit(payload)
+		var hits := recorder.get_hits()
+		check(hits.size() == 1 and hits.has(1), "hit recorder: one entry, for slot 1")
+		if hits.has(1):
+			check(hits[1]["final_damage"] == 7.0 and hits[1]["is_critical_hit"] and hits[1]["status_ids"] == [burn.effect_id] and hits[1]["dot_damage_snapshot"] == 2.5 and hits[1]["is_burst"] == false, "hit recorder: the entry has the right damage, crit, status ids and snapshot")
+		payload.final_damage = 99.0
+		check(recorder.get_hits()[1]["final_damage"] == 7.0, "hit recorder: changing the original payload later does not change the record")
+		var returned := recorder.get_hits()
+		returned[1]["final_damage"] = 123.0
+		check(recorder.get_hits()[1]["final_damage"] == 7.0, "hit recorder: the getter returns a copy")
+
+		var stranger := CombatPayload.new()
+		stranger.stats_container_id = 4242
+		stranger.final_damage = 55.0
+		bat.hurtbox_component.take_hit(stranger)
+		check(recorder.get_hits().size() == 1 and recorder.get_hits()[1]["final_damage"] == 7.0, "hit recorder: a hit from an unrelated source records nothing")
+
+		var replacement := CombatPayload.new()
+		replacement.stats_container_id = ability.stats_container.get_instance_id()
+		replacement.final_damage = 8.0
+		bat.hurtbox_component.take_hit(replacement)
+		check(recorder.get_hits().size() == 1 and recorder.get_hits()[1]["final_damage"] == 8.0, "hit recorder: a second hit from the same slot replaces the first")
+
+		var other_slot := CombatPayload.new()
+		other_slot.stats_container_id = second.stats_container.get_instance_id()
+		other_slot.final_damage = 9.0
+		other_slot.is_burst = true
+		bat.hurtbox_component.take_hit(other_slot)
+		var both := recorder.get_hits()
+		check(both.size() == 2 and both[1]["final_damage"] == 8.0 and both[2]["final_damage"] == 9.0 and both[2]["is_burst"], "hit recorder: hits from two slots keep both (a burst payload is recorded too)")
+
+		# The text shows the last hit with its age
+		var shown_hits := recorder.get_hits()
+		shown_hits[1]["age_s"] = 1.5
+		var hit_text := StateInspector.to_text(StateInspector.describe(player, null, shown_hits))
+		check(hit_text.contains("damage 8.00") and hit_text.contains("(1.5 s ago)"), "inspector: the text shows the last hit with its age")
+		check(StateInspector.to_text(StateInspector.describe(player, null, {})).contains("Last hit: no hit recorded"), "inspector: a slot without a recorded hit says so")
+
+		# 10. The hub: three tabs, and refresh fills the Inspect view
+		var titles: Array[String] = []
+		for i in range(hub._tabs.get_tab_count()):
+			titles.append(hub._tabs.get_tab_title(i))
+		check(titles == ["Run", "Combat", "Inspect"], "debug hub: has the Run, Combat and Inspect tabs")
+		hub._refresh()
+		check(not hub._inspect_view.text.is_empty() and hub._inspect_view.text.contains("Slot 1"), "debug hub: refresh fills the Inspect view with the state")
+		check(not hub._inspect_view.editable, "debug hub: the Inspect view is read-only")
+		hub._inspect_view.text = "stale"
+		hub._tabs.current_tab = 2
+		check(hub._inspect_view.text.contains("Slot 1"), "debug hub: selecting the Inspect tab refreshes it")
+		hub._tabs.current_tab = 0
+		var saved_player_id: int = _eb.active_player_instance_id
+		_eb.active_player_instance_id = 0
+		hub._refresh_inspector()
+		var no_player_text := hub._inspect_view.text
+		_eb.active_player_instance_id = saved_player_id
+		check(no_player_text == "no player", "debug hub: refreshing without a player shows a plain message and does not error")
