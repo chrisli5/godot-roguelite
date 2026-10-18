@@ -2,7 +2,7 @@
 
 Oct 16, 2026 · @Christopher
 
-Last synced with code commit: `ac93a1e`. Update this line whenever this file changes.
+Last synced with code commit: `81c1d9f`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -252,7 +252,7 @@ Burn ramp: the shipped file was still 0.25 / 1.0 until Oct 15, when the designer
 |Ability tiers|TIER\_1\_BASE, TIER\_2\_EVOLVED, TIER\_3\_APEX|Implemented|
 |Offer eligibility|Tier 1: two elements at level 3 or higher. Tier 2: three elements at level 5 or higher. No offers at tier 3, or after Overclock|Implemented|
 |Evolution cards|`ABILITY\_UNLOCK` definitions with `evolves\_from` (the ability's current `AbilityData`) and `recipe\_requirements` (elements that must be at the soft cap)|Implemented|
-|Overclock|A generic `ABILITY\_OVERCLOCK` card, logged per slot, that sets the permanent overclock flag. It lifts only the per-element cap to 15, and the element-count limit still applies. It blocks evolution|Implemented|
+|Overclock|A generic `ABILITY\_OVERCLOCK` card, logged per slot in the ledger. Whether a slot is overclocked is derived from that purchase (`RunLedgerComponent.is\_overclocked`); no separate flag is stored or persisted. It lifts only the per-element cap to 15, and the element-count limit still applies. It blocks evolution|Implemented|
 |Offer drafts|A forced draft per eligible ability: matching evolution cards, then Overclock. No decline, no reroll, no random fill. Checked after each confirmed infusion and at room start, before queued level-ups. Never stored|Implemented|
 |Recipes|Elements at or above the soft cap, matched against `recipe\_requirements`. A recipe may be a subset of the active elements|Implemented|
 |Evolution swaps|Evolutions swap the anchor, geometry and payload strategy nodes through `execute\_ability\_evolution`, and replace base tags from `structural\_tags`|Implemented|
@@ -272,11 +272,11 @@ Room scenes are freed on every transition, so the player's ledger and upgrades l
 * **Capture.** `Player.\_exit\_tree` captures the state. It is skipped if the player is dead.
 * **Restore.** `Player.\_ready` restores the state before `player\_spawned` is emitted.
 * **Reset.** `MapGenerator` calls `RunSession.reset()` when a new run starts.
-* **Persisted.** Run ledger, ability runtime state (including the overclock flag), evolution gate, progression, current health, and the pending level-up draft queue (`pending\_draft\_levels`). Infusion levels are derived from the ledger and are not saved separately. Status cards and Overclock live in the ledger, so they persist with it.
+* **Persisted.** Run ledger, ability runtime state (the evolution state; Overclock is not part of it), evolution gate, progression, current health, and the pending level-up draft queue (`pending\_draft\_levels`). Infusion levels and the Overclock state are derived from the ledger and are not saved separately. Status cards and Overclock cards live in the ledger, so they persist with it.
 * **Pending drafts.** `UpgradeManager` writes the on-screen level plus the queue through to `RunSession.state` on every change, because it is freed with the World scene. It reloads them in `\_ready`, and drafting resumes after the player spawns.
 * **Not persisted, on purpose.** Status effects, temporary modifiers, cooldown timers, uncollected pickups and offer drafts (eligibility is derived from persisted state).
 * **Adding new state.** Three edits: a field in `RunState`, capture in `Player.capture\_run\_state`, and restore in `Player.\_restore\_run\_state`.
-* **Debug.** F3 respawns the player to test the round trip. It does not free `UpgradeManager`, so it cannot test the pending drafts.
+* **Debug.** The F1 panel's Run tab has a "Respawn player" button that runs the same capture and restore as a room change (it replaced the old F3 key). It does not free `UpgradeManager`, so it cannot test the pending drafts.
 
 ## 9\. Class archetypes
 
