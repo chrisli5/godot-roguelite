@@ -1,6 +1,6 @@
 # Project: Action Roguelite (Godot 4, GDScript)
 
-Last synced with code commit: `768ff3c`. Update this line whenever this file changes.
+Last synced with code commit: `eaf4d21`. Update this line whenever this file changes.
 
 Auto-attack action roguelite (Vampire Survivors-style combat) with a Slay the Spire-style room map.
 Engine: Godot 4.x. The code uses `@abstract` and typed Dictionaries, so assume 4.5 or newer.
@@ -46,7 +46,7 @@ Room scenes are freed on every transition, so run state lives in `RunSession.sta
 
 ## Upgrade drafts, evolution and Overclock
 - **Level-up drafts** never contain infusion cards, evolution cards or Overclock cards.
-- **Infusion drafts** are separate from level-up drafts (`UpgradeManager.trigger_infusion_draft_event`). Only elements that at least one ability can accept are offered. When infusion drafts happen in a normal run is undecided; today it is a debug key only. The infusion card in the pool is global. The per-element ceiling is enforced per ability by `InfusionTrackerComponent.is_element_socket_allowed`, not by the profile's `total_tiers`.
+- **Infusion drafts** are separate from level-up drafts (`UpgradeManager.trigger_infusion_draft_event`). Only elements that at least one ability can accept are offered. When infusion drafts happen in a normal run is undecided; today it is triggered only from the debug panel (F1, Run tab). The infusion card in the pool is global. The per-element ceiling is enforced per ability by `InfusionTrackerComponent.is_element_socket_allowed`, not by the profile's `total_tiers`.
 - **Offer drafts.** When an ability reaches its soft cap (`EvolutionGateComponent.is_offer_eligible`), `UpgradeManager` presents a forced draft for it: every evolution card that matches, then Overclock. No decline, no reroll, no random fill. Checked after each confirmed infusion and at room start, before queued level-ups. Never stored.
 - **Evolution cards** are `ABILITY_UNLOCK` definitions with `evolves_from` (the ability's current `AbilityData`, compared by `resource_path`) and `recipe_requirements` (elements that must be at the soft cap).
 - **Overclock** is a generic `ABILITY_OVERCLOCK` card, logged per slot with `log_slot_specific_purchase`, which sets `is_permanently_overclocked`. It lifts only the per-element cap (3 or 5 -> 15). The element-count limit still applies.
@@ -76,6 +76,7 @@ The repo is public, so some folders are deliberately not in it (both are in `.gi
 - Before changing a method signature, grep all `.gd` AND `.tscn` files for callers.
 - Be careful with `.tscn` / `.tres` edits: they hold resource IDs and enum integers. Keep diffs small and review them.
 - Prefer editing existing files over creating new ones. Do not add features that were not asked for.
+- Debug tools live in `res://debug/` behind one panel (`DebugHub`, F1, debug builds only). Put the logic of a new debug action in `DebugActions` as a static function with a logic check, and add its button to the panel. Do not add other hotkeys or separate debug nodes to scenes.
 - Do not claim something works unless it was actually run, and say which kind of run it was (Verified or Headless).
 - Headless checks (Godot 4.5; `$GODOT` is `C:\Users\chris\Desktop\Godot_v4.5-stable_win64.exe`; run from the project root):
   - Import / project scan: `$GODOT --headless --path . --import`
@@ -88,5 +89,5 @@ The repo is public, so some folders are deliberately not in it (both are in `.gi
     - Put new behavior checks in `logic_test.gd` as part of a section that starts with `fixtures.gd`'s `begin_section()` and ends with `end_section()`, so no check depends on another's state.
   - Line endings are mixed and cannot be guessed from the file type. As of Task L3 most files are LF, `tools/headless/logic_test.gd` is CRLF, and `combat_volume.gd` is LF. Check each file before matching text or editing it, and keep its existing endings. A naive `grep -c $'\r'` can match every line in some shells, so check with `file` or a tool that counts real `\r\n`.
   - Custom check scripts run with `-s <script>`. Autoloads (`EventBus`) do not exist when an `-s` script compiles: load project code from `_process` after the first frame, and reach autoloads with `root.get_node("EventBus")`.
-  - Headless runs cannot show visuals or take key presses (B / C, drafts on screen): those still need a manual playthrough.
+  - Headless runs cannot show visuals or take key presses (the F1 debug panel, drafts on screen): those still need a manual playthrough.
 - When a task changes anything recorded in `STATUS.md`, update `STATUS.md` in the same change and show its diff in your report. Only list something as Verified if the user said they ran it. List something as Headless only if you ran it and can name the command.
