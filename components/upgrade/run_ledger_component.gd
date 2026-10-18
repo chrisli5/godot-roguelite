@@ -150,6 +150,16 @@ func get_infusion_levels(slot_index: int) -> Array[int]:
 	return levels
 
 
+## True when an Overclock card was bought for exactly this slot. Only the slot-specific key counts; a plain
+## purchase overclocks nothing. This is the single definition of "overclocked".
+func is_overclocked(slot_index: int) -> bool:
+	for def in active_upgrades:
+		if def.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK \
+				and purchase_registry.get(PurchaseKey.make(def.upgrade_id, slot_index), 0) > 0:
+			return true
+	return false
+
+
 ## How many tiers of `def` apply to this slot (0 = not eligible). A slot-specific purchase beats the plain key and
 ## ignores the card's scope; the scope applies only to plain purchases. `weapon_tags` are the slot's PERMANENT tags
 ## (base and infusion tags, never temporary ones).

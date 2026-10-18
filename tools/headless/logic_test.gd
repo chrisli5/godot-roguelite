@@ -51,6 +51,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_debug_actions,
 		_section_debug_infusion_grant,
 		_section_state_inspector,
+		_section_overclock_from_ledger,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -1482,3 +1483,81 @@ func _section_state_inspector() -> void:
 		var no_player_text := hub._inspect_view.text
 		_eb.active_player_instance_id = saved_player_id
 		check(no_player_text == "no player", "debug hub: refreshing without a player shows a plain message and does not error")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task O: Overclock is derived from the run ledger (no stored flag on the gate)
+# ---------------------------------------------------------------------------------------------
+
+func _section_overclock_from_ledger() -> void:
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	var gate := ability.evolution_gate_component
+	var tracker := ability.infusion_tracker_component
+	var overclock := load(DBG_OVERCLOCK_CARD) as UpgradeDefinition
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var T1 := EvolutionGateComponent.EvolutionState.TIER_1_BASE
+
+	# a. A fresh ability is not overclocked.
+	check(not gate.is_permanently_overclocked, "overclock ledger: a fresh ability is not overclocked")
+
+	# b. A direct ledger purchase is enough; the cap lifts.
+	_socket_fire_and_frost(player, 3)
+	check(not tracker.is_element_socket_allowed(Tags.Type.FIRE, T1, gate.is_permanently_overclocked), "overclock ledger: fire at the soft cap is refused before Overclock")
+	ledger.log_slot_specific_purchase(overclock, 1)
+	check(gate.is_permanently_overclocked, "overclock ledger: a ledger purchase overclocks the gate")
+	check(tracker.is_element_socket_allowed(Tags.Type.FIRE, T1, gate.is_permanently_overclocked), "overclock ledger: the tracker accepts Fire at level 3 once overclocked")
+
+	# c. Another slot is not affected.
+	var other_data := (load(fx.ARCANE_BOLT_DATA) as AbilityData).duplicate() as AbilityData
+	other_data.slot_index = 2 as AbilityData.Role
+	var other := player.ability_container.add_ability_from_data(other_data)
+	check(is_instance_valid(other) and not other.evolution_gate_component.is_permanently_overclocked, "overclock ledger: a second ability in slot 2 is not overclocked")
+
+	# d. A plain purchase overclocks nothing.
+	var plain_player := fx.fresh_player()
+	var plain_ability := fx.mount_arcane_bolt(plain_player)
+	plain_player.run_ledger_component.log_purchase(overclock)
+	check(not plain_ability.evolution_gate_component.is_permanently_overclocked and not plain_player.run_ledger_component.is_overclocked(1), "overclock ledger: a plain log_purchase overclocks nothing")
+
+	# e. Clearing the ledger clears the flag.
+	player = fx.fresh_player()
+	ability = fx.mount_arcane_bolt(player)
+	ledger = player.run_ledger_component
+	gate = ability.evolution_gate_component
+	ledger.log_slot_specific_purchase(overclock, 1)
+	check(gate.is_permanently_overclocked, "overclock ledger: overclocked before the clear")
+	ledger.restore_state({}, [])
+	check(not gate.is_permanently_overclocked, "overclock ledger: clearing the ledger clears the flag")
+
+	# f. Round trip through the run state.
+	ledger.log_slot_specific_purchase(overclock, 1)
+	player.capture_run_state()
+	ledger.restore_state({}, [])
+	player.ability_container.remove_ability_by_slot(1)
+	player._restore_run_state()
+	var restored := player.ability_container.get_ability_by_slot(1)
+	check(is_instance_valid(restored) and restored.evolution_gate_component.is_permanently_overclocked, "overclock ledger: run state round trip keeps the slot overclocked")
+	check(is_instance_valid(restored) and not restored.export_runtime_state().has("overclocked"), "overclock ledger: the exported state has no overclocked key")
+
+	# g. Current behavior: an Overclock bought for an empty slot applies to an ability mounted there later.
+	player = fx.fresh_player()
+	player.run_ledger_component.log_slot_specific_purchase(overclock, 2)
+	var late_data := (load(fx.ARCANE_BOLT_DATA) as AbilityData).duplicate() as AbilityData
+	late_data.slot_index = 2 as AbilityData.Role
+	var late := player.ability_container.add_ability_from_data(late_data)
+	check(is_instance_valid(late) and late.evolution_gate_component.is_permanently_overclocked, "overclock ledger: an Overclock bought for an empty slot overclocks an ability mounted there later (current behavior)")
+
+	# h. A gate with no ledger is never overclocked.
+	var bare_gate := EvolutionGateComponent.new()
+	fx.track(bare_gate)
+	check(not bare_gate.is_permanently_overclocked, "overclock ledger: a gate with no ledger reports false")
+	bare_gate.configure_slot_context(1)
+	check(not bare_gate.is_permanently_overclocked, "overclock ledger: a gate configured with a null ledger reports false")
+
+	# i. restore_state sets the evolution state only.
+	player = fx.fresh_player()
+	ability = fx.mount_arcane_bolt(player)
+	ability.evolution_gate_component.restore_state(EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED)
+	check(ability.evolution_gate_component.current_state == EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED and not ability.evolution_gate_component.is_permanently_overclocked, "overclock ledger: restore_state sets the evolution state only")

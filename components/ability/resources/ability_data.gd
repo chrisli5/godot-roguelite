@@ -13,7 +13,6 @@ enum Role {
 @export var texture_prefab: Texture2D
 @export var slot_index: Role = Role.PRIMARY_WEAPON
 @export var structural_tags: Array[Tags.Type] = []
-@export var is_overclock_evolution: bool = false
 
 @export_group("Core Blueprint Packages")
 @export var stats_profile: StatsProfile

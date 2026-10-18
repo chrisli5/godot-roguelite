@@ -796,7 +796,7 @@ func _section_card_actions() -> void:
 	var fire_frost_levels: Array[int] = [3, 3, 0, 0, 0]
 	var overclock_values := {
 		"before/flag": gate.is_permanently_overclocked,
-		"before/exported_overclocked": ability.export_runtime_state().get("overclocked"),
+		"before/export_has_overclocked_key": ability.export_runtime_state().has("overclocked"),
 		"before/offer_eligible_at_fire3_frost3": gate.is_offer_eligible(fire_frost_levels),
 	}
 	player.apply_contextual_upgrade(_choice(overclock, 1))
@@ -807,7 +807,7 @@ func _section_card_actions() -> void:
 	overclock_values["after/registry_size"] = registry.size()
 	overclock_values["after/active_upgrades"] = player.run_ledger_component.active_upgrades.size()
 	overclock_values["after/flag"] = gate.is_permanently_overclocked
-	overclock_values["after/exported_overclocked"] = exported.get("overclocked")
+	overclock_values["after/export_has_overclocked_key"] = exported.has("overclocked")
 	overclock_values["after/exported_evolution_state"] = int(exported.get("evolution_state"))
 	overclock_values["after/offer_eligible_at_fire3_frost3"] = gate.is_offer_eligible(fire_frost_levels)
 	# An Overclock bought for a slot with no ability is still written to the ledger.

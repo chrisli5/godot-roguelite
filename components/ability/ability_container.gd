@@ -64,6 +64,10 @@ func add_ability_from_data(ability_data: AbilityData) -> Ability:
 	if is_instance_valid(ability.infusion_tracker_component):
 		ability.infusion_tracker_component.configure_slot_context(slot_index, ledger)
 
+	# Same for Overclock: the gate answers from the ledger for this slot.
+	if is_instance_valid(ability.evolution_gate_component):
+		ability.evolution_gate_component.configure_slot_context(slot_index, ledger)
+
 	# --- UNIFIED STRATEGY CONTRACT HANDOFF ---
 	# Automatically configures spatial query parameters and custom sorting hooks contextually
 	ability.swap_runtime_strategies(ability_data)

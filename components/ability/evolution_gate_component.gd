@@ -6,7 +6,20 @@ enum EvolutionState { TIER_1_BASE, TIER_2_EVOLVED, TIER_3_APEX }
 
 @export_group("System State Monitoring")
 var current_state: EvolutionState = EvolutionState.TIER_1_BASE
-var is_permanently_overclocked: bool = false
+
+## Read-only. Overclock lives in the run ledger; there is no stored copy.
+var is_permanently_overclocked: bool:
+	get:
+		return is_instance_valid(_ledger) and _ledger.is_overclocked(_slot_index)
+
+var _slot_index: int = 0
+var _ledger: RunLedgerComponent
+
+
+## `ledger` is the owning player's run ledger (null for ledger-less owners, which are never overclocked).
+func configure_slot_context(slot_idx: int, ledger: RunLedgerComponent = null) -> void:
+	_slot_index = slot_idx
+	_ledger = ledger
 
 
 ## Soft cap per element for the current state (tier 1 = 3, later tiers = 5).
@@ -97,6 +110,5 @@ func advance_evolution_state() -> void:
 		current_state = EvolutionState.TIER_3_APEX
 
 
-func restore_state(saved_state: EvolutionState, overclocked: bool) -> void:
+func restore_state(saved_state: EvolutionState) -> void:
 	current_state = saved_state
-	is_permanently_overclocked = overclocked

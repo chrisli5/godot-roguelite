@@ -286,14 +286,14 @@
 	},
 	"cards/overclock_purchase": {
 		"after/active_upgrades": 1,
+		"after/export_has_overclocked_key": false,
 		"after/exported_evolution_state": 0,
-		"after/exported_overclocked": true,
 		"after/flag": true,
 		"after/offer_eligible_at_fire3_frost3": false,
 		"after/registry_plain_key": 0,
 		"after/registry_size": 1,
 		"after/registry_slot_key": 1,
-		"before/exported_overclocked": false,
+		"before/export_has_overclocked_key": false,
 		"before/flag": false,
 		"before/offer_eligible_at_fire3_frost3": true,
 		"empty_slot_2/registry_slot_key": 1

@@ -135,9 +135,6 @@ func swap_runtime_strategies(new_data: AbilityData) -> void:
 	if is_instance_valid(stats_container):
 		stats_container.invalidate_all_caches()
 
-	if is_instance_valid(evolution_gate_component) and data.is_overclock_evolution:
-		evolution_gate_component.is_permanently_overclocked = true
-	
 	if data.slot_index >= AbilityContainer.MIN_SLOT:
 		EventBus.ability_modification_completed.emit(data.slot_index)
 			
@@ -183,11 +180,10 @@ func export_runtime_state() -> Dictionary:
 	var snapshot: Dictionary = {}
 	if is_instance_valid(evolution_gate_component):
 		snapshot["evolution_state"] = evolution_gate_component.current_state
-		snapshot["overclocked"] = evolution_gate_component.is_permanently_overclocked
 	return snapshot
 
 
 ## Call after the ability has been mounted from its saved AbilityData.
 func import_runtime_state(snapshot: Dictionary) -> void:
 	if is_instance_valid(evolution_gate_component) and snapshot.has("evolution_state"):
-		evolution_gate_component.restore_state(snapshot["evolution_state"], snapshot.get("overclocked", false))
+		evolution_gate_component.restore_state(snapshot["evolution_state"])
