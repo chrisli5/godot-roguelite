@@ -1,12 +1,12 @@
-# Game Design Document v1.9: Modular Action Roguelite
+# Game Design Document v1.10: Modular Action Roguelite
 
-Oct 16, 2026 · @Christopher
+Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `81c1d9f`. Update this line whenever this file changes.
+Last synced with code commit: `e0fe80a`. Update this line whenever this file changes.
 
 ## Revision summary
 
-This revision aligns the design with the code as of the commit named above. Since v1.8, the infusion-to-status hook, base tags from `AbilityData`, evolution gating, the Overclock card, forced offer drafts and queue persistence are in the code. The Burn ramp (0.10 / 0.5) was set by hand on Oct 15,. Infusions are now drafted separately from level-up drafts (decided). Compounds are redefined as shared effects, with evolutions unique per ability (§4). A review of the ability driver folders (Oct 14, later the same day) added the driver library to §1, the Arcane Bolt decisions to §3 and §4, and open items 27 to 31. A later design pass (Oct 15) defined the five base infusions in §4 and the two-stat model in §5: every ability carries `BASE\_DAMAGE` and `DOT\_DAMAGE`, Fire becomes a duration and ramp-cap infusion, and indirect scalings unlock by infusion level. All of it is Decided. Fire is built; the rest is not. On Oct 16 area abilities were made to read `AOE\_RADIUS` for their reach (§4), and the evidence labels moved to `STATUS.md`.
+This revision aligns the design with the code as of the commit named above. Since v1.8, the infusion-to-status hook, base tags from `AbilityData`, evolution gating, the Overclock card, forced offer drafts and queue persistence are in the code. The Burn ramp (0.10 / 0.5) was set by hand on Oct 15,. Infusions are now drafted separately from level-up drafts (decided). Compounds are redefined as shared effects, with evolutions unique per ability (§4). A review of the ability driver folders (Oct 14, later the same day) added the driver library to §1, the Arcane Bolt decisions to §3 and §4, and open items 27 to 31. A later design pass (Oct 15) defined the five base infusions in §4 and the two-stat model in §5: every ability carries `BASE\_DAMAGE` and `DOT\_DAMAGE`, Fire becomes a duration and ramp-cap infusion, and indirect scalings unlock by infusion level. All of it is Decided. Fire is built; the rest is not. On Oct 16 area abilities were made to read `AOE\_RADIUS` for their reach (§4), and the evidence labels moved to `STATUS.md`. On Oct 17 and 18 the card plumbing and debug tools changed without changing the design: a card carries all its stat modifiers in one `stat\_modifiers` list, stat cards, statuses, bursts and draft eligibility read permanent tags only (temporary status tags no longer switch a card on), a stat card bought for one slot updates that slot's cached stat, and the debug tools became one F1 panel.
 
 Every section carries one status tag:
 
@@ -74,7 +74,7 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 
 * **Append-only.** Tags are stored as integers in `.tres` files. New entries go at the end of the enum. Entries are never inserted, reordered or deleted. The same rule applies to `UpgradeDefinition.PayloadType` and every other enum referenced from `.tres` files.
 * **Source of truth.** Each stats container reads tags from its own `TagComponent`. Callers do not pass tags in.
-* **Layers.** A `TagComponent` compiles three layers: base tags, infusion tags and temporary tags.
+* **Layers.** A `TagComponent` compiles three layers: base tags, infusion tags and temporary tags. Permanent tags are base plus infusion tags. Stat cards, statuses, bursts and draft eligibility read permanent tags only. Active tags add the temporary ones and are used for damage payload tags.
 * **Base tags (Implemented).** Base tags come from `AbilityData.structural\_tags`, and they replace the ability's previous base tags whenever it is mounted or evolves. An empty list logs a warning and leaves the tags unchanged. Arcane Bolt has `METAMAGIC` and `PROJECTILE`. They are provisional until the tag system is fully designed, because tags will eventually decide which global upgrades apply to an ability (open item 22). An evolution that changes family replaces the tag set, so a chain form drops `PROJECTILE` and projectile-scoped global cards stop applying to it.
 * **Infusion tags.** Rebuilt from the run ledger on every recompile, so evolving never removes them.
 * **Status tags (Implemented).** `BURNING`, `CHILLED` and `FROZEN` are appended to the enum. `TagComponent` grants them as temporary tags with reference counts, so a tag only clears when the last status that granted it ends. `FROZEN` has no source yet.
@@ -85,9 +85,9 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 
 **Status:** Implemented for the current stat contributions and for applying statuses, including the Fire rework. Decided, not built, for the indirect scalings, the other elements' changes and how infusions are drafted. Proof of concept for the numbers and for compounds. Deferred for compound effects.
 
-Infusions are socketed into ability slots. They contribute through stat modifiers (`stat\_modifier\_payload`), plus an optional status carried by the card (`status\_effect\_payload`, §6). Effect templates define shape, never absolute damage. The ledger stores slot-specific purchases under `<upgrade\_id>::slot\_<n>`, and that key wins over the plain key.
+Infusions are socketed into ability slots. They contribute through stat modifiers (`UpgradeDefinition.stat\_modifiers`), plus an optional status carried by the card (`status\_effect\_payload`, §6). Effect templates define shape, never absolute damage. The ledger stores slot-specific purchases under `<upgrade\_id>::slot\_<n>`, and that key wins over the plain key.
 
-**Drafting (Decided).** Infusions are drafted through their own draft, separate from level-up drafts. Only elements that at least one ability can accept are offered. In the code today, this draft is a debug key only, and level-up drafts never show infusion cards. When infusion drafts happen in a normal run is not decided (open item 23).
+**Drafting (Decided).** Infusions are drafted through their own draft, separate from level-up drafts. Only elements that at least one ability can accept are offered. In the code today, this draft is reachable only from the debug panel (F1, Run tab), and level-up drafts never show infusion cards. When infusion drafts happen in a normal run is not decided (open item 23).
 
 ### Base infusions (Decided; Fire Implemented)
 
@@ -124,7 +124,7 @@ A burst is not an ability. It has no slot, cooldown, anchor, stats profile or ta
 * **Every hit, no per-cast cap.** A fan, a chain or an area hit with many targets produces a burst per qualifying hit. Open items 39 and 40 revisit this.
 * **Timing.** The burst runs one frame after the hit, because a hit can land inside a physics callback.
 
-A card can now carry more than one modifier through `UpgradeDefinition.additional\_stat\_modifiers`, and the single `stat\_modifier\_payload` still works. Fire uses it. Lightning's `CRIT\_MULTIPLIER` can use it later. See the open items.
+A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.stat\_modifiers`. Fire uses two. Lightning's `CRIT\_MULTIPLIER` can use it later. See the open items.
 
 ### Compounds and evolutions
 
@@ -288,7 +288,7 @@ Room scenes are freed on every transition, so the player's ledger and upgrades l
 |Mage|Arcane Bolt|Partial|
 |Rogue|Not yet built|Deferred|
 
-The `player\_core\_blueprints` loop currently ends in `pass`, so the starting ability is granted through a debug key. Class selection needs to be wired up before the archetypes can be tested.
+The `player\_core\_blueprints` loop currently ends in `pass`, so the starting ability is granted through the debug panel (F1, Run tab, "Grant card"). Class selection needs to be wired up before the archetypes can be tested.
 
 ## 10\. Open items
 
@@ -296,7 +296,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 
 |#|Item|Type|
 |-|-|-|
-|1|Lightning's card still carries `CRIT\_CHANCE` only (`CRIT\_MULTIPLIER` missing). A card can now carry several modifiers (`additional\_stat\_modifiers`), so it only needs authoring|Gap|
+|1|Lightning's card still carries `CRIT\_CHANCE` only (`CRIT\_MULTIPLIER` missing). A card can carry several modifiers (`stat\_modifiers`), so it only needs authoring|Gap|
 |2|Fire value and card strengths are placeholders|Balance|
 |3|Early-game specialization fails at 4 and 8 drafts in the model|Balance|
 |4|Fire needs a value curve across a run. Flat modifiers scale as value times tier, so Overclock level 15 would give 45 s duration and a ramp cap of 2.0 at the placeholder values|Balance|
@@ -314,7 +314,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |20|Chill's slow scaling is undefined (Burn's ramp cap now scales with Fire levels)|Design decision|
 |21|STACK policy is untuned and unused|Balance|
 |22|Every `AbilityData` needs `structural\_tags`. Arcane Bolt now has `METAMAGIC` and `PROJECTILE`. Future abilities and evolutions still need them|Gap|
-|23|When infusion drafts occur in a normal run (separate draft decided; debug key only today)|Design decision|
+|23|When infusion drafts occur in a normal run (separate draft decided; debug panel only today)|Design decision|
 |24|No evolution is authored, so an ability at its soft cap is forced into Overclock. Author the first evolution, or add an `@export` switch on `UpgradeManager`|Design decision|
 |25|Compound designs: pairs, names, effects, tags|Design decision|
 |26|Room transitions are not implemented. Missing: room completion (nothing emits `room\_completion\_confirmed`, nothing counts remaining enemies, and `EnemySpawnerComponent`'s `wave\_completed` and `campaign\_cleared` have no listeners) and a death or game-over flow (nothing handles `Entity.died`). See items 7 to 9|Gap|
