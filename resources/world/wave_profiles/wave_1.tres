@@ -7,5 +7,4 @@
 [resource]
 script = ExtResource("1_wtibj")
 enemy_data_pool = Array[ExtResource("1_w87f5")]([ExtResource("2_ikfom")])
-total_spawn_count = 1
 metadata/_custom_type_script = "uid://cw76aherq025s"
