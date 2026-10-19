@@ -79,9 +79,10 @@ func mount_arcane_bolt(player: Player) -> Ability:
 	return player.ability_container.add_ability_from_data(load(ARCANE_BOLT_DATA))
 
 
-func spawn_bat() -> Enemy:
+## Spawns a bat. `data` replaces the shipped bat data when given (a test passes a throwaway duplicate).
+func spawn_bat(data: EnemyData = null) -> Enemy:
 	var bat := (load("res://scenes/entities/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
-	bat.initialize_entity(load("res://resources/entities/enemy/bat.tres"))
+	bat.initialize_entity(data if data != null else load("res://resources/entities/enemy/bat.tres"))
 	world.get_node("GameWorld/EntitiesContainer").add_child(bat)
 	track(bat)
 	return bat

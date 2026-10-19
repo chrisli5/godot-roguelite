@@ -1705,8 +1705,21 @@ func _section_stack_cap() -> void:
 
 
 func _section_spawn_health() -> void:
-	var profile_max: float = (load("res://resources/entities/enemy/bat_stats.tres") as StatsProfile).base_stats[Stat.Type.MAX_HEALTH]
-	var bat := _spawn_bat()
+	# A throwaway profile and EnemyData: the loaded resources are cached and must not be changed.
+	var shipped := load("res://resources/entities/enemy/bat.tres") as EnemyData
+	var values: Dictionary[Stat.Type, float] = {}
+	for stat_type in shipped.stats_profile.base_stats:
+		values[stat_type] = shipped.stats_profile.base_stats[stat_type]
+	values[Stat.Type.MAX_HEALTH] = 37.0
+	var profile := StatsProfile.new()
+	profile.base_stats = values
+	var data := shipped.duplicate() as EnemyData
+	data.stats_profile = profile
+	var probe := HealthComponent.new()
+	var default_pool := probe.max_health
+	probe.free()
+	check(not is_equal_approx(default_pool, 37.0), "spawn health: the test profile's 37 differs from the component default (%.0f)" % default_pool)
+	var bat := fx.spawn_bat(data)
 	var health := bat.health_component
-	check(is_equal_approx(health.max_health, profile_max), "spawn health: max health comes from the stats profile (%.0f)" % profile_max)
-	check(is_equal_approx(health.current_health, profile_max), "spawn health: a new enemy starts at full health, not the component default")
+	check(is_equal_approx(health.max_health, 37.0), "spawn health: max health is 37 from a profile that differs from the component default")
+	check(is_equal_approx(health.current_health, 37.0), "spawn health: a new enemy starts at 37, the profile value, not the component default")
