@@ -13,6 +13,7 @@ var stacks: int = 1
 var dot_damage: float = 0.0
 var duration_bonus: float = 0.0
 var ramp_cap_bonus: float = 0.0
+var stack_cap_bonus: float = 0.0
 
 ## Per-application copies of the template's modifiers (unique ids, safe to mutate).
 var runtime_modifiers: Array[StatModifier] = []
@@ -37,6 +38,17 @@ func get_effective_duration() -> float:
 ## Tick damage multiplier from time spent active (linear ramp, capped at the template cap plus the snapshotted bonus).
 func get_ramp_multiplier() -> float:
 	return 1.0 + minf(elapsed * template.ramp_bonus_per_second, template.ramp_max_bonus + ramp_cap_bonus)
+
+
+## Most stacks this application can hold. REFRESH has a cap of 1 and STACK uses the template's max_stacks.
+## A ticking template adds the snapshotted STATUS_STACK_BONUS (rounded, never negative); other templates ignore it.
+func get_stack_cap() -> int:
+	var cap := 1
+	if template.stacking == StatusEffect.StackingPolicy.STACK:
+		cap = maxi(template.max_stacks, 1)
+	if template.tick_interval > 0.0:
+		cap += maxi(roundi(stack_cap_bonus), 0)
+	return cap
 
 
 ## Damage dealt by one tick: DOT_DAMAGE (per second) * ramp * interval * stacks. Never crits.

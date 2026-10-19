@@ -193,14 +193,14 @@ static func find_nearest_enemy(tree: SceneTree) -> Enemy:
 
 
 ## Applies `effect` to the nearest enemy with the simulated source magnitudes. False when there is no enemy.
-static func apply_status_to_nearest(tree: SceneTree, effect: StatusEffect, dot_damage: float, duration_bonus: float) -> bool:
+static func apply_status_to_nearest(tree: SceneTree, effect: StatusEffect, dot_damage: float, duration_bonus: float, stack_cap_bonus: float = 0.0) -> bool:
 	if not is_instance_valid(effect):
 		push_warning("DebugActions: effect resource not assigned.")
 		return false
 	var enemy := find_nearest_enemy(tree)
 	if enemy == null:
 		return false
-	enemy.status_effect_component.apply_effect(effect, dot_damage, duration_bonus)
+	enemy.status_effect_component.apply_effect(effect, dot_damage, duration_bonus, 0.0, stack_cap_bonus)
 	return true
 
 

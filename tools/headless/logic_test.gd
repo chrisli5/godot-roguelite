@@ -52,6 +52,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_debug_infusion_grant,
 		_section_state_inspector,
 		_section_overclock_from_ledger,
+		_section_stack_cap,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -1561,3 +1562,142 @@ func _section_overclock_from_ledger() -> void:
 	ability = fx.mount_arcane_bolt(player)
 	ability.evolution_gate_component.restore_state(EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED)
 	check(ability.evolution_gate_component.current_state == EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED and not ability.evolution_gate_component.is_permanently_overclocked, "overclock ledger: restore_state sets the evolution state only")
+
+
+func _stack_bat() -> Enemy:
+	var bat := _spawn_bat()
+	bat.health_component.update_max_health(100000.0, true)
+	bat.health_component.set_to_full()
+	return bat
+
+
+## Expected Burn tick damage after `elapsed` seconds with no ramp cap bonus: dot * ramp * interval * stacks.
+func _stack_expected_tick(burn: StatusEffect, dot: float, elapsed: float, stacks: int) -> float:
+	var ramp := 1.0 + minf(elapsed * burn.ramp_bonus_per_second, burn.ramp_max_bonus)
+	return dot * ramp * burn.tick_interval * stacks
+
+
+func _section_stack_cap() -> void:
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+
+	# a. Bonus 0: REFRESH is unchanged (one stack, tick = dot * ramp * interval).
+	var bat_a := _stack_bat()
+	var comp_a := bat_a.status_effect_component
+	var ticks_a: Array[float] = []
+	comp_a.ticked.connect(func(_i: StatusEffectInstance, dmg: float) -> void: ticks_a.append(dmg))
+	for i in range(5):
+		comp_a.apply_effect(burn, 10.0, 10.0, 0.0, 0.0)
+	var inst_a: StatusEffectInstance = comp_a._active_effects["burn"]
+	check(inst_a.stacks == 1 and inst_a.get_stack_cap() == 1, "stack cap: bonus 0, five Burn applications stay at 1 stack")
+	comp_a._process(0.5)
+	check(ticks_a.size() == 1 and is_equal_approx(ticks_a[0], _stack_expected_tick(burn, 10.0, 0.5, 1)), "stack cap: bonus 0, tick damage = dot * ramp * interval")
+
+	# b. Bonus 2: cap 3, tick damage scales with stacks, every application resets the timer, elapsed keeps running.
+	var bat_b := _stack_bat()
+	var comp_b := bat_b.status_effect_component
+	var ticks_b: Array[float] = []
+	comp_b.ticked.connect(func(_i: StatusEffectInstance, dmg: float) -> void: ticks_b.append(dmg))
+	for i in range(5):
+		comp_b.apply_effect(burn, 10.0, 10.0, 0.0, 2.0)
+	var inst_b: StatusEffectInstance = comp_b._active_effects["burn"]
+	check(inst_b.stacks == 3 and inst_b.get_stack_cap() == 3, "stack cap: bonus 2, five applications give 3 stacks (cap 3)")
+	comp_b._process(0.5)
+	check(ticks_b.size() == 1 and is_equal_approx(ticks_b[0], _stack_expected_tick(burn, 10.0, 0.5, 3)), "stack cap: bonus 2, tick damage = dot * ramp * interval * 3")
+	comp_b._process(1.0)
+	check(is_equal_approx(inst_b.time_remaining, 8.5), "stack cap: the timer ran down before the re-apply")
+	comp_b.apply_effect(burn, 10.0, 10.0, 0.0, 2.0)
+	check(is_equal_approx(inst_b.time_remaining, 10.0) and is_equal_approx(inst_b.elapsed, 1.5) and inst_b.stacks == 3, "stack cap: a re-apply resets the timer, elapsed keeps running, stacks stay at the cap")
+
+	# c. The latest applier's dot_damage wins and the stacks are kept.
+	var bat_c := _stack_bat()
+	var comp_c := bat_c.status_effect_component
+	for i in range(3):
+		comp_c.apply_effect(burn, 5.0, 10.0, 0.0, 2.0)
+	var inst_c: StatusEffectInstance = comp_c._active_effects["burn"]
+	comp_c.apply_effect(burn, 8.0, 10.0, 0.0, 2.0)
+	check(is_equal_approx(inst_c.dot_damage, 8.0) and inst_c.stacks == 3, "stack cap: the latest dot_damage snapshot wins and the stacks are kept")
+
+	# d. Stacks never decrease on a re-apply (current behavior): a lower bonus leaves the stacks above the new cap.
+	var bat_d := _stack_bat()
+	var comp_d := bat_d.status_effect_component
+	for i in range(4):
+		comp_d.apply_effect(burn, 10.0, 10.0, 0.0, 3.0)
+	var inst_d: StatusEffectInstance = comp_d._active_effects["burn"]
+	check(inst_d.stacks == 4, "stack cap: bonus 3 builds 4 stacks")
+	comp_d.apply_effect(burn, 10.0, 10.0, 0.0, 0.0)
+	check(inst_d.stacks == 4 and is_equal_approx(inst_d.stack_cap_bonus, 0.0) and inst_d.get_stack_cap() == 1, "stack cap: an application with bonus 0 keeps 4 stacks (no decrease) and sets stack_cap_bonus to 0")
+	comp_d.apply_effect(burn, 10.0, 10.0, 0.0, 0.0)
+	check(inst_d.stacks == 4, "stack cap: no further stack is added above the cap")
+
+	# e. After expiry a new application starts at 1 stack.
+	var bat_e := _stack_bat()
+	var comp_e := bat_e.status_effect_component
+	for i in range(3):
+		comp_e.apply_effect(burn, 10.0, 1.0, 0.0, 2.0)
+	check(comp_e._active_effects["burn"].stacks == 3, "stack cap: three stacks before expiry")
+	comp_e._process(0.5)
+	comp_e._process(0.5)
+	check(comp_e._active_effects.is_empty(), "stack cap: the effect expired")
+	comp_e.apply_effect(burn, 10.0, 1.0, 0.0, 2.0)
+	check(comp_e._active_effects["burn"].stacks == 1, "stack cap: after expiry a new application starts at 1 stack")
+
+	# f. A non-ticking template (Chill) ignores the bonus.
+	var bat_f := _stack_bat()
+	var comp_f := bat_f.status_effect_component
+	for i in range(3):
+		comp_f.apply_effect(chill, 0.0, 3.0, 0.0, 3.0)
+	var inst_f: StatusEffectInstance = comp_f._active_effects["chill"]
+	check(chill.tick_interval <= 0.0 and inst_f.stacks == 1 and inst_f.get_stack_cap() == 1, "stack cap: Chill (non-ticking) with bonus 3 stays at 1 stack")
+
+	# g. The cast snapshot follows a test-only LOCAL_SLOT card; the real Fire card does not touch the stat.
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var sc := ability.stats_container
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var stack_card := _l3_card("test_stack_bonus")
+	stack_card.stat_modifiers.append(_l3_modifier(StatModifier.Type.FLAT, 1.0, Stat.Type.STATUS_STACK_BONUS))
+	var ledger := player.run_ledger_component
+	ledger.log_slot_specific_purchase(fire, 1)
+	var p0 := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
+	check(is_equal_approx(p0.status_stack_bonus_snapshot, 0.0) and p0.status_effects_to_apply.size() == 1, "stack cap: Fire alone leaves the snapshot at 0.0 (Burn is carried)")
+	for tier in range(1, 4):
+		ledger.log_slot_specific_purchase(stack_card, 1)
+		var payload := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
+		check(is_equal_approx(payload.status_stack_bonus_snapshot, float(tier)), "stack cap: the test card at tier %d gives snapshot %d.0" % [tier, tier])
+		if tier == 3:
+			var copy := payload.duplicate() as CombatPayload
+			check(is_equal_approx(copy.status_stack_bonus_snapshot, 3.0), "stack cap: the snapshot survives payload.duplicate")
+
+	# h. A STACK template with a tick interval adds the bonus to max_stacks.
+	var stack_effect := StatusEffect.new()
+	stack_effect.effect_id = "test_stack_effect"
+	stack_effect.stacking = StatusEffect.StackingPolicy.STACK
+	stack_effect.max_stacks = 3
+	stack_effect.tick_interval = 0.5
+	var stack_inst := StatusEffectInstance.new(stack_effect, 1)
+	check(stack_inst.get_stack_cap() == 3, "stack cap: a STACK template with max_stacks 3 has cap 3 with bonus 0")
+	stack_inst.stack_cap_bonus = 2.0
+	check(stack_inst.get_stack_cap() == 5, "stack cap: a STACK template with max_stacks 3 has cap 5 with bonus 2")
+
+	# i. DebugActions passes the bonus through.
+	var detached: Array[Dictionary] = []
+	for node in tree.root.find_children("*", "Enemy", true, false):
+		detached.append({"enemy": node, "parent": node.get_parent()})
+		node.get_parent().remove_child(node)
+	var bat_i := _stack_bat()
+	for i in range(3):
+		DebugActions.apply_status_to_nearest(tree, burn, 5.0, 3.0, 2.0)
+	var inst_i: StatusEffectInstance = bat_i.status_effect_component._active_effects.get("burn")
+	check(inst_i != null and inst_i.stacks == 3, "stack cap: apply_status_to_nearest with bonus 2, called 3 times, gives 3 stacks")
+	for item in detached:
+		if is_instance_valid(item["enemy"]) and is_instance_valid(item["parent"]):
+			item["parent"].add_child(item["enemy"])
+
+	# j. Guards.
+	check(burn.stacking == StatusEffect.StackingPolicy.REFRESH and burn.max_stacks == 1, "stack cap: the real burn.tres is still REFRESH with max_stacks 1")
+	var fire_touches_stack := false
+	for modifier in fire.stat_modifiers:
+		fire_touches_stack = fire_touches_stack or modifier.target_stat_type == Stat.Type.STATUS_STACK_BONUS
+	check(not fire_touches_stack, "stack cap: the real Fire card has no modifier on STATUS_STACK_BONUS")
+	check(int(Stat.Type.STATUS_STACK_BONUS) == 20, "stack cap: STATUS_STACK_BONUS is appended as integer 20")

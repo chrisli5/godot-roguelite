@@ -32,10 +32,10 @@ func _exit_tree() -> void:
 
 
 ## Applies `effect` to the owner. `dot_damage` (damage per second), `duration_bonus` (seconds) and
-## `ramp_cap_bonus` are the magnitudes snapshotted from the source's DOT_DAMAGE / STATUS_DURATION /
-## STATUS_RAMP_CAP stats. An effect whose effective duration is 0 is not applied at all.
+## `ramp_cap_bonus` and `stack_cap_bonus` are the magnitudes snapshotted from the source's DOT_DAMAGE / STATUS_DURATION /
+## STATUS_RAMP_CAP / STATUS_STACK_BONUS stats. An effect whose effective duration is 0 is not applied at all.
 ## Re-applying an active effect follows its stacking policy.
-func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0) -> void:
+func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0, stack_cap_bonus: float = 0.0) -> void:
 	if not is_instance_valid(effect) or effect.effect_id.is_empty():
 		push_warning("StatusEffectComponent: Invalid status effect passed.")
 		return
@@ -47,8 +47,9 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 		existing.dot_damage = dot_damage
 		existing.duration_bonus = duration_bonus
 		existing.ramp_cap_bonus = ramp_cap_bonus
+		existing.stack_cap_bonus = stack_cap_bonus
 		existing.time_remaining = existing.get_effective_duration()
-		if effect.stacking == StatusEffect.StackingPolicy.STACK and existing.stacks < effect.max_stacks:
+		if existing.stacks < existing.get_stack_cap():
 			existing.stacks += 1
 			existing.refresh_modifier_values()
 		refreshed.emit(existing)
@@ -59,6 +60,7 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 	instance.dot_damage = dot_damage
 	instance.duration_bonus = duration_bonus
 	instance.ramp_cap_bonus = ramp_cap_bonus
+	instance.stack_cap_bonus = stack_cap_bonus
 	instance.time_remaining = instance.get_effective_duration()
 	_active_effects[effect.effect_id] = instance
 	set_process(true)

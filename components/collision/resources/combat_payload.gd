@@ -18,6 +18,8 @@ extends Resource
 @export var status_duration_snapshot: float = 0.0
 ## Source STATUS_RAMP_CAP (added to a ramping status's cap), snapshotted likewise.
 @export var status_ramp_cap_snapshot: float = 0.0
+## Source STATUS_STACK_BONUS (added to a ticking status's stack cap), snapshotted likewise.
+@export var status_stack_bonus_snapshot: float = 0.0
 
 @export_group("Impact Bursts")
 ## Bursts chosen at cast time; each fires on a qualifying hit (see ImpactBurstDefinition.Trigger).
