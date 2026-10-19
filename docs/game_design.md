@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `e0fe80a`. Update this line whenever this file changes.
+Last synced with code commit: `77fe98e`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -107,7 +107,7 @@ Rules:
 * **Cast time, not impact time.** Wind's description says "at the point of impact". The scale is read at cast time instead, for the same reason crit is rolled once per cast.
 * **One shared impact burst.** Earth's explosion and Lightning's overload are both secondary area damage centered on a hit enemy, so they share one mechanism, described below. It would also serve Magma later.
 * **Burst effects scale off hit damage.** A DoT specialist gets less from the overload and the explosion. This is accepted for now.
-* **Fire.** Fire deals no damage itself. Burn's damage comes from the ability's own `DOT\_DAMAGE`, and Fire turns it on by supplying duration. Implemented: flat +3.0 s duration and +0.1 ramp cap per level. Flat modifiers scale as value times tier, so level 3 is 9.0 s and +0.3. Burn's `base\_duration` is 0. All numbers are placeholders.
+* **Fire.** Fire deals no damage itself. Burn's damage comes from the ability's own `DOT\_DAMAGE`, and Fire turns it on by supplying duration. Implemented: flat +3.0 s duration and +0.1 ramp cap per level. Flat modifiers scale as value times tier, so level 3 is 9.0 s and +0.3. Burn's `base\_duration` is 0. All numbers are placeholders. Fire stays build agnostic: it enables DoT and lengthens it, and it never favors stacking over duration.
 * **Staged unlocks.** Indirect effects unlock by infusion level (open item 33). Placeholder levels: Frost 2, Wind 2, Lightning 3, Earth 3.
 
 ### Impact bursts
@@ -202,7 +202,7 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 
 * **Mono-channel bonus (Deferred).** A bonus for committing to one channel.
 * **Fire hit tax (Deferred).** A penalty on hit scaling for Fire builds.
-* **Stacking policy.** Burn uses REFRESH. STACK exists in the status component but is untuned and unused: it multiplies DoT output two to four times at the placeholder values and needs re-tuning first.
+* **Stacking (Decided Oct 18).** REFRESH is a stack cap of 1, and a stat, `STATUS\_STACK\_BONUS`, raises the cap of ticking statuses (snapshotted at cast time; templates never change). Burn's template stays REFRESH. Fire never carries the bonus, so duration builds and stacking builds are a player choice. Stack caps are not tuned: a sustained Fire 3 Burn deals about 0.27 per second per stack at the placeholder numbers, so a cap of 4 would match Arcane Bolt's hit damage (open item 45).
 
 ## 6\. Status effects
 
@@ -312,7 +312,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |18|Stats profiles of other abilities and evolutions need `DOT\_DAMAGE`, `STATUS\_DURATION`, `STATUS\_RAMP\_CAP` and every stat their drivers read, such as `PROJECTILE\_AMOUNT`, `DURATION` or `CHAIN\_RADIUS` (a missing stat reads 0.0, and `mutate\_base\_profile` replaces the whole profile)|Gap|
 |19|Status proc chance is not built (application is guaranteed)|Deferred|
 |20|Chill's slow scaling is undefined (Burn's ramp cap now scales with Fire levels)|Design decision|
-|21|STACK policy is untuned and unused|Balance|
+|21|The stack cap is a stat with no card behind it yet, so every status behaves as REFRESH today (items 44 to 46)|Balance|
 |22|Every `AbilityData` needs `structural\_tags`. Arcane Bolt now has `METAMAGIC` and `PROJECTILE`. Future abilities and evolutions still need them|Gap|
 |23|When infusion drafts occur in a normal run (separate draft decided; debug panel only today)|Design decision|
 |24|No evolution is authored, so an ability at its soft cap is forced into Overclock. Author the first evolution, or add an `@export` switch on `UpgradeManager`|Design decision|
@@ -334,6 +334,9 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |41|Statuses on bursts. Today a burst deals plain damage and applies none. Revisit if burst-heavy builds need Burn or Chill from it|Design decision|
 |42|Lightning's spark shape: spark count, reach, spread pattern, whether each spark hits like a ray or jumps like a chain, and how damage splits per spark. `BurstShape` is built so it can be added as a new shape|Design decision|
 |43|A burst's visual is spawned only when it hits at least one enemy, so a burst that catches nothing shows no effect. Confirm that is wanted, and add visuals for Earth and Lightning|Design decision|
+|44|How stack cards are introduced (level-up pool, a separate draft, or tied to something else). Not Fire levels: Fire stays build agnostic|Design decision|
+|45|Stack caps and per-stack strength are untuned: at the placeholder numbers a cap of 4 gives a hit-specialist ability as much DoT as hit damage. Needs the hit/DoT budget (item 34) first|Balance|
+|46|Stacks from several sources share one instance per target. A re-apply never lowers the stack count, so a cap-1 source keeps a cap-4 source's stacks and its own snapshot wins. Decide whether that is wanted|Design decision|
 
 
 

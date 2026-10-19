@@ -1,6 +1,6 @@
 # Project: Action Roguelite (Godot 4, GDScript)
 
-Last synced with code commit: `81c1d9f`. Update this line whenever this file changes.
+Last synced with code commit: `77fe98e`. Update this line whenever this file changes.
 
 Auto-attack action roguelite (Vampire Survivors-style combat) with a Slay the Spire-style room map.
 Engine: Godot 4.x. The code uses `@abstract` and typed Dictionaries, so assume 4.5 or newer.
@@ -61,7 +61,7 @@ Room scenes are freed on every transition, so run state lives in `RunSession.sta
 - Area abilities read `AOE_RADIUS` for their reach, and projectile and orbit hitboxes read it too. Chain link keeps `QUERY_RADIUS` / `CHAIN_RADIUS`, and projectile targeting keeps `QUERY_RADIUS`.
 - Infusions contribute through stat modifiers (UpgradeDefinition.stat_modifiers) and, optionally, a status carried by the card (`status_effect_payload`). Effect templates define shape only (tick interval, ramp, stacking), never absolute damage.
 - Card scaling is multiplicative, per card: the ledger multiplies `pow(1.0 + value, tier)` for each card, where tier is the card's duplicate count. Final stat = `(base + flat) * (1 + percent) * multiplicative`. This was the one rule that made both specializations viable in the balance workbook.
-- Burn uses a REFRESH stacking policy. STACK exists but is untuned and unused: it multiplies DoT output several times over.
+- **Stacking (Decided Oct 18; Task P builds the mechanism, no card uses it yet).** REFRESH is a stack cap of 1. A ticking status's cap is its template cap (1 for REFRESH templates, `max_stacks` for STACK templates) plus the `STATUS_STACK_BONUS` stat, snapshotted at cast time like `STATUS_DURATION` and `STATUS_RAMP_CAP`; non-ticking statuses (Chill) ignore it. Templates never change and there are no Burn variants. Burn's template stays REFRESH with `max_stacks` 1, so nothing stacks until a card raises the stat. All stacks share one timer and expire together; a re-apply takes the latest applier's snapshot, keeps `elapsed` and never lowers the stack count. Tick damage is `dot_damage * ramp * interval * stacks`. Fire stays build agnostic: it supplies duration and ramp cap only and never carries a stack bonus, so duration builds and stacking builds are the player's choice. How stack cards are introduced is undecided (GDD item 44).
 - Status effect templates are never mutated. Runtime state lives in `StatusEffectInstance`. Statuses are not persisted between rooms. Burn ramp is +10%/s capped at +50%, matching the workbook. All other Burn and Chill numbers are placeholders.
 - All numbers in the balance workbook are placeholders.
 - **Status application rules.** Any `UpgradeDefinition` can carry a `status_effect_payload`, resolved through the ledger with the normal scope rules and deduplicated by `effect_id`. Statuses are chosen at cast time and applied on every hit (no chance stat). A ticking status is skipped when the ability's `DOT_DAMAGE` snapshot is 0. `STATUS_DURATION` is ability-wide. A status whose effective duration is 0 or less is not applied at all. No status variants.
