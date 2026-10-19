@@ -53,6 +53,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_state_inspector,
 		_section_overclock_from_ledger,
 		_section_stack_cap,
+		_section_spawn_health,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -1701,3 +1702,11 @@ func _section_stack_cap() -> void:
 		fire_touches_stack = fire_touches_stack or modifier.target_stat_type == Stat.Type.STATUS_STACK_BONUS
 	check(not fire_touches_stack, "stack cap: the real Fire card has no modifier on STATUS_STACK_BONUS")
 	check(int(Stat.Type.STATUS_STACK_BONUS) == 20, "stack cap: STATUS_STACK_BONUS is appended as integer 20")
+
+
+func _section_spawn_health() -> void:
+	var profile_max: float = (load("res://resources/entities/enemy/bat_stats.tres") as StatsProfile).base_stats[Stat.Type.MAX_HEALTH]
+	var bat := _spawn_bat()
+	var health := bat.health_component
+	check(is_equal_approx(health.max_health, profile_max), "spawn health: max health comes from the stats profile (%.0f)" % profile_max)
+	check(is_equal_approx(health.current_health, profile_max), "spawn health: a new enemy starts at full health, not the component default")

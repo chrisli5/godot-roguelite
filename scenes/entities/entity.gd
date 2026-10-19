@@ -54,6 +54,10 @@ func _configure_base_entity_layers() -> void:
 
 	if entity_data.stats_profile and is_instance_valid(stats_container):
 		stats_container.initialize_profile(entity_data.stats_profile)
+		# bind_to_stats ran before the profile existed, so the life pool still holds the default. Resize it and fill it.
+		if is_instance_valid(health_component):
+			health_component.update_max_health(stats_container.get_final_stat_value(Stat.Type.MAX_HEALTH))
+			health_component.set_to_full()
 
 	if entity_data.movement_strategy_scene is PackedScene:
 		if is_instance_valid(movement_strategy):
