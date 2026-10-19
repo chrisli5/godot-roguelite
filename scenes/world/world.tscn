@@ -68,3 +68,4 @@ script = ExtResource("8_gb53w")
 
 [node name="DebugHub" type="CanvasLayer" parent="."]
 script = ExtResource("dbg_hub_script")
+debug_stack_bonus = 3.0
