@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `77fe98e`. Update this line whenever this file changes.
+Last synced with code commit: `8110b7d`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -130,9 +130,9 @@ A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.st
 
 **Status:** Proof of concept. Nothing in this subsection is built beyond the gating in §7.
 
-* A **compound** is a fixed pair of elements. It always forms the same named effect, and that effect works the same way on every ability.
+* A **compound** is a fixed pair of elements. It always forms the same named effect on the abilities that evolve through it.
 * An **evolution** is unique per ability. It changes the ability's geometry and is themed by a compound.
-* **The evolution grants the compound.** The evolved `AbilityData` lists the compound tag in `structural\_tags`, and a card scoped to that tag supplies the shared effect.
+* **The evolution carries the compound's effect (Decided Oct 20; built by Task R for Plasma).** Plasma's effect is a stat in the evolved profile: `CRIT\_DOT\_SHARE`, a plain float (0 = off, 1.0 = the full crit multiplier). On a crit cast, the cast's Burn snapshot is multiplied by `1 + (CRIT\_MULTIPLIER - 1) * CRIT\_DOT\_SHARE`. Ticks never crit. Only evolved profiles set it. A compound tag and a shared card are added later, only if a card needs to target compound abilities. Plasma has no infusion level: progression after evolving flows through Fire and Lightning (tier 2 caps of 5), a third element, and Overclock.
 * Compounds are given to element pairs one at a time. A pair with no compound only offers Overclock.
 
 |Compound|Recipe|Placeholder shared effect|Depends on|
@@ -337,6 +337,8 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |44|How stack cards are introduced (level-up pool, a separate draft, or tied to something else). Not Fire levels: Fire stays build agnostic|Design decision|
 |45|Stack caps and per-stack strength are untuned: at the placeholder numbers a cap of 4 gives a hit-specialist ability as much DoT as hit damage. Needs the hit/DoT budget (item 34) first|Balance|
 |46|Stacks from several sources share one instance per target. A re-apply never lowers the stack count, so a cap-1 source keeps a cap-4 source's stacks and its own snapshot wins. Decide whether that is wanted|Design decision|
+|47|Wind's direct stat does nothing on the chain form (chain link does not read projectile speed), and Earth's `AOE\_RADIUS` does not change chain reach. A poor fit should be a weak synergy, not a dead pick (item 36 covers Wind's speed stat)|Design decision|
+|48|Plasma numbers are placeholders. At about 20% crit chance the average Burn bonus is about +10%, and Lightning's `CRIT\_MULTIPLIER` card (item 1) is the main lever for making the effect felt|Balance|
 
 
 
