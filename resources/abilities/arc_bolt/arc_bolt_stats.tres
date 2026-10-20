@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="StatsProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://dmq5w3j3r2g5r" path="res://components/stat/resources/stats_profile.gd" id="1_stats"]
+
+[resource]
+script = ExtResource("1_stats")
+base_stats = Dictionary[int, float]({
+4: 0.6,
+5: 1.0,
+6: 0.05,
+7: 1.5,
+9: 10.0,
+10: 150.0,
+12: 300.0,
+17: 0.25,
+18: 0.0,
+19: 0.0,
+20: 0.0,
+21: 1.0
+})
+metadata/_custom_type_script = "uid://dmq5w3j3r2g5r"

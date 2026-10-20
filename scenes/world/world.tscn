@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://s03l0k7sk2u2"]
+[gd_scene load_steps=21 format=3 uid="uid://s03l0k7sk2u2"]
 
 [ext_resource type="Script" uid="uid://o5dxkbwae0sh" path="res://scenes/world/world_manager.gd" id="1_nc0nk"]
 [ext_resource type="Script" uid="uid://bmnkuwt2v0ed3" path="res://components/upgrade/upgrade_manager.gd" id="2_ujq7m"]
@@ -15,6 +15,7 @@
 [ext_resource type="Resource" uid="uid://dq1b4yxwe6q2y" path="res://resources/infusions/inf_blueprint.tres" id="7_t634p"]
 [ext_resource type="Script" uid="uid://bj5p0tyachxxc" path="res://debug/debug_spatial_visualizer.gd" id="8_gb53w"]
 [ext_resource type="Resource" path="res://resources/infusions/overclock_blueprint.tres" id="8_x0nq1"]
+[ext_resource type="Resource" path="res://resources/abilities/arc_bolt/arc_bolt_blueprint.tres" id="9_arcbp"]
 [ext_resource type="PackedScene" uid="uid://dd8t6wruc1tkv" path="res://ui/infusion_allocation_screen/infusion_allocation_screen_ui.tscn" id="9_1yooq"]
 [ext_resource type="Resource" uid="uid://bqmssuaanw7ud" path="res://resources/entities/player/player.tres" id="10_srmg5"]
 [ext_resource type="PackedScene" uid="uid://dktpey7kemnpa" path="res://scenes/objects/xp_gem/xp_gem.tscn" id="15_wbwoo"]
@@ -32,7 +33,7 @@ pickups_container = NodePath("GameWorld/PickupsContainer")
 
 [node name="UpgradeManager" type="Node" parent="SystemControllers"]
 script = ExtResource("2_ujq7m")
-master_upgrade_pool = Array[ExtResource("3_mxkvs")]([ExtResource("4_71ii3"), ExtResource("5_bt7bg"), ExtResource("7_t634p"), ExtResource("8_x0nq1")])
+master_upgrade_pool = Array[ExtResource("3_mxkvs")]([ExtResource("4_71ii3"), ExtResource("5_bt7bg"), ExtResource("7_t634p"), ExtResource("8_x0nq1"), ExtResource("9_arcbp")])
 
 [node name="EnemySpawner" type="Node" parent="SystemControllers"]
 script = ExtResource("4_gb53w")

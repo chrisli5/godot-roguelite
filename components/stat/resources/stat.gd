@@ -31,6 +31,7 @@ enum Type {
 	STATUS_DURATION,
 	STATUS_RAMP_CAP, ## Flat bonus to a ramping status's ramp cap (raises Burn's ramp_max_bonus per application).
 	STATUS_STACK_BONUS, ## Flat bonus to the stack cap of a ticking status (REFRESH has a cap of 1; each point allows one more stack).
+	CRIT_DOT_SHARE, ## Fraction of the crit multiplier's bonus applied to a ticking status's DoT snapshot on a crit cast. 0 = off. Set only by an evolved profile.
 }
 
 @export var type: Type = Type.MAX_HEALTH

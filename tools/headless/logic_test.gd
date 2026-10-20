@@ -54,6 +54,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_overclock_from_ledger,
 		_section_stack_cap,
 		_section_spawn_health,
+		_section_plasma_evolution,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -1723,3 +1724,178 @@ func _section_spawn_health() -> void:
 	var health := bat.health_component
 	check(is_equal_approx(health.max_health, 37.0), "spawn health: max health is 37 from a profile that differs from the component default")
 	check(is_equal_approx(health.current_health, 37.0), "spawn health: a new enemy starts at 37, the profile value, not the component default")
+
+
+const ARC_BOLT_DATA := "res://resources/abilities/arc_bolt/arc_bolt_data.tres"
+const ARC_BOLT_STATS := "res://resources/abilities/arc_bolt/arc_bolt_stats.tres"
+const ARC_BOLT_CARD := "res://resources/abilities/arc_bolt/arc_bolt_evolution_upgrade_def.tres"
+const ARCANE_BOLT_STATS := "res://resources/abilities/arcane_bolt/arcane_bolt_stats.tres"
+
+
+## One test cast with a crit that is forced on or off. `share` null leaves CRIT_DOT_SHARE out of the profile.
+func _plasma_cast(crit_chance: float, share: Variant) -> CombatPayload:
+	var values: Dictionary = {
+		Stat.Type.BASE_DAMAGE: 2.0,
+		Stat.Type.CRIT_CHANCE: crit_chance,
+		Stat.Type.CRIT_MULTIPLIER: 1.5,
+		Stat.Type.DOT_DAMAGE: 4.0,
+		Stat.Type.STATUS_DURATION: 6.0,
+		Stat.Type.STATUS_RAMP_CAP: 0.3,
+		Stat.Type.STATUS_STACK_BONUS: 2.0,
+	}
+	if share != null:
+		values[Stat.Type.CRIT_DOT_SHARE] = share
+	return CombatCalculations.generate_hit_payload(null, _make_stats(values), null)
+
+
+## Buys `count` Fire and `count` of `other_card` for slot 1 through the ledger.
+func _plasma_socket(player: Player, other_card: UpgradeDefinition, count: int) -> void:
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	for i in range(count):
+		player.run_ledger_component.log_slot_specific_purchase(fire, 1)
+		player.run_ledger_component.log_slot_specific_purchase(other_card, 1)
+
+
+## Fresh player with Arcane Bolt, Fire 3 and Lightning 3 in slot 1, with the real Arc Bolt card applied.
+func _plasma_evolved_player() -> Player:
+	var player := fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	_plasma_socket(player, load(LIGHTNING_CARD) as UpgradeDefinition, 3)
+	var offer := fx.get_upgrade_manager()._build_offer_choices(player, 1)
+	player.apply_contextual_upgrade(offer[0])
+	return player
+
+
+func _section_plasma_evolution() -> void:
+	var T2 := EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED
+	var mgr := fx.get_upgrade_manager()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+
+	# a. The cast rule.
+	var crit_full := _plasma_cast(1.0, 1.0)
+	var crit_absent := _plasma_cast(1.0, null)
+	check(is_equal_approx(crit_full.dot_damage_snapshot, 4.0 * 1.5), "plasma cast: a crit with share 1.0 gives dot * crit_mult")
+	check(is_equal_approx(_plasma_cast(1.0, 0.5).dot_damage_snapshot, 4.0 * (1.0 + 0.5 * 0.5)), "plasma cast: a crit with share 0.5 gives dot * (1 + 0.5 * (mult - 1))")
+	check(is_equal_approx(_plasma_cast(1.0, 2.0).dot_damage_snapshot, 4.0 * 2.0), "plasma cast: a crit with share 2.0 doubles the bonus")
+	check(is_equal_approx(_plasma_cast(0.0, 1.0).dot_damage_snapshot, 4.0), "plasma cast: a non-crit leaves the snapshot unchanged")
+	check(is_equal_approx(_plasma_cast(1.0, 0.0).dot_damage_snapshot, 4.0), "plasma cast: share 0 leaves the snapshot unchanged on a crit")
+	check(is_equal_approx(crit_absent.dot_damage_snapshot, 4.0), "plasma cast: a profile without CRIT_DOT_SHARE leaves the snapshot unchanged on a crit")
+	check(crit_full.is_critical_hit and crit_absent.is_critical_hit and is_equal_approx(crit_full.final_damage, crit_absent.final_damage) and is_equal_approx(crit_full.final_damage, 3.0), "plasma cast: final_damage is identical with and without the share")
+	check(is_equal_approx(crit_full.status_duration_snapshot, 6.0) and is_equal_approx(crit_full.status_ramp_cap_snapshot, 0.3) and is_equal_approx(crit_full.status_stack_bonus_snapshot, 2.0), "plasma cast: the other three snapshots are unchanged by the share")
+
+	# b. The real evolution path.
+	var player := fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	_plasma_socket(player, lightning, 3)
+	check(mgr._find_next_offer_slot(player) == 1, "plasma evolution: the offer slot is 1 with Fire 3 + Lightning 3")
+	var offer := mgr._build_offer_choices(player, 1)
+	check(offer.size() == 2 and offer[0].definition.upgrade_id == "evolve_arc_bolt" and offer[1].definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "plasma evolution: the offer is the evolution card first, then Overclock")
+
+	var frost_player := fx.fresh_player()
+	fx.mount_arcane_bolt(frost_player)
+	_plasma_socket(frost_player, frost, 3)
+	var frost_offer := mgr._build_offer_choices(frost_player, 1)
+	check(mgr._find_next_offer_slot(frost_player) == 1 and frost_offer.size() == 1 and frost_offer[0].definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "plasma evolution: Fire 3 + Frost 3 still offers only Overclock")
+
+	player = fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var ledger := player.run_ledger_component
+	var sc := ability.stats_container
+	var crit_before := sc.get_final_stat_value(Stat.Type.CRIT_CHANCE)
+	_plasma_socket(player, lightning, 3)
+	var crit_with_lightning := sc.get_final_stat_value(Stat.Type.CRIT_CHANCE)
+	check(crit_with_lightning > crit_before, "plasma evolution: Lightning raises CRIT_CHANCE before the evolution")
+	offer = mgr._build_offer_choices(player, 1)
+	player.apply_contextual_upgrade(offer[0])
+	var gate := ability.evolution_gate_component
+	var tracker := ability.infusion_tracker_component
+	check(ability.data.resource_path == ARC_BOLT_DATA, "plasma evolution: the ability's data is arc_bolt_data")
+	check(gate.current_state == T2, "plasma evolution: the gate state is TIER_2_EVOLVED")
+	check(ability.geometry_driver is ChainLinkGeometry and ability.payload_driver == null, "plasma evolution: the geometry driver is a ChainLinkGeometry and there is no payload driver")
+	var base_tags: Array[Tags.Type] = ability.tag_component.base_tags
+	check(base_tags.size() == 2 and base_tags.has(Tags.Type.METAMAGIC) and base_tags.has(Tags.Type.AOE), "plasma evolution: the base tags are exactly METAMAGIC and AOE")
+	var permanent := ability.tag_component.get_permanent_tags()
+	check(permanent.size() == 4 and permanent.has(Tags.Type.FIRE) and permanent.has(Tags.Type.LIGHTNING) and not permanent.has(Tags.Type.PROJECTILE), "plasma evolution: the permanent tags are the base tags plus the Fire and Lightning infusion tags, no PROJECTILE")
+	check(is_equal_approx(sc.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE), 1.0), "plasma evolution: CRIT_DOT_SHARE reads 1.0")
+	check(ledger.get_infusion_level(1, Tags.Type.FIRE) == 3 and ledger.get_infusion_level(1, Tags.Type.LIGHTNING) == 3, "plasma evolution: Fire and Lightning stay at 3 and 3")
+	check(is_equal_approx(sc.get_final_stat_value(Stat.Type.STATUS_DURATION), 9.0), "plasma evolution: STATUS_DURATION is still 9.0")
+	check(is_equal_approx(sc.get_final_stat_value(Stat.Type.CRIT_CHANCE), crit_with_lightning), "plasma evolution: CRIT_CHANCE is unchanged by the evolution")
+	check(mgr._find_next_offer_slot(player) == 0, "plasma evolution: the evolved ability is not offer-eligible again")
+	check(ledger.purchase_registry.get("evolve_arc_bolt", 0) == 1, "plasma evolution: the evolution card is logged once")
+	check(tracker.is_element_socket_allowed(Tags.Type.FIRE, gate.current_state, gate.is_permanently_overclocked), "plasma evolution: Fire is accepted at level 3")
+	ledger.log_slot_specific_purchase(fire, 1)
+	check(tracker.is_element_socket_allowed(Tags.Type.FIRE, gate.current_state, gate.is_permanently_overclocked), "plasma evolution: Fire is accepted at level 4")
+	ledger.log_slot_specific_purchase(fire, 1)
+	check(not tracker.is_element_socket_allowed(Tags.Type.FIRE, gate.current_state, gate.is_permanently_overclocked), "plasma evolution: Fire at level 5 is refused (soft cap 5)")
+	check(tracker.is_element_socket_allowed(Tags.Type.FROST, gate.current_state, gate.is_permanently_overclocked), "plasma evolution: a third element is accepted")
+	for i in range(5):
+		ledger.log_slot_specific_purchase(frost, 1)
+	check(not tracker.is_element_socket_allowed(Tags.Type.WIND, gate.current_state, gate.is_permanently_overclocked), "plasma evolution: a fourth element is refused")
+	for i in range(2):
+		ledger.log_slot_specific_purchase(lightning, 1)
+	check(mgr._find_next_offer_slot(player) == 1, "plasma evolution: three elements at level 5 make the evolved ability offer-eligible")
+	var again := mgr._build_offer_choices(player, 1)
+	var evolution_again := false
+	for choice in again:
+		evolution_again = evolution_again or choice.definition.upgrade_id == "evolve_arc_bolt"
+	check(not evolution_again and again.size() == 1 and again[0].definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "plasma evolution: the evolution card is not offered again")
+
+	# c. Persistence.
+	player = _plasma_evolved_player()
+	player.capture_run_state()
+	player.run_ledger_component.restore_state({}, [])
+	player.ability_container.remove_ability_by_slot(1)
+	player._restore_run_state()
+	var restored := player.ability_container.get_ability_by_slot(1)
+	check(is_instance_valid(restored) and restored.data.resource_path == ARC_BOLT_DATA, "plasma persistence: the restored ability has arc_bolt_data")
+	check(is_instance_valid(restored) and restored.evolution_gate_component.current_state == T2, "plasma persistence: the restored gate state is TIER_2_EVOLVED")
+	check(is_instance_valid(restored) and is_equal_approx(restored.stats_container.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE), 1.0), "plasma persistence: CRIT_DOT_SHARE reads 1.0 after the restore")
+
+	# d. Chain link carries Burn along the line: the first target plus max_bounces (4) bats, not the sixth.
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var origin := Vector2(60000.0, 60000.0)
+	var chain := ChainLinkGeometry.new()
+	world.add_child(chain)
+	fx.track(chain)
+	var bats: Array[Enemy] = []
+	for i in range(6):
+		var bat := _stack_bat()
+		bat.set_physics_process(false)
+		bat.global_position = origin + Vector2(100.0 * i, 0.0)
+		bats.append(bat)
+	await tree.physics_frame
+	await tree.physics_frame
+	var chain_payload := CombatPayload.new()
+	chain_payload.stats_container_id = _make_stats({Stat.Type.CHAIN_RADIUS: 150.0}).get_instance_id()
+	chain_payload.final_damage = 0.1
+	chain_payload.dot_damage_snapshot = 5.0
+	chain_payload.status_duration_snapshot = 3.0
+	chain_payload.status_effects_to_apply.append(burn)
+	chain.execute_geometry({"hit_nodes": [bats[0].hurtbox_component]}, chain_payload)
+	var burning: Array[bool] = []
+	for bat in bats:
+		burning.append(bat.status_effect_component._active_effects.has("burn"))
+	check(burning[0] and burning[1] and burning[2] and burning[3] and burning[4], "plasma chain: bats 1 to 5 end with Burn (first target plus four bounces)")
+	check(not burning[5], "plasma chain: bat 6 has no Burn")
+
+	# e. Guards.
+	var arcane_profile := load(ARCANE_BOLT_STATS) as StatsProfile
+	var arc_profile := load(ARC_BOLT_STATS) as StatsProfile
+	check(not arcane_profile.base_stats.has(Stat.Type.CRIT_DOT_SHARE), "plasma guards: the shipped Arcane Bolt profile has no CRIT_DOT_SHARE key")
+	check(arc_profile.base_stats.get(Stat.Type.CRIT_DOT_SHARE, 0.0) > 0.0, "plasma guards: the Arc Bolt profile's CRIT_DOT_SHARE is above 0")
+	var all_positive := true
+	for stat_type in [Stat.Type.CHAIN_RADIUS, Stat.Type.QUERY_RADIUS, Stat.Type.BASE_DAMAGE, Stat.Type.COOLDOWN, Stat.Type.DOT_DAMAGE]:
+		all_positive = all_positive and arc_profile.base_stats.get(stat_type, 0.0) > 0.0
+	check(all_positive, "plasma guards: the Arc Bolt profile has CHAIN_RADIUS, QUERY_RADIUS, BASE_DAMAGE, COOLDOWN and DOT_DAMAGE above 0")
+	var targets_share := false
+	for path in [FIRE_CARD, FROST_CARD, LIGHTNING_CARD, WIND_CARD, EARTH_CARD, DBG_MOVE_SPEED_CARD, DBG_OVERCLOCK_CARD, ARC_BOLT_CARD]:
+		for modifier in (load(path) as UpgradeDefinition).stat_modifiers:
+			targets_share = targets_share or modifier.target_stat_type == Stat.Type.CRIT_DOT_SHARE
+	for path in ["res://resources/status_effects/burn.tres", "res://resources/status_effects/chill.tres"]:
+		for modifier in (load(path) as StatusEffect).stat_modifiers:
+			targets_share = targets_share or modifier.target_stat_type == Stat.Type.CRIT_DOT_SHARE
+	check(not targets_share, "plasma guards: no real card, Burn or Chill modifier targets CRIT_DOT_SHARE")
+	check(not Tags.Type.keys().has("PLASMA") and Tags.Type.size() == 21, "plasma guards: Tags.Type has no PLASMA entry and still has 21 entries")
+	check(int(Stat.Type.CRIT_DOT_SHARE) == 21, "plasma guards: CRIT_DOT_SHARE is appended as integer 21")

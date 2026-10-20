@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=6 format=3]
+
+[ext_resource type="Script" uid="uid://cegijyh7qyyhp" path="res://components/ability/resources/ability_data.gd" id="1_data"]
+[ext_resource type="PackedScene" uid="uid://6jk74hf7wetr" path="res://components/ability/drivers/deployment/caster_position_anchor.tscn" id="2_anchor"]
+[ext_resource type="PackedScene" uid="uid://c2y42mwkqudxr" path="res://components/ability/drivers/geometry/area/chain_link_geometry.tscn" id="3_chain"]
+[ext_resource type="Resource" path="res://resources/abilities/arc_bolt/arc_bolt_stats.tres" id="4_stats"]
+[ext_resource type="Texture2D" uid="uid://bntta8st7rlml" path="res://assets/entities/bullet.png" id="5_tex"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Arc Bolt"
+texture_prefab = ExtResource("5_tex")
+structural_tags = Array[int]([2, 8])
+stats_profile = ExtResource("4_stats")
+deployment_anchor_scene = ExtResource("2_anchor")
+geometry_driver_scene = ExtResource("3_chain")
+metadata/_custom_type_script = "uid://cegijyh7qyyhp"

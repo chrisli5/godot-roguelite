@@ -38,6 +38,12 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.status_ramp_cap_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_RAMP_CAP)
 		payload.status_stack_bonus_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_STACK_BONUS)
 
+		# Plasma: a crit cast scales the DoT snapshot by the share of the crit bonus. Ticks never crit.
+		if is_critical_hit:
+			var crit_dot_share: float = stats.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE)
+			if crit_dot_share > 0.0:
+				payload.dot_damage_snapshot *= 1.0 + (crit_mult - 1.0) * crit_dot_share
+
 		# Statuses from the upgrade cards that apply to this ability. Application is guaranteed.
 		for effect in stats.get_status_effects():
 			if effect.tick_interval > 0.0 and payload.dot_damage_snapshot <= 0.0:
