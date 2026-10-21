@@ -11,7 +11,7 @@ Elemental infusions (Fire, Frost, Lightning, Wind, Earth) are socketed into abil
 - `STATUS.md` holds the project status and the evidence behind it (Verified / Headless / Written, commit hashes, open bugs). Claude Code owns it and updates it in the same change as any code that alters it. Read it before relying on what is built.
 - `docs/` holds the design documents. The game design document (GDD) is `docs/game_design.md`; the designer and Claude Chat own it, and Claude Code does not edit it unless asked. It is a single file with no version in its name: earlier versions are in git history.
 - Git is the single source of truth. Start every edit, in any tool, from the committed version. Claude Chat should hand back proposed section replacements, not a whole-file copy, and Claude Code compares an incoming file against the committed one (`git diff --no-index`) before overwriting anything.
-- Each document carries a "last synced with commit" line. If a copy shows an older hash than `git log -1`, it is stale.
+- Each document carries a "last synced with commit" line naming the last commit that changed code or design content. If a copy shows an older hash, compare what changed since (`git diff <hash>..HEAD -- <file>`); a commit that only updates sync lines does not make a document stale. Update the line only in a commit that also changes that document's content, or after you have checked the document against newer code. Never make a commit just to bump it.
 
 ## Code style
 - Tabs for indentation. Static typing everywhere (`var x: int`, typed arrays and dictionaries).
@@ -91,3 +91,4 @@ The repo is public, so some folders are deliberately not in it (both are in `.gi
   - Custom check scripts run with `-s <script>`. Autoloads (`EventBus`) do not exist when an `-s` script compiles: load project code from `_process` after the first frame, and reach autoloads with `root.get_node("EventBus")`.
   - Headless runs cannot show visuals or take key presses (the F1 debug panel, drafts on screen): those still need a manual playthrough.
 - When a task changes anything recorded in `STATUS.md`, update `STATUS.md` in the same change and show its diff in your report. Only list something as Verified if the user said they ran it. List something as Headless only if you ran it and can name the command.
+- A task's own commit hash goes into `STATUS.md` in the next commit that already changes `STATUS.md`, never in a commit made only to record it. Until then, write "hash pending" in the task's entry and in the task letter line; find the commit with `git log --grep "Task X"`.
