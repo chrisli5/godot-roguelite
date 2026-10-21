@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `bfc6b75`. Update this line whenever this file changes.
+Last synced with code commit: `ccadfe6`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -117,10 +117,10 @@ Rules:
 A burst is not an ability. It has no slot, cooldown, anchor, stats profile or tags: it is a one-shot effect that fires when a hit lands, borrows the casting ability's numbers, and leaves nothing behind.
 
 * **Centered on the enemy hit.** The origin is that enemy's position at the moment of the hit. The burst is not attached to the enemy, so it survives the enemy dying. Damage is credited to the casting ability.
-* **Defined as data.** A burst definition holds a trigger (on hit, or on crit), a shape, a damage fraction, an optional bonus per enemy caught with a cap, and an optional visual. A card carries one, chosen at cast time like a status.
+* **Defined as data.** A burst definition holds a trigger (on hit, or on crit), an optional required tag on the primary target, a shape (none means an effect-only burst), a damage fraction, an optional bonus per enemy caught with a cap, an optional switch to carry the cast's statuses, and an optional visual. A card carries one, chosen at cast time like a status.
 * **Shapes only find targets.** The shape decides where the burst reaches. Earth's explosion is a circle sized from the ability's `AOE\_RADIUS`. Lightning's overload could emit a series of sparks around the impact. Damage and every rule below are applied by one runner, so a new shape cannot skip them.
 * **Damage.** A fraction of the hit's final damage (a crit's extra damage is included). With a per-enemy bonus, the fraction grows with the number of enemies caught, up to a cap.
-* **Limits.** A burst never crits, never applies a status, and never triggers another burst. The enemy just hit is not hit again by its own burst.
+* **Limits.** A burst never crits and never triggers another burst. It applies no status unless its definition opts in, in which case it carries the cast's statuses and their snapshots. The enemy just hit is not hit again by its own burst. A required tag is checked on the primary target before the hit's own statuses apply.
 * **Every hit, no per-cast cap.** A fan, a chain or an area hit with many targets produces a burst per qualifying hit. Open items 39 and 40 revisit this.
 * **Timing.** The burst runs one frame after the hit, because a hit can land inside a physics callback.
 
@@ -330,9 +330,9 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |38|Fire's duration does little for fast abilities, by arithmetic from the numbers: Arcane Bolt's cooldown is 1.0 s and Burn lasts 3.0 s at level 1, so REFRESH keeps it up, and the ramp keeps running because a refresh keeps `elapsed`. The ramp cap and Frost's cooldown cuts matter more there. Duration matters for slow abilities and after target changes|Balance|
 |39|Per-hit or per-cast bursts. Today a burst fires on every qualifying hit, so a chain, a fan or an area hit produces many. A per-cast cap needs shared per-cast state, which the shared payload cannot hold|Design decision|
 |40|Earth's explosion on area abilities. A radial pulse already hits everything in range, so an explosion per target is mostly redundant. Option: projectile hits only, with area abilities getting only the larger radius|Design decision|
-|41|Statuses on bursts. Today a burst deals plain damage and applies none. Revisit if burst-heavy builds need Burn or Chill from it|Design decision|
+|41|Statuses on bursts are built behind an opt-in switch (Task U) and no card uses it yet. Revisit stacking and spam on chains and fans before authoring one (see item 39)|Design decision|
 |42|Lightning's spark shape: spark count, reach, spread pattern, whether each spark hits like a ray or jumps like a chain, and how damage splits per spark. `BurstShape` is built so it can be added as a new shape|Design decision|
-|43|A burst's visual is spawned only when it hits at least one enemy, so a burst that catches nothing shows no effect. Confirm that is wanted, and add visuals for Earth and Lightning|Design decision|
+|43|A shaped burst's visual is spawned only when it catches at least one enemy; an effect-only burst (no shape) always spawns its effect (Task U). Confirm the shaped rule is wanted, and add visuals for Earth and Lightning|Design decision|
 |44|How stack cards are introduced (level-up pool, a separate draft, or tied to something else). Not Fire levels: Fire stays build agnostic|Design decision|
 |45|Stack caps and per-stack strength are untuned: at the placeholder numbers a cap of 4 gives a hit-specialist ability as much DoT as hit damage. Needs the hit/DoT budget (item 34) first|Balance|
 |46|Stacks from several sources share one instance per target. A re-apply never lowers the stack count, so a cap-1 source keeps a cap-4 source's stacks and its own snapshot wins. Decide whether that is wanted|Design decision|
