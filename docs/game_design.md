@@ -97,7 +97,7 @@ Each infusion has a direct stat that works from level 1 and an indirect scaling 
 |-|-|-|-|-|
 |Fire|Duration and DoT|`STATUS\_DURATION` and `STATUS\_RAMP\_CAP`, both flat per level (Implemented). No damage of its own|Burn's ramp: the cap grows per level (Implemented), and a longer duration keeps the ramp running. DoT only|Burn (Implemented)|
 |Frost|Cooldown|`COOLDOWN` (Implemented)|Level 2: bonus damage per 0.1 s shaved off the ability's default cooldown, with a cooldown floor and a cap on the bonus|Chill (Implemented)|
-|Lightning|Crit|`CRIT\_CHANCE` (Implemented) and `CRIT\_MULTIPLIER` (not built)|Level 3: a crit releases an overload that damages nearby enemies for a percentage of the crit damage|None|
+|Lightning|Crit|`CRIT\_CHANCE` +0.03 per level and `CRIT\_MULTIPLIER` +0.15 per level (Implemented, placeholders; open item 49)|Level 3: a crit releases an overload that damages nearby enemies for a percentage of the crit damage|None|
 |Wind|Action velocity|One speed stat that every driver reads as its own speed: projectile travel, orbit rotation, sweep rate, and melee swing rate later. Drivers with no speed concept ignore it. Today `PROJECTILE\_MOVEMENT\_SPEED` (Implemented)|Level 2: damage scale from the speed ratio, read at cast time|None|
 |Earth|Area|`AOE\_RADIUS` for hitbox and area size (Implemented: the projectile hitbox follows it)|Level 3: an on-impact explosion whose damage scales with the number of enemies it catches|None|
 
@@ -292,11 +292,10 @@ The `player\_core\_blueprints` loop currently ends in `pass`, so the starting ab
 
 ## 10\. Open items
 
-Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11, 16, 17 and 30).
+Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6, 11, 16, 17 and 30).
 
 |#|Item|Type|
 |-|-|-|
-|1|Lightning's card still carries `CRIT\_CHANCE` only (`CRIT\_MULTIPLIER` missing). A card can carry several modifiers (`stat\_modifiers`), so it only needs authoring|Gap|
 |2|Fire value and card strengths are placeholders|Balance|
 |3|Early-game specialization fails at 4 and 8 drafts in the model|Balance|
 |4|Fire needs a value curve across a run. Flat modifiers scale as value times tier, so Overclock level 15 would give 45 s duration and a ramp cap of 2.0 at the placeholder values|Balance|
@@ -320,7 +319,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |26|Room transitions are not implemented. Missing: room completion (nothing emits `room\_completion\_confirmed`, nothing counts remaining enemies, and `EnemySpawnerComponent`'s `wave\_completed` and `campaign\_cleared` have no listeners) and a death or game-over flow (nothing handles `Entity.died`). See items 7 to 9|Gap|
 |27|Projectile hitboxes and area abilities both read `AOE\_RADIUS` for their size and reach. Chain link and the projectile geometries keep `QUERY\_RADIUS` / `CHAIN\_RADIUS`. Still open: the sprite is not scaled with the hitbox, and every future area, projectile or orbit profile needs `AOE\_RADIUS`|Gap|
 |28|No pierce: `CombatVolume` frees itself on every hit, and orbit shards (same class) vanish after one hit|Gap|
-|29|The impact-burst mechanism is built, but no card uses it yet. Earth's explosion and Lightning's overload still need authoring, level gating (item 33) and, for Lightning, `CRIT\_MULTIPLIER` (item 1). Magma would reuse it later|Gap|
+|29|The impact-burst mechanism is built, but no card uses it yet. Earth's explosion and Lightning's overload still need authoring and level gating (item 33). Magma would reuse it later|Gap|
 |31|Crit is rolled once per cast (decided, simplest). Revisit if the Lightning theme needs per-hit crit|Design decision|
 |32|Cast-time `damage\_scale` for Frost and Wind (applied to hit damage and `dot\_damage\_snapshot`, indirect bonuses summed then capped): the cap value and where the scale is computed|Design decision|
 |33|Level-gated infusion effects: where an effect reads the infusion level at cast time and whether each effect carries its own unlock level. The level itself comes from the ledger (`get\_infusion\_level(slot, element)`)|Gap|
@@ -338,7 +337,8 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |45|Stack caps and per-stack strength are untuned: at the placeholder numbers a cap of 4 gives a hit-specialist ability as much DoT as hit damage. Needs the hit/DoT budget (item 34) first|Balance|
 |46|Stacks from several sources share one instance per target. A re-apply never lowers the stack count, so a cap-1 source keeps a cap-4 source's stacks and its own snapshot wins. Decide whether that is wanted|Design decision|
 |47|Wind's direct stat does nothing on the chain form (chain link does not read projectile speed), and Earth's `AOE\_RADIUS` does not change chain reach. A poor fit should be a weak synergy, not a dead pick (item 36 covers Wind's speed stat)|Design decision|
-|48|Plasma numbers are placeholders. At about 20% crit chance the average Burn bonus is about +10%, and Lightning's `CRIT\_MULTIPLIER` card (item 1) is the main lever for making the effect felt|Balance|
+|48|Plasma numbers are placeholders. At Lightning 3 the crit chance is 14% (0.05 plus 0.03 per level) and the multiplier is 1.95, so the average Burn bonus is about +13%; at Lightning 5 it is about +25%|Balance|
+|49|Lightning's crit chance and multiplier ship on the infusion card (+0.03 and +0.15 per level, placeholders; the balance workbook used +0.05 and +0.15). Whether crit stats stay on the infusion card is undecided, because the library of non-infusion cards is not designed yet. The workbook's hit-build numbers need re-running with the multiplier|Design decision|
 
 
 
