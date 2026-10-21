@@ -78,7 +78,7 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 * **Base tags (Implemented).** Base tags come from `AbilityData.structural\_tags`, and they replace the ability's previous base tags whenever it is mounted or evolves. An empty list logs a warning and leaves the tags unchanged. Arcane Bolt has `METAMAGIC` and `PROJECTILE`. They are provisional until the tag system is fully designed, because tags will eventually decide which global upgrades apply to an ability (open item 22). An evolution that changes family replaces the tag set, so a chain form drops `PROJECTILE` and projectile-scoped global cards stop applying to it.
 * **Infusion tags.** Rebuilt from the run ledger on every recompile, so evolving never removes them.
 * **Status tags (Implemented).** `BURNING`, `CHILLED` and `FROZEN` are appended to the enum. `TagComponent` grants them as temporary tags with reference counts, so a tag only clears when the last status that granted it ends. `FROZEN` has no source yet.
-* **Compound tags (Proof of concept).** A compound is a tag granted by an evolution through its `structural\_tags`. None exists yet.
+* **Compound tags (Deferred).** A compound tag would be granted by an evolution through its `structural\_tags`, but none exists. Plasma, the first compound, has no tag (Task R): its effect is a stat on the evolved profile (§4). A tag is added only when a card needs to target compound abilities.
 * **Trigger tags (Deferred).** On Hit, On Dash, On Crit, On Crowd Control and On Health Loss do not exist yet. They need to be added before any card that depends on them.
 
 ## 4\. Elemental infusions, compounds and evolutions
@@ -128,7 +128,7 @@ A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.st
 
 ### Compounds and evolutions
 
-**Status:** Proof of concept. Nothing in this subsection is built beyond the gating in §7.
+**Status:** Proof of concept, except the first evolution: Plasma's first form (Arc Bolt, chain link) and its crit-to-Burn effect are Implemented (Task R). Other compounds and evolutions are not authored.
 
 * A **compound** is a fixed pair of elements. It always forms the same named effect on the abilities that evolve through it.
 * An **evolution** is unique per ability. It changes the ability's geometry and is themed by a compound.
@@ -137,7 +137,7 @@ A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.st
 
 |Compound|Recipe|Placeholder shared effect|Depends on|
 |-|-|-|-|
-|Plasma|Fire + Lightning|Plasma Bleed (burst reaction)|Burn, and the pre-damage reaction hook|
+|Plasma|Fire + Lightning|A crit cast boosts the Burn snapshot (`CRIT\_DOT\_SHARE`, Implemented). The old Plasma Bleed burst reaction is Deferred|Burn and Lightning's crit|
 |Magma|Fire + Earth|Lava Tiles (area hazard)|Burn, and an Earth area effect|
 |Name to decide|Frost + Earth|Deep Frozen (shatter reaction)|Chill and Frozen|
 
@@ -145,15 +145,15 @@ The effects above are working names from v1.8 (Plasma Scorch, Magma Volcano and 
 
 ### First evolution forms
 
-An evolution may leave its ability's family (decided). The forms below are built from drivers that already exist. They are **Proof of concept**, except the first one, which is **Decided** as the first evolution to author.
+An evolution may leave its ability's family (decided). The forms below are built from drivers that already exist. They are **Proof of concept**, except the Plasma form, which is **Implemented** as the first evolution (Task R).
 
 |Compound|Arcane Bolt form (existing drivers)|What the original idea would need|
 |-|-|-|
-|Plasma|**Arc bolt**: Chain link geometry. Every link applies the Burn the Fire infusion carries, so Burn spreads. **Decided as the first form.**|A piercing lance needs a pierce count and a change to `CombatVolume`|
+|Plasma|**Arc bolt**: Chain link geometry. Every link applies the Burn the Fire infusion carries, so Burn spreads. **Implemented as the first form (Task R).**|A piercing lance needs a pierce count and a change to `CombatVolume`|
 |Magma|Fissure: three growing strikes along the movement direction|A lobbed bomb needs an on-impact burst (the spawner's `projectile\_impacted` signal is unused) and lava hazards|
 |Frost + Earth|Shatter nova: Radial pulse with Chill (Converging vortex is the alternative)|A bursting shard needs fragment spawning and a `FROZEN` source|
 
-The first form tests the whole path: replacing base tags, a compound tag granted through `structural\_tags`, a shared card scoped to that tag, and Burn spreading through chain hits. A chain crit is all-or-nothing, because crit is rolled once per cast.
+The first form (Task R) exercises the offer draft with an evolution card, replacing the base tags, the evolved profile carrying the compound's effect, and Burn spreading through chain hits. A chain crit is all-or-nothing, because crit is rolled once per cast.
 
 ## 5\. Damage channels
 
@@ -243,7 +243,7 @@ Burn ramp: the shipped file was still 0.25 / 1.0 until Oct 15, when the designer
 
 ## 7\. Evolution gating, progression and overclock
 
-**Status:** Implemented. No evolution is authored yet.
+**Status:** Implemented. One evolution is authored (Arcane Bolt to Arc Bolt, Fire + Lightning, Task R).
 
 |Rule|Detail|Status|
 |-|-|-|
@@ -261,7 +261,7 @@ Burn ramp: the shipped file was still 0.25 / 1.0 until Oct 15, when the designer
 Known quirks:
 
 * An overclocked tier 3 ability has no element-count limit.
-* Until the first evolution is authored, an ability that reaches its soft cap is forced into Overclock (open item 24).
+* A pair with no evolution (every pair except Fire + Lightning on Arcane Bolt) reaches its soft cap and is forced into Overclock (open item 24).
 
 ## 8\. Run persistence between rooms
 
@@ -315,7 +315,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (6, 11
 |21|The stack cap is a stat with no card behind it yet, so every status behaves as REFRESH today (items 44 to 46)|Balance|
 |22|Every `AbilityData` needs `structural\_tags`. Arcane Bolt now has `METAMAGIC` and `PROJECTILE`. Future abilities and evolutions still need them|Gap|
 |23|When infusion drafts occur in a normal run (separate draft decided; debug panel only today)|Design decision|
-|24|No evolution is authored, so an ability at its soft cap is forced into Overclock. Author the first evolution, or add an `@export` switch on `UpgradeManager`|Design decision|
+|24|Only Fire + Lightning on Arcane Bolt has an evolution, so every other pair at its soft cap is forced into a lone Overclock (no decline). Author more evolutions, or add an `@export` switch on `UpgradeManager`|Design decision|
 |25|Compound designs: pairs, names, effects, tags|Design decision|
 |26|Room transitions are not implemented. Missing: room completion (nothing emits `room\_completion\_confirmed`, nothing counts remaining enemies, and `EnemySpawnerComponent`'s `wave\_completed` and `campaign\_cleared` have no listeners) and a death or game-over flow (nothing handles `Entity.died`). See items 7 to 9|Gap|
 |27|Projectile hitboxes and area abilities both read `AOE\_RADIUS` for their size and reach. Chain link and the projectile geometries keep `QUERY\_RADIUS` / `CHAIN\_RADIUS`. Still open: the sprite is not scaled with the hitbox, and every future area, projectile or orbit profile needs `AOE\_RADIUS`|Gap|
