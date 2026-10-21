@@ -1,6 +1,6 @@
 # Project: Action Roguelite (Godot 4, GDScript)
 
-Last synced with code commit: `8110b7d`. Update this line whenever this file changes.
+Last synced with code commit: `bfc6b75`. Update this line whenever this file changes.
 
 Auto-attack action roguelite (Vampire Survivors-style combat) with a Slay the Spire-style room map.
 Engine: Godot 4.x. The code uses `@abstract` and typed Dictionaries, so assume 4.5 or newer.
