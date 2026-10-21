@@ -55,6 +55,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_stack_cap,
 		_section_spawn_health,
 		_section_plasma_evolution,
+		_section_lightning_crit_multiplier,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -1899,3 +1900,69 @@ func _section_plasma_evolution() -> void:
 	check(not targets_share, "plasma guards: no real card, Burn or Chill modifier targets CRIT_DOT_SHARE")
 	check(not Tags.Type.keys().has("PLASMA") and Tags.Type.size() == 21, "plasma guards: Tags.Type has no PLASMA entry and still has 21 entries")
 	check(int(Stat.Type.CRIT_DOT_SHARE) == 21, "plasma guards: CRIT_DOT_SHARE is appended as integer 21")
+
+
+func _section_lightning_crit_multiplier() -> void:
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var chance_step := 0.03
+	var mult_step := 0.15
+
+	# a. The real card: CRIT_CHANCE first (unchanged), then CRIT_MULTIPLIER.
+	var mods := lightning.stat_modifiers
+	check(mods.size() == 2, "lightning crit mult: the real card has exactly two modifiers")
+	check(mods.size() == 2 and mods[0].target_stat_type == Stat.Type.CRIT_CHANCE and is_equal_approx(mods[0].value, chance_step), "lightning crit mult: the first modifier is CRIT_CHANCE, still 0.03")
+	check(mods.size() == 2 and mods[1].target_stat_type == Stat.Type.CRIT_MULTIPLIER and is_equal_approx(mods[1].value, mult_step), "lightning crit mult: the second modifier is CRIT_MULTIPLIER, 0.15")
+	if mods.size() != 2:
+		return
+	chance_step = mods[0].value
+	mult_step = mods[1].value
+
+	# b and c. Levels 0 to 3 in slot 1; a second ability in slot 2 is unaffected.
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var second_data := (load(fx.ARCANE_BOLT_DATA) as AbilityData).duplicate() as AbilityData
+	second_data.slot_index = 2 as AbilityData.Role
+	var second := player.ability_container.add_ability_from_data(second_data)
+	var ledger := player.run_ledger_component
+	for level in range(0, 4):
+		if level > 0:
+			ledger.log_slot_specific_purchase(lightning, 1)
+		check(is_equal_approx(ability.stats_container.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER), 1.5 + mult_step * level), "lightning crit mult: Lightning %d gives CRIT_MULTIPLIER %.2f" % [level, 1.5 + mult_step * level])
+		check(is_equal_approx(ability.stats_container.get_final_stat_value(Stat.Type.CRIT_CHANCE), 0.05 + chance_step * level), "lightning crit mult: Lightning %d gives CRIT_CHANCE %.2f" % [level, 0.05 + chance_step * level])
+	check(is_instance_valid(second) and is_equal_approx(second.stats_container.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER), 1.5), "lightning crit mult: a slot 2 ability without Lightning stays at 1.5")
+
+	# d. A forced-crit cast with Lightning 3.
+	var cast_player := fx.fresh_player()
+	var cast_ledger := cast_player.run_ledger_component
+	for i in range(3):
+		cast_ledger.log_slot_specific_purchase(lightning, 1)
+	var cast_stats := _make_stats({
+		Stat.Type.BASE_DAMAGE: 2.0,
+		Stat.Type.CRIT_CHANCE: 1.0,
+		Stat.Type.CRIT_MULTIPLIER: 1.5,
+		Stat.Type.DOT_DAMAGE: 4.0,
+		Stat.Type.CRIT_DOT_SHARE: 1.0,
+	}, 1, cast_ledger)
+	var payload := CombatCalculations.generate_hit_payload(null, cast_stats, null)
+	var multiplier := 1.5 + mult_step * 3.0
+	check(payload.is_critical_hit and is_equal_approx(payload.final_damage, 2.0 * multiplier), "lightning crit mult: a forced crit with Lightning 3 deals BASE_DAMAGE * 1.95")
+	check(is_equal_approx(payload.dot_damage_snapshot, 4.0 * (1.0 + (multiplier - 1.0) * 1.0)), "lightning crit mult: the Burn snapshot follows the ledger-driven multiplier (share 1.0)")
+
+	# e. The evolved Arc Bolt at Lightning 5.
+	var evolved := _plasma_evolved_player()
+	var arc := evolved.ability_container.get_ability_by_slot(1)
+	for i in range(2):
+		evolved.run_ledger_component.log_slot_specific_purchase(lightning, 1)
+	check(is_instance_valid(arc) and is_equal_approx(arc.stats_container.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER), 1.5 + mult_step * 5.0), "lightning crit mult: the evolved Arc Bolt at Lightning 5 reads CRIT_MULTIPLIER 2.25")
+	check(is_instance_valid(arc) and is_equal_approx(arc.stats_container.get_final_stat_value(Stat.Type.CRIT_CHANCE), 0.05 + chance_step * 5.0), "lightning crit mult: the evolved Arc Bolt at Lightning 5 reads CRIT_CHANCE 0.05 + 0.15")
+
+	# f. Guards.
+	var others_clean := true
+	for path in [FIRE_CARD, FROST_CARD, WIND_CARD, EARTH_CARD, DBG_MOVE_SPEED_CARD, DBG_OVERCLOCK_CARD]:
+		for modifier in (load(path) as UpgradeDefinition).stat_modifiers:
+			others_clean = others_clean and modifier.target_stat_type != Stat.Type.CRIT_MULTIPLIER
+	check(others_clean, "lightning crit mult: Fire, Frost, Wind, Earth, Player Movement and Overclock have no CRIT_MULTIPLIER modifier")
+	var lightning_clean := true
+	for modifier in lightning.stat_modifiers:
+		lightning_clean = lightning_clean and modifier.target_stat_type != Stat.Type.CRIT_DOT_SHARE and modifier.target_stat_type != Stat.Type.BASE_DAMAGE and modifier.target_stat_type != Stat.Type.DOT_DAMAGE
+	check(lightning_clean, "lightning crit mult: the Lightning card has no modifier on CRIT_DOT_SHARE, BASE_DAMAGE or DOT_DAMAGE")
