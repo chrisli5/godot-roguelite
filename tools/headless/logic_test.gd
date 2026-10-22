@@ -57,6 +57,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_plasma_evolution,
 		_section_lightning_crit_multiplier,
 		_section_burst_extensions,
+		_section_lingering_zone,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -2187,5 +2188,191 @@ func _list_tres(dir_path: String) -> Array[String]:
 		found.append_array(_list_tres(dir_path.path_join(entry)))
 	for file in dir.get_files():
 		if file.ends_with(".tres"):
+			found.append(dir_path.path_join(file))
+	return found
+
+
+const TEST_LINGERING_ZONE := "res://tools/headless/test_lingering_zone.tscn"
+
+
+func _zone_host() -> Node:
+	return tree.current_scene if is_instance_valid(tree.current_scene) else tree.root
+
+
+## An effect-only burst that spawns `scene` (a lingering zone) and nothing else.
+func _zone_burst(id: StringName, scene: PackedScene) -> ImpactBurstDefinition:
+	var definition := _ext_burst(id, 0.0, true, Tags.Type.NONE, false)
+	definition.effect_scene = scene
+	return definition
+
+
+## A cast payload for a zone: the given statuses, Burn dot snapshot `dot`, stack bonus 0.
+func _zone_payload(stats: StatsContainer, definition: ImpactBurstDefinition, statuses: Array[StatusEffect], dot: float = 5.0) -> CombatPayload:
+	var payload := _ext_payload(stats, 10.0, definition, statuses)
+	payload.dot_damage_snapshot = dot
+	payload.status_stack_bonus_snapshot = 0.0
+	return payload
+
+
+## Spawns the burst's zone at `origin` through the real burst path and returns it (null if none was added).
+func _spawn_zone(definition: ImpactBurstDefinition, payload: CombatPayload, origin: Vector2) -> LingeringZone:
+	var host := _zone_host()
+	var before := host.get_child_count()
+	ImpactBurst.run(definition, payload, origin, 0, tree.root.get_world_2d())
+	var zone: LingeringZone = null
+	if host.get_child_count() > before:
+		zone = host.get_child(host.get_child_count() - 1) as LingeringZone
+	await tree.process_frame
+	await tree.process_frame
+	return zone
+
+
+func _section_lingering_zone() -> void:
+	LingeringZone.reset_registry()
+	var zone_scene := load(TEST_LINGERING_ZONE) as PackedScene
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 10.0})
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var burn_list: Array[StatusEffect] = [burn]
+	var no_statuses: Array[StatusEffect] = []
+	var zone_def := _zone_burst(&"test_zone_burst", zone_scene)
+
+	# a. Safety fix: an effect gets a copy that is already a burst payload, with no bursts and no crit.
+	var effect_def := _ext_burst(&"test_zone_effect", 0.5, false, Tags.Type.NONE, false)
+	effect_def.effect_scene = load(TEST_BURST_EFFECT) as PackedScene
+	_clear_test_effects()
+	var crit_source := _ext_payload(stats, 10.0, effect_def, burn_list)
+	crit_source.is_critical_hit = true
+	ImpactBurst.run(effect_def, crit_source, Vector2(70000.0, 90000.0), 0, tree.root.get_world_2d())
+	var received: CombatPayload = TestBurstEffect.received[0] if TestBurstEffect.received.size() == 1 else null
+	check(received != null and received.is_burst and received.impact_bursts.is_empty() and not received.is_critical_hit, "zone: the payload an effect receives is is_burst, has no bursts and no crit")
+	check(received != null and received.status_effects_to_apply.size() == 1 and is_equal_approx(received.dot_damage_snapshot, 5.0) and is_equal_approx(received.status_duration_snapshot, 3.0) and is_equal_approx(received.status_ramp_cap_snapshot, 0.1) and is_equal_approx(received.status_stack_bonus_snapshot, 1.0), "zone: the effect payload keeps the cast statuses and snapshots")
+	check(crit_source.impact_bursts.size() == 1 and not crit_source.is_burst and crit_source.is_critical_hit and is_equal_approx(crit_source.final_damage, 10.0), "zone: the source payload is unchanged by the safety fix")
+	_clear_test_effects()
+
+	# b. End to end: a hit on bat A fires an effect-only burst that spawns one zone.
+	var origin := Vector2(70000.0, 91000.0)
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(30, 0), Vector2(70, 0)])
+	var refreshed_count := [0]
+	bats[1].status_effect_component.refreshed.connect(func(_instance: StatusEffectInstance) -> void: refreshed_count[0] += 1)
+	var host := _zone_host()
+	var children_before := host.get_child_count()
+	bats[0].hurtbox_component.take_hit(_zone_payload(stats, zone_def, burn_list))
+	await tree.process_frame
+	await tree.process_frame
+	var zone: LingeringZone = null
+	if host.get_child_count() > children_before:
+		zone = host.get_child(host.get_child_count() - 1) as LingeringZone
+	check(zone != null and host.get_child_count() == children_before + 1 and zone.global_position.is_equal_approx(origin), "zone: a hit on bat A spawns one zone at A's position")
+	check(LingeringZone.get_live_count(&"test_zone") == 1, "zone: the zone registered itself under its zone_id")
+	await tree.create_timer(0.15).timeout
+	var inside_burn: StatusEffectInstance = bats[1].status_effect_component._active_effects.get("burn")
+	check(inside_burn != null and is_equal_approx(inside_burn.dot_damage, 5.0) and is_equal_approx(inside_burn.duration_bonus, 3.0) and is_equal_approx(inside_burn.ramp_cap_bonus, 0.1) and is_equal_approx(inside_burn.stack_cap_bonus, 0.0), "zone: the bat inside gets the cast Burn with the exact snapshots")
+	check(not bats[2].status_effect_component._active_effects.has("burn"), "zone: the bat outside gets no Burn")
+	await tree.create_timer(1.0).timeout
+	check(refreshed_count[0] >= 2, "zone: the zone applies again on later intervals (refreshed fired %d times)" % refreshed_count[0])
+	check(inside_burn != null and inside_burn.stacks == 1, "zone: with stack bonus 0 the Burn stays at 1 stack")
+	check(not is_instance_valid(zone), "zone: the zone frees itself after its lifetime")
+	var zone_hits_clean: bool = _recorded[1].size() >= 2
+	for seen in _recorded[1]:
+		zone_hits_clean = zone_hits_clean and seen.is_burst and is_equal_approx(seen.final_damage, 0.0)
+	check(zone_hits_clean, "zone: every hit the zone delivered is is_burst with final_damage 0 (the Burn it applies still ticks on its own)")
+	_free_bats(bats)
+
+	# c. The player's hurtbox inside the radius gets no status.
+	var player := fx.get_player()
+	var saved_position := player.global_position
+	var saved_layer := player.hurtbox_component.collision_layer
+	var player_origin := Vector2(70000.0, 92000.0)
+	player.global_position = player_origin
+	player.hurtbox_component.collision_layer = saved_layer | 4
+	await tree.physics_frame
+	await tree.physics_frame
+	var player_zone := await _spawn_zone(zone_def, _zone_payload(stats, zone_def, burn_list), player_origin)
+	await tree.create_timer(0.3).timeout
+	check(player_zone != null and player.status_effect_component._active_effects.is_empty(), "zone: the player's hurtbox inside the radius gets no status")
+	player.hurtbox_component.collision_layer = saved_layer
+	player.global_position = saved_position
+	if is_instance_valid(player_zone):
+		player_zone.queue_free()
+	await tree.process_frame
+	LingeringZone.reset_registry()
+
+	# d. A payload with no statuses: the zone does nothing and raises no error.
+	bats = await _spawn_burst_bats(Vector2(70000.0, 93000.0), [Vector2(0, 0), Vector2(30, 0)])
+	var quiet_zone := await _spawn_zone(zone_def, _zone_payload(stats, zone_def, no_statuses), Vector2(70000.0, 93000.0))
+	await tree.create_timer(0.3).timeout
+	check(quiet_zone != null and is_instance_valid(quiet_zone) and bats[0].status_effect_component._active_effects.is_empty() and bats[1].status_effect_component._active_effects.is_empty() and _recorded[0].is_empty() and _recorded[1].is_empty(), "zone: a payload with no statuses hits nobody")
+	_free_bats(bats)
+	await tree.create_timer(0.5).timeout
+	LingeringZone.reset_registry()
+
+	# e. Radius: 35 from the centre is inside (circle 40 + hurtbox 10), 65 is outside.
+	var radius_origin := Vector2(70000.0, 94000.0)
+	bats = await _spawn_burst_bats(radius_origin, [Vector2(35, 0), Vector2(65, 0)])
+	var radius_zone := await _spawn_zone(zone_def, _zone_payload(stats, zone_def, burn_list), radius_origin)
+	await tree.create_timer(0.15).timeout
+	check(radius_zone != null and bats[0].status_effect_component._active_effects.has("burn"), "zone radius: a bat at radius - 5 is affected")
+	check(not bats[1].status_effect_component._active_effects.has("burn"), "zone radius: a bat at radius + 25 is not affected")
+	_free_bats(bats)
+	await tree.create_timer(0.6).timeout
+	LingeringZone.reset_registry()
+
+	# f. Merge: the same id 20 apart refreshes the live zone and adopts the newer payload.
+	var merge_origin := Vector2(70000.0, 95000.0)
+	bats = await _spawn_burst_bats(merge_origin, [Vector2(10, 0)])
+	var first := await _spawn_zone(zone_def, _zone_payload(stats, zone_def, burn_list, 5.0), merge_origin)
+	await tree.create_timer(0.3).timeout
+	var older_remaining := first._remaining if is_instance_valid(first) else 0.0
+	var second := await _spawn_zone(zone_def, _zone_payload(stats, zone_def, burn_list, 7.0), merge_origin + Vector2(20, 0))
+	check(LingeringZone.get_live_count(&"test_zone") == 1 and is_instance_valid(first) and not is_instance_valid(second), "zone merge: two zones 20 apart with the same id leave one live zone")
+	check(is_instance_valid(first) and older_remaining < 0.4 and first._remaining > 0.55, "zone merge: the surviving zone's lifetime was reset")
+	check(is_instance_valid(first) and is_equal_approx(first._payload.dot_damage_snapshot, 7.0), "zone merge: the surviving zone holds the newer payload")
+	await tree.create_timer(0.3).timeout
+	var merged_burn: StatusEffectInstance = bats[0].status_effect_component._active_effects.get("burn")
+	check(merged_burn != null and is_equal_approx(merged_burn.dot_damage, 7.0), "zone merge: the zone applies the newer payload's Burn (dot 7.0)")
+	var far := await _spawn_zone(zone_def, _zone_payload(stats, zone_def, burn_list), merge_origin + Vector2(100, 0))
+	check(LingeringZone.get_live_count(&"test_zone") == 2 and is_instance_valid(far), "zone merge: a zone 100 apart makes a second zone")
+	var other_inst := zone_scene.instantiate() as LingeringZone
+	other_inst.zone_id = &"test_zone_other"
+	var other_scene := PackedScene.new()
+	other_scene.pack(other_inst)
+	other_inst.free()
+	var other_def := _zone_burst(&"test_zone_other_burst", other_scene)
+	var other := await _spawn_zone(other_def, _zone_payload(stats, other_def, burn_list), merge_origin + Vector2(10, 0))
+	check(is_instance_valid(other) and LingeringZone.get_live_count(&"test_zone_other") == 1 and LingeringZone.get_live_count(&"test_zone") == 2, "zone merge: a different zone_id 20 apart never merges")
+	_free_bats(bats)
+	await tree.create_timer(0.8).timeout
+	LingeringZone.reset_registry()
+
+	# g. Cap: five far-apart zones with max_live_zones 3 leave the three newest.
+	var made: Array[LingeringZone] = []
+	for i in range(5):
+		made.append(await _spawn_zone(zone_def, _zone_payload(stats, zone_def, burn_list), Vector2(70000.0 + 1000.0 * i, 96000.0)))
+	check(LingeringZone.get_live_count(&"test_zone") == 3, "zone cap: five zones leave 3 registered")
+	check(not is_instance_valid(made[0]) and not is_instance_valid(made[1]) and is_instance_valid(made[2]) and is_instance_valid(made[3]) and is_instance_valid(made[4]), "zone cap: the two oldest zones are gone, the three newest remain")
+
+	# h. Registry: once every zone has expired nothing is left, a discarded merge instance included.
+	await tree.create_timer(1.0).timeout
+	check(LingeringZone.get_live_count(&"test_zone") == 0 and LingeringZone.get_live_count(&"test_zone_other") == 0 and LingeringZone._registry.is_empty(), "zone registry: empty after every zone has been freed")
+
+	# i. Guards: this task ships no scene or resource that uses the zone.
+	var referencing := 0
+	for dir_path in ["res://scenes", "res://resources", "res://components", "res://ui"]:
+		for path in _list_scene_files(dir_path):
+			if FileAccess.get_file_as_string(path).contains("lingering_zone.gd"):
+				referencing += 1
+	check(referencing == 0, "zone guards: no shipped scene or resource references lingering_zone.gd")
+	LingeringZone.reset_registry()
+
+
+func _list_scene_files(dir_path: String) -> Array[String]:
+	var found: Array[String] = []
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return found
+	for entry in dir.get_directories():
+		found.append_array(_list_scene_files(dir_path.path_join(entry)))
+	for file in dir.get_files():
+		if file.ends_with(".tscn") or file.ends_with(".tres"):
 			found.append(dir_path.path_join(file))
 	return found

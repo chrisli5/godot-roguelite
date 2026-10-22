@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `ccadfe6`. Update this line whenever this file changes.
+Last synced with code commit: `4bf4de6`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -123,6 +123,7 @@ A burst is not an ability. It has no slot, cooldown, anchor, stats profile or ta
 * **Limits.** A burst never crits and never triggers another burst. It applies no status unless its definition opts in, in which case it carries the cast's statuses and their snapshots. The enemy just hit is not hit again by its own burst. A required tag is checked on the primary target before the hit's own statuses apply.
 * **Every hit, no per-cast cap.** A fan, a chain or an area hit with many targets produces a burst per qualifying hit. Open items 39 and 40 revisit this.
 * **Timing.** The burst runs one frame after the hit, because a hit can land inside a physics callback.
+* **Lingering zones (Implemented as a component, Task V).** An effect-only burst can spawn a zone that lingers (4 s by default), re-applies the cast's statuses with their snapshots to enemies inside it every 0.5 s, and deals no damage of its own. A new zone near a live one of the same kind refreshes it instead of stacking, and at most 8 live zones per kind exist. No card uses it yet.
 
 A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.stat\_modifiers`. Fire uses two. Lightning's `CRIT\_MULTIPLIER` can use it later. See the open items.
 

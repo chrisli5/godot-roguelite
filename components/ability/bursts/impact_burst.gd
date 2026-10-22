@@ -58,9 +58,15 @@ static func _spawn_effect(definition: ImpactBurstDefinition, origin: Vector2, so
 	var effect := definition.effect_scene.instantiate() as Node2D
 	if effect == null:
 		return
-	# A BurstEffect gets its own copy of the cast's payload before it enters the tree.
+	# A BurstEffect gets its own copy of the cast's payload before it enters the tree. The copy is already
+	# a burst payload with no bursts and no crit, so an effect that hits enemies with it can never start a burst.
 	if effect is BurstEffect:
-		(effect as BurstEffect).configure(source_payload.duplicate() as CombatPayload)
+		var effect_payload := source_payload.duplicate() as CombatPayload
+		var no_bursts: Array[ImpactBurstDefinition] = []
+		effect_payload.impact_bursts = no_bursts
+		effect_payload.is_burst = true
+		effect_payload.is_critical_hit = false
+		(effect as BurstEffect).configure(effect_payload)
 	var tree := Engine.get_main_loop() as SceneTree
 	var host: Node = tree.current_scene if is_instance_valid(tree.current_scene) else tree.root
 	host.add_child(effect)
