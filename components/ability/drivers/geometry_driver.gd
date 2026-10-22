@@ -22,6 +22,25 @@ func get_query_shape(stats: StatsContainer) -> Shape2D:
 	return circle
 
 
+## Geometry families. Every concrete geometry declares one through get_family().
+const FAMILIES: Array[StringName] = [&"moving_hitbox", &"area_instant", &"chain", &"timed"]
+
+
+## Which family this geometry belongs to (one of FAMILIES). Every concrete geometry must override it; an empty family means the geometry has not declared its contract.
+func get_family() -> StringName:
+	return &""
+
+
+## The stats that set how far this geometry reaches. Earth scales these. Empty means none.
+func get_reach_stats() -> Array[Stat.Type]:
+	return []
+
+
+## The stats that set how fast this geometry moves or advances. Wind scales these. Empty means it has no speed concept.
+func get_speed_stats() -> Array[Stat.Type]:
+	return []
+
+
 ## Reach of an area geometry: the AOE_RADIUS stat, or `fallback` (with a one-time warning) when it is missing or 0.
 func _get_area_radius(stats: StatsContainer, fallback: float) -> float:
 	if is_instance_valid(stats):

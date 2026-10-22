@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `4bf4de6`. Update this line whenever this file changes.
+Last synced with code commit: `5ccfd8b`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -53,6 +53,17 @@ An ability is a stack of swappable drivers chosen by its `AbilityData`: a deploy
 * Each driver reads specific stats, and a missing stat reads 0.0. An evolution's stats profile must therefore carry every stat its drivers read (open item 18).
 * An evolution may change family, for example from a projectile ability to an area ability (decided).
 * Arcane Bolt today: caster anchor, a circular query sorted nearest-first, Targeted projectile geometry with a fan, and the Vector trajectory. The bolt is destroyed on its first hit.
+
+### Geometry contract (Implemented, Task W)
+
+Every concrete geometry declares its family, its reach stats (what Earth scales) and its speed stats (what Wind scales). The classes are not refactored; the declarations sit on each driver, and a logic check fails if a geometry scene has none. Fire, Frost and Lightning need no declaration: they work through statuses, the cooldown and the cast-time crit, so they reach every geometry that ends in `HurtboxComponent.take\_hit`. Timed areas (a melee swing arc, an aura, a trap) will join the area family as wrappers around the lingering zone; summons are out of scope until designed.
+
+|Family|Drivers|Reach stats (Earth)|Speed stats (Wind)|
+|-|-|-|-|
+|Moving hitbox|Targeted, Straight and Mouse aim projectiles|`AOE\_RADIUS` (hitbox)|`PROJECTILE\_MOVEMENT\_SPEED`|
+|Area, instant|Radial pulse, Linear sweep, Fissure, Converging vortex|`AOE\_RADIUS`|none yet|
+|Chain|Chain link (first-target range is `QUERY\_RADIUS`, which is targeting and not scaled)|`CHAIN\_RADIUS`|none yet|
+|Timed|Orbiting ring (its shards are moving hitboxes)|`ORBIT\_RADIUS`, `AOE\_RADIUS`|`ORBIT\_ROTATION\_SPEED`|
 
 ## 2\. Action bar: four ability slots and the Character Core
 

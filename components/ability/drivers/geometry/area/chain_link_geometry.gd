@@ -9,6 +9,21 @@ extends GeometryDriver
 @export var max_bounces: int = 4
 
 
+## Geometry contract: the family of this geometry.
+func get_family() -> StringName:
+	return &"chain"
+
+
+## Geometry contract: the stats that set how far this geometry reaches.
+func get_reach_stats() -> Array[Stat.Type]:
+	return [Stat.Type.CHAIN_RADIUS]
+
+
+## Geometry contract: the stats that set how fast this geometry moves or advances.
+func get_speed_stats() -> Array[Stat.Type]:
+	return []
+
+
 func get_query_shape(stats: StatsContainer) -> Shape2D:
 	return super(stats)
 

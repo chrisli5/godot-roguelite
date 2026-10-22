@@ -10,6 +10,21 @@ func get_query_shape(stats: StatsContainer) -> Shape2D:
 	return circle
 
 
+## Geometry contract: the family of this geometry.
+func get_family() -> StringName:
+	return &"area_instant"
+
+
+## Geometry contract: the stats that set how far this geometry reaches.
+func get_reach_stats() -> Array[Stat.Type]:
+	return [Stat.Type.AOE_RADIUS]
+
+
+## Geometry contract: the stats that set how fast this geometry moves or advances.
+func get_speed_stats() -> Array[Stat.Type]:
+	return []
+
+
 func _process_volume_hit(_hurtbox: HurtboxComponent, _origin: Vector2, _payload: CombatPayload) -> void:
 	pass
 

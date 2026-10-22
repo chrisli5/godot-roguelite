@@ -17,6 +17,21 @@ extends GeometryDriver
 @export var expansion_rate_per_step: float = 15.0
 
 
+## Geometry contract: the family of this geometry.
+func get_family() -> StringName:
+	return &"area_instant"
+
+
+## Geometry contract: the stats that set how far this geometry reaches.
+func get_reach_stats() -> Array[Stat.Type]:
+	return [Stat.Type.AOE_RADIUS]
+
+
+## Geometry contract: the stats that set how fast this geometry moves or advances.
+func get_speed_stats() -> Array[Stat.Type]:
+	return []
+
+
 func get_query_shape(_stats: StatsContainer) -> Shape2D:
 	return null # Returns null so the initial loop skips, allowing custom multi-step queries below
 

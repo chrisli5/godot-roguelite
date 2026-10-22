@@ -16,6 +16,21 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 
+## Geometry contract: the family of this geometry.
+func get_family() -> StringName:
+	return &"moving_hitbox"
+
+
+## Geometry contract: the stats that set how far this geometry reaches.
+func get_reach_stats() -> Array[Stat.Type]:
+	return [Stat.Type.AOE_RADIUS]
+
+
+## Geometry contract: the stats that set how fast this geometry moves or advances.
+func get_speed_stats() -> Array[Stat.Type]:
+	return [Stat.Type.PROJECTILE_MOVEMENT_SPEED]
+
+
 ## Virtual Method: Intended to be completely overridden by child classes
 func execute_geometry(_query_results: Dictionary, _final_payload: CombatPayload) -> void:
 	push_error("Abstract method 'execute_geometry' not implemented on " + name)

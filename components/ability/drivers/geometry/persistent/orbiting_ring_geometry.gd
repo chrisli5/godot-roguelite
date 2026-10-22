@@ -10,6 +10,21 @@ var _current_orbit_angle_rad: float = 0.0
 var _shard_amount: int = 0
 
 
+## Geometry contract: the family of this geometry.
+func get_family() -> StringName:
+	return &"timed"
+
+
+## Geometry contract: the stats that set how far this geometry reaches.
+func get_reach_stats() -> Array[Stat.Type]:
+	return [Stat.Type.ORBIT_RADIUS, Stat.Type.AOE_RADIUS]
+
+
+## Geometry contract: the stats that set how fast this geometry moves or advances.
+func get_speed_stats() -> Array[Stat.Type]:
+	return [Stat.Type.ORBIT_ROTATION_SPEED]
+
+
 ## Step 1: Handle unique first-frame spawning logic cleanly
 func _on_persistent_started(spawn_origin: Vector2, _query_results: Dictionary) -> void:
 	var stats = instance_from_id(_active_payload.stats_container_id)

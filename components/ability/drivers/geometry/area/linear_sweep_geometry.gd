@@ -7,6 +7,21 @@ extends GeometryDriver
 @export var cone_angle_degrees: float = 60.0
 
 
+## Geometry contract: the family of this geometry.
+func get_family() -> StringName:
+	return &"area_instant"
+
+
+## Geometry contract: the stats that set how far this geometry reaches.
+func get_reach_stats() -> Array[Stat.Type]:
+	return [Stat.Type.AOE_RADIUS]
+
+
+## Geometry contract: the stats that set how fast this geometry moves or advances.
+func get_speed_stats() -> Array[Stat.Type]:
+	return []
+
+
 ## Override Hook: Generates a custom procedural wedge directly facing the player's vector
 func get_query_shape(stats: StatsContainer) -> Shape2D:
 	var target_direction := Vector2.RIGHT

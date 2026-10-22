@@ -58,6 +58,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_lightning_crit_multiplier,
 		_section_burst_extensions,
 		_section_lingering_zone,
+		_section_geometry_contract,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -2376,3 +2377,108 @@ func _list_scene_files(dir_path: String) -> Array[String]:
 		if file.ends_with(".tscn") or file.ends_with(".tres"):
 			found.append(dir_path.path_join(file))
 	return found
+
+
+const GEOMETRY_DRIVER_DIR := "res://components/ability/drivers/geometry"
+
+
+func _list_tscn_files(dir_path: String) -> Array[String]:
+	var found: Array[String] = []
+	for path in _list_scene_files(dir_path):
+		if path.ends_with(".tscn"):
+			found.append(path)
+	return found
+
+
+func _stat_ids(stats: Array[Stat.Type]) -> Array[int]:
+	var ids: Array[int] = []
+	for stat in stats:
+		ids.append(int(stat))
+	ids.sort()
+	return ids
+
+
+func _section_geometry_contract() -> void:
+	# Task W: every geometry scene declares family, reach stats and speed stats.
+	# Expected table, mirrored in the GDD section 1: scene name -> [family, reach stats, speed stats].
+	var expected: Dictionary = {
+		"targeted_projectile_geometry": [&"moving_hitbox", [Stat.Type.AOE_RADIUS], [Stat.Type.PROJECTILE_MOVEMENT_SPEED]],
+		"straight_projectile_geometry": [&"moving_hitbox", [Stat.Type.AOE_RADIUS], [Stat.Type.PROJECTILE_MOVEMENT_SPEED]],
+		"mouse_aim_projectile_geometry": [&"moving_hitbox", [Stat.Type.AOE_RADIUS], [Stat.Type.PROJECTILE_MOVEMENT_SPEED]],
+		"radial_pulse_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
+		"converging_vortex_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
+		"linear_sweep_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
+		"fissure_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
+		"chain_link_geometry": [&"chain", [Stat.Type.CHAIN_RADIUS], []],
+		"orbiting_ring_geometry": [&"timed", [Stat.Type.ORBIT_RADIUS, Stat.Type.AOE_RADIUS], [Stat.Type.ORBIT_ROTATION_SPEED]],
+	}
+	var found_names: Array[String] = []
+	var drivers: Dictionary = {}
+	for path in _list_tscn_files(GEOMETRY_DRIVER_DIR):
+		var scene_name := path.get_file().get_basename()
+		found_names.append(scene_name)
+		var driver := (load(path) as PackedScene).instantiate() as GeometryDriver
+		if driver == null:
+			check(false, "geometry contract: %s has a GeometryDriver root" % scene_name)
+			continue
+		fx.track(driver)
+		drivers[scene_name] = driver
+		var family := driver.get_family()
+		check(family != &"" and GeometryDriver.FAMILIES.has(family), "geometry contract: %s declares a family in FAMILIES (got '%s')" % [scene_name, family])
+		check(driver.get_reach_stats() is Array[Stat.Type] and driver.get_speed_stats() is Array[Stat.Type], "geometry contract: %s returns typed stat arrays" % scene_name)
+
+	# b. The table, compared exactly.
+	for scene_name in expected:
+		if not drivers.has(scene_name):
+			continue
+		var driver: GeometryDriver = drivers[scene_name]
+		var row: Array = expected[scene_name]
+		check(driver.get_family() == row[0], "geometry contract: %s family is %s" % [scene_name, row[0]])
+		var want_reach: Array[Stat.Type] = []
+		want_reach.assign(row[1])
+		var want_speed: Array[Stat.Type] = []
+		want_speed.assign(row[2])
+		check(_stat_ids(driver.get_reach_stats()) == _stat_ids(want_reach), "geometry contract: %s reach stats match the table" % scene_name)
+		check(_stat_ids(driver.get_speed_stats()) == _stat_ids(want_speed), "geometry contract: %s speed stats match the table" % scene_name)
+
+	# c. Every call returns a new array.
+	var fresh_ok := true
+	for scene_name in drivers:
+		var driver: GeometryDriver = drivers[scene_name]
+		var reach_a := driver.get_reach_stats()
+		reach_a.append(Stat.Type.QUERY_RADIUS)
+		var speed_a := driver.get_speed_stats()
+		speed_a.append(Stat.Type.QUERY_RADIUS)
+		fresh_ok = fresh_ok and not driver.get_reach_stats().has(Stat.Type.QUERY_RADIUS) and not driver.get_speed_stats().has(Stat.Type.QUERY_RADIUS)
+	check(fresh_ok, "geometry contract: each call returns a new array (mutating one does not change the next)")
+
+	# d. The table is complete in both directions.
+	found_names.sort()
+	var table_names: Array = expected.keys()
+	table_names.sort()
+	check(found_names == table_names, "geometry contract: scene names found %s equal the table %s" % [found_names, table_names])
+
+	# e. Shipped abilities carry a profile key for every stat their geometry declares.
+	for data_path in ["res://resources/abilities/arcane_bolt/arcane_bolt_data.tres", "res://resources/abilities/arc_bolt/arc_bolt_data.tres"]:
+		var data := load(data_path) as AbilityData
+		var geometry := data.geometry_driver_scene.instantiate() as GeometryDriver
+		fx.track(geometry)
+		var ability_name: String = data_path.get_file().get_basename()
+		var declared: Array[Stat.Type] = []
+		declared.append_array(geometry.get_reach_stats())
+		declared.append_array(geometry.get_speed_stats())
+		for stat in declared:
+			check(data.stats_profile.base_stats.has(stat), "geometry contract: %s profile has %s" % [ability_name, Stat.Type.keys()[stat]])
+
+	# f. Behavior guard: query shapes for a fixed stats dictionary are unchanged.
+	var area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0})
+	for scene_name in ["targeted_projectile_geometry", "straight_projectile_geometry", "mouse_aim_projectile_geometry", "chain_link_geometry"]:
+		var circle := (drivers[scene_name] as GeometryDriver).get_query_shape(area_stats) as CircleShape2D
+		check(circle != null and is_equal_approx(circle.radius, 150.0), "geometry contract: %s query circle still QUERY_RADIUS (150)" % scene_name)
+	for scene_name in ["radial_pulse_geometry", "converging_vortex_geometry"]:
+		var circle := (drivers[scene_name] as GeometryDriver).get_query_shape(area_stats) as CircleShape2D
+		check(circle != null and is_equal_approx(circle.radius, 200.0), "geometry contract: %s query circle still AOE_RADIUS (200)" % scene_name)
+	var wedge := (drivers["linear_sweep_geometry"] as GeometryDriver).get_query_shape(area_stats) as ConvexPolygonShape2D
+	check(wedge != null and is_equal_approx(wedge.points[1].length(), 200.0) and is_equal_approx(wedge.points[2].length(), 200.0), "geometry contract: linear_sweep_geometry far vertices still AOE_RADIUS (200)")
+	check((drivers["fissure_geometry"] as GeometryDriver).get_query_shape(area_stats) == null, "geometry contract: fissure_geometry query shape still null")
+	check((drivers["orbiting_ring_geometry"] as GeometryDriver).get_query_shape(area_stats) == null, "geometry contract: orbiting_ring_geometry query shape still null")
