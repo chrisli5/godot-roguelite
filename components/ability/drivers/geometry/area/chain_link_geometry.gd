@@ -51,10 +51,11 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 	var chain_state: Dictionary = {"target_id": initial_target.get_instance_id(), "position": initial_target.global_position}
 	var excluded_instance_ids: Array[int] = [initial_target.get_instance_id()]
 
+	# Step 0 is the primary target, hit now so the steps never hold a reference to it (it may be freed by step 1)
+	initial_target.take_hit(final_payload)
+
 	var on_step := func(index: int) -> bool:
-		# Step 0 is the primary target
 		if index == 0:
-			initial_target.take_hit(final_payload)
 			return true
 
 		# Later steps search from where the last hit target is now, or was last seen
