@@ -10,11 +10,50 @@ const ARCANE_BOLT_DATA := "res://resources/abilities/arcane_bolt/arcane_bolt_dat
 var tree: SceneTree
 var world: Node
 var _tracked: Array[Node] = []
+## The shared error capture (Task AA); created by the first run_section().
+var capture: ErrorCapture = null
+var _warning_total: int = 0
 
 
 func _init(scene_tree: SceneTree, world_node: Node) -> void:
 	tree = scene_tree
 	world = world_node
+
+
+## Runs `section` between begin_section() and end_section() under the error capture, then records one check through
+## `check_fn(cond: bool, msg: String)`: "error guard <section>: no unexpected engine errors". Warnings are counted, never failed.
+func run_section(section: Callable, check_fn: Callable) -> void:
+	var section_name := String(section.get_method())
+	if capture == null:
+		capture = ErrorCapture.new()
+		capture.install()
+	capture.begin()
+	begin_section()
+	await section.call()
+	end_section()
+	var entries := capture.drain()
+	var verdict := ExpectedErrors.filter(section_name, capture.errors_only(entries))
+	var unexpected: Array = verdict["unexpected"]
+	var warnings := entries.size() - capture.errors_only(entries).size()
+	if warnings > 0:
+		print("WARNINGS %s: %d" % [section_name, warnings])
+		_warning_total += warnings
+	for entry in verdict["unused_entries"]:
+		print("INFO  unused allow-list entry in %s: %s" % [section_name, entry.get("fragment", "")])
+	var detail := ""
+	for i in range(mini(3, unexpected.size())):
+		var error: Dictionary = unexpected[i]
+		detail += "
+      %s:%d %s" % [error.get("file", ""), error.get("line", 0), error.get("message", "")]
+	check_fn.call(unexpected.is_empty(), "error guard %s: no unexpected engine errors (%d allowed)%s" % [section_name, (verdict["allowed"] as Array).size(), detail])
+
+
+## Uninstalls the error capture and prints the warning total. Call once at the end of a run.
+func finish_guard() -> void:
+	if capture != null:
+		capture.uninstall()
+		capture = null
+	print("WARNINGS total: %d" % _warning_total)
 
 
 func begin_section() -> void:

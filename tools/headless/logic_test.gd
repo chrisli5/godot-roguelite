@@ -62,11 +62,11 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_speed_reach_bonus,
 		_section_geometry_standardization,
 		_section_stepped_delivery,
+		_section_error_guard,
 	]
 	for section in sections:
-		fx.begin_section()
-		await section.call()
-		fx.end_section()
+		await fx.run_section(section, check)
+	fx.finish_guard()
 	print("LOGICTEST done fails=%d" % fails)
 	return 1 if fails > 0 else 0
 
@@ -3105,3 +3105,55 @@ func _section_stepped_delivery() -> void:
 			sequenced_scenes.append(path.get_file().get_basename())
 	sequenced_scenes.sort()
 	check(sequenced_scenes == ["chain_link_geometry", "fissure_geometry"], "stepped scenes: only chain link and fissure extend SequencedGeometry (found %s)" % str(sequenced_scenes))
+
+
+func _section_error_guard() -> void:
+	# a. The capture records a warning and an error, and drain() empties it. These two lines show in the console on purpose.
+	var capture := fx.capture
+	capture.drain()
+	push_warning("error_guard_probe_warning")
+	push_error("error_guard_probe_error")
+	var entries := capture.drain()
+	var warning_entry: Dictionary = {}
+	var error_entry: Dictionary = {}
+	for entry in entries:
+		if str(entry["message"]).contains("error_guard_probe_warning"):
+			warning_entry = entry
+		elif str(entry["message"]).contains("error_guard_probe_error"):
+			error_entry = entry
+	check(entries.size() == 2 and warning_entry.get("kind", "") == "warning", "error guard: a push_warning is recorded as a warning")
+	check(error_entry.get("kind", "") == "error" and not str(error_entry.get("file", "")).is_empty() and int(error_entry.get("line", 0)) > 0, "error guard: a push_error is recorded as an error with a file and a line")
+	check(capture.errors_only(entries).size() == 1 and capture.drain().is_empty(), "error guard: errors_only drops the warning and a second drain is empty")
+
+	# b. ExpectedErrors.filter with a fake list.
+	var fake: Array[Dictionary] = [
+		{"section": "_section_fake", "fragment": "known engine noise", "max_count": 2, "reason": "test entry"},
+		{"section": "_section_fake", "fragment": "never printed at all", "max_count": 1, "reason": "test entry"},
+	]
+	var noise: Dictionary = {"message": "ERROR: known engine noise here", "file": "x.gd", "line": 1}
+	var other: Dictionary = {"message": "something else broke", "file": "y.gd", "line": 2}
+	var errors: Array[Dictionary] = [noise, noise, noise, other]
+	var verdict := ExpectedErrors.filter("_section_fake", errors, fake)
+	check((verdict["allowed"] as Array).size() == 2, "expected errors: a matching error is allowed up to max_count")
+	check((verdict["unexpected"] as Array).size() == 2, "expected errors: one more than max_count, and an unmatched error, are unexpected")
+	check((verdict["unused_entries"] as Array).size() == 1 and (verdict["unused_entries"][0] as Dictionary)["fragment"] == "never printed at all", "expected errors: an entry that matched nothing is reported as unused")
+	var elsewhere := ExpectedErrors.filter("_section_other", errors, fake)
+	check((elsewhere["allowed"] as Array).is_empty() and (elsewhere["unexpected"] as Array).size() == 4 and (elsewhere["unused_entries"] as Array).is_empty(), "expected errors: a different section name never matches")
+
+	# c. The real allow-list is honest.
+	var list_ok := true
+	for entry in ExpectedErrors.EXPECTED:
+		list_ok = list_ok and not str(entry.get("reason", "")).is_empty() and str(entry.get("fragment", "")).length() >= 12
+	check(list_ok, "expected errors: every real entry has a reason and a fragment of at least 12 characters")
+
+	# d. uninstall() removes the logger. The shared capture also sees these probes, so it is drained afterwards.
+	var temporary := ErrorCapture.new()
+	temporary.install()
+	temporary.begin()
+	push_error("error_guard_while_installed")
+	var while_installed := temporary.drain()
+	temporary.uninstall()
+	push_error("error_guard_after_uninstall")
+	var after_uninstall := temporary.drain()
+	capture.drain()
+	check(while_installed.size() == 1 and after_uninstall.is_empty(), "error guard: uninstall() stops the logger from recording")

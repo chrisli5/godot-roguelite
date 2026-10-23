@@ -68,9 +68,8 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_tag_card_draft,
 	]
 	for section in sections:
-		fx.begin_section()
-		await section.call()
-		fx.end_section()
+		await fx.run_section(section, check)
+	fx.finish_guard()
 
 	if OS.get_environment("GOLDEN_UPDATE") == "1":
 		_write_golden()
