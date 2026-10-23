@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `e584ddb`. Update this line whenever this file changes.
+Last synced with code commit: `e7f7bfc`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -61,8 +61,9 @@ Every concrete geometry declares its family, its reach stats (what Earth scales)
 |Family|Drivers|Reach stats (Earth)|Speed stats (Wind)|
 |-|-|-|-|
 |Moving hitbox|Targeted, Straight and Mouse aim projectiles|`AOE\_RADIUS` (hitbox)|`PROJECTILE\_MOVEMENT\_SPEED`|
-|Area, instant|Radial pulse, Linear sweep, Fissure, Converging vortex|`AOE\_RADIUS`|none yet|
-|Chain|Chain link (first-target range is `QUERY\_RADIUS`, which is targeting and not scaled)|`CHAIN\_RADIUS`|none yet|
+|Area, instant|Radial pulse, Linear sweep, Converging vortex|`AOE\_RADIUS`|none|
+|Area, stepped|Fissure (three strikes, `step\_delay` 0.12 s apart)|`AOE\_RADIUS`|the step delay, divided by one plus `SPEED\_BONUS`|
+|Chain|Chain link (first-target range is `QUERY\_RADIUS`, which is targeting and not scaled; bounces `step\_delay` 0.08 s apart)|`CHAIN\_RADIUS`|the step delay, divided by one plus `SPEED\_BONUS`|
 |Timed|Orbiting ring (its shards are moving hitboxes)|`ORBIT\_RADIUS`, `AOE\_RADIUS`|`ORBIT\_ROTATION\_SPEED`|
 
 ## 2\. Action bar: four ability slots and the Character Core
@@ -347,7 +348,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |44|How stack cards are introduced (level-up pool, a separate draft, or tied to something else). Not Fire levels: Fire stays build agnostic|Design decision|
 |45|Stack caps and per-stack strength are untuned: at the placeholder numbers a cap of 4 gives a hit-specialist ability as much DoT as hit damage. Needs the hit/DoT budget (item 34) first|Balance|
 |46|Stacks from several sources share one instance per target. A re-apply never lowers the stack count, so a cap-1 source keeps a cap-4 source's stacks and its own snapshot wins. Decide whether that is wanted|Design decision|
-|47|Earth now scales chain reach (`REACH\_BONUS` scales `CHAIN\_RADIUS`, Task X). Wind's direct stat still does nothing on instant geometries (chain, fissure, sweep, pulse) until they get a base delay (decided Oct 22, not built)|Design decision|
+|47|Earth scales chain reach (`REACH\_BONUS` scales `CHAIN\_RADIUS`, Task X) and Wind's `SPEED\_BONUS` shortens the step delay of chain and fissure (Task Z). Wind still does nothing on the instant geometries (pulse, sweep, vortex), which have no speed concept|Design decision|
 |48|Plasma numbers are placeholders. At Lightning 3 the crit chance is 14% (0.05 plus 0.03 per level) and the multiplier is 1.95, so the average Burn bonus is about +13%; at Lightning 5 it is about +25%|Balance|
 |49|Lightning's crit chance and multiplier ship on the infusion card (+0.03 and +0.15 per level, placeholders; the balance workbook used +0.05 and +0.15). Whether crit stats stay on the infusion card is undecided, because the library of non-infusion cards is not designed yet. The workbook's hit-build numbers need re-running with the multiplier|Design decision|
 |50|Every shape query returns at most 32 enemies (`MAX\_QUERY\_RESULTS`), so an area or chain hits only the 32 nearest in a crowd larger than that. Decide whether the limit should be higher before swarms are designed|Balance|

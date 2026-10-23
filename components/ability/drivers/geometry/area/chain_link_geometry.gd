@@ -1,5 +1,5 @@
 class_name ChainLinkGeometry
-extends GeometryDriver
+extends SequencedGeometry
 
 @export_group("Chaining Constraints")
 @export var max_bounces: int = 4
@@ -39,48 +39,47 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 		delivery_finished.emit()
 		return
 
-	# Extract chain jump stats from dynamic runtime memory banks
+	# Everything the steps need is read now, at cast time
 	var stats := _stats_of(final_payload)
-	var has_stats := is_instance_valid(stats)
-	var chain_jump_radius: float = StatBonus.reach(stats, Stat.Type.CHAIN_RADIUS) if has_stats else 400.0
+	var chain_jump_radius: float = StatBonus.reach(stats, Stat.Type.CHAIN_RADIUS) if is_instance_valid(stats) else 400.0
+	var delay := _sequence_delay(stats)
 
-	# Apply damage payload to the primary target
-	initial_target.take_hit(final_payload)
-
-	# 3. Procedural Secondary Bouncing Engine Loop
-	var active_search_position := initial_target.global_position
+	# Chain state shared by the steps (a Dictionary, because a lambda copies plain locals): the last hit target and
+	# where it was last seen, plus everything already hit
 	var lookup_shape := CircleShape2D.new()
+	lookup_shape.radius = chain_jump_radius
+	var chain_state: Dictionary = {"target_id": initial_target.get_instance_id(), "position": initial_target.global_position}
 	var excluded_instance_ids: Array[int] = [initial_target.get_instance_id()]
 
-	for bounce_index in range(max_bounces):
-		lookup_shape.radius = chain_jump_radius
-		
-		# Execute a secondary spatial sweep centered precisely on the current hit target
-		var candidates := _enemy_hurtboxes_in(lookup_shape, active_search_position)
+	var on_step := func(index: int) -> bool:
+		# Step 0 is the primary target
+		if index == 0:
+			initial_target.take_hit(final_payload)
+			return true
 
-		if candidates.is_empty():
-			break
-
+		# Later steps search from where the last hit target is now, or was last seen
+		var last_target := instance_from_id(chain_state["target_id"]) as HurtboxComponent
+		var last_position: Vector2 = chain_state["position"]
+		if is_instance_valid(last_target):
+			last_position = last_target.global_position
+			chain_state["position"] = last_position
+		var candidates := _enemy_hurtboxes_in(lookup_shape, last_position)
 		var next_target: HurtboxComponent = null
 		var shortest_dist_sq := chain_jump_radius * chain_jump_radius
-		
-		# Proximity filtering layout logic for cascading chains
-		for target_collider in candidates:
-			# Enforce bounce safety rules: Do not hit the same enemy twice during a single cast tree loop
-			if excluded_instance_ids.has(target_collider.get_instance_id()):
+		for candidate in candidates:
+			# Do not hit the same enemy twice during a single cast
+			if excluded_instance_ids.has(candidate.get_instance_id()):
 				continue
-
-			var dist_sq := active_search_position.distance_squared_to(target_collider.global_position)
+			var dist_sq := last_position.distance_squared_to(candidate.global_position)
 			if dist_sq < shortest_dist_sq:
 				shortest_dist_sq = dist_sq
-				next_target = target_collider
+				next_target = candidate
+		if not is_instance_valid(next_target):
+			return false
+		excluded_instance_ids.append(next_target.get_instance_id())
+		next_target.take_hit(final_payload)
+		chain_state["target_id"] = next_target.get_instance_id()
+		chain_state["position"] = next_target.global_position
+		return true
 
-		# Apply cascade hit if a valid untargeted neighbor unit exists
-		if is_instance_valid(next_target):
-			excluded_instance_ids.append(next_target.get_instance_id())
-			next_target.take_hit(final_payload)
-			active_search_position = next_target.global_position
-		else:
-			break 
-
-	delivery_finished.emit()
+	_begin_sequence(max_bounces + 1, delay, on_step)

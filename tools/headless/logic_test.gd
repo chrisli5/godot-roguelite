@@ -61,6 +61,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
 		_section_geometry_standardization,
+		_section_stepped_delivery,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -2410,7 +2411,7 @@ func _section_geometry_contract() -> void:
 		"radial_pulse_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
 		"converging_vortex_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
 		"linear_sweep_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
-		"fissure_geometry": [&"area_instant", [Stat.Type.AOE_RADIUS], []],
+		"fissure_geometry": [&"area_stepped", [Stat.Type.AOE_RADIUS], []],
 		"chain_link_geometry": [&"chain", [Stat.Type.CHAIN_RADIUS], []],
 		"orbiting_ring_geometry": [&"timed", [Stat.Type.ORBIT_RADIUS, Stat.Type.AOE_RADIUS], [Stat.Type.ORBIT_ROTATION_SPEED]],
 	}
@@ -2890,3 +2891,217 @@ func _section_geometry_standardization() -> void:
 	check(limit_declared == ["res://components/utility/combat_physics.gd"], "standardization guard: MAX_QUERY_RESULTS is defined only in combat_physics.gd (found %s)" % str(limit_declared))
 	check(driver_leftovers.is_empty(), "standardization guard: no geometry driver, burst shape or burst effect declares its own mask or buffer (found %s)" % str(driver_leftovers))
 	check(query_component_names == ["enemy_collision_mask", "max_results_buffer"], "standardization guard: SpatialQueryComponent keeps its two exports under the standard names")
+
+
+const SequenceProbe = preload("res://tools/headless/sequence_probe.gd")
+
+
+func _wait_physics_frames(count: int) -> void:
+	for i in range(count):
+		await tree.physics_frame
+
+
+## Number of hurtbox hits recorded under the keys "<tag>_0" .. "<tag>_<count - 1>" that are above 0.
+func _tagged_hit_count(tag: String, count: int) -> int:
+	var total := 0
+	for i in range(count):
+		if int(_std_hits.get("%s_%d" % [tag, i], 0)) > 0:
+			total += 1
+	return total
+
+
+## Spawns six frozen bats 100 apart from `origin`, casts a chain at the first one and returns {"chain", "bats", "stats"}.
+## The chain's finish count is recorded in _std_hits["fin_<tag>"].
+func _cast_chain_line(tag: String, origin: Vector2, delay: float, speed_bonus: float) -> Dictionary:
+	var chain := ChainLinkGeometry.new()
+	chain.step_delay = delay
+	world.add_child(chain)
+	fx.track(chain)
+	_std_hits["fin_" + tag] = 0
+	chain.delivery_finished.connect(func() -> void: _std_hits["fin_" + tag] = int(_std_hits["fin_" + tag]) + 1)
+	var bats: Array[Enemy] = []
+	for i in range(6):
+		bats.append(_spawn_counted_bat(origin + Vector2(100.0 * i, 0.0), "%s_%d" % [tag, i]))
+	await _wait_physics_frames(2)
+	var stats := _make_stats({Stat.Type.CHAIN_RADIUS: 150.0, Stat.Type.SPEED_BONUS: speed_bonus})
+	var payload := CombatPayload.new()
+	payload.stats_container_id = stats.get_instance_id()
+	chain.execute_geometry({"hit_nodes": [bats[0].hurtbox_component]}, payload)
+	return {"chain": chain, "bats": bats, "stats": stats}
+
+
+func _section_stepped_delivery() -> void:
+	# a. StatBonus.interval.
+	var interval_ok := true
+	for pair in [[0.0, 0.2], [1.0, 0.1], [0.5, 0.2 / 1.5]]:
+		var s := _make_stats({Stat.Type.SPEED_BONUS: pair[0]})
+		interval_ok = interval_ok and is_equal_approx(StatBonus.interval(s, 0.2), pair[1])
+	check(interval_ok, "interval helper: 0.2 s with SPEED_BONUS 0 / 1.0 / 0.5 gives 0.2 / 0.1 / 0.1333")
+	check(is_equal_approx(StatBonus.interval(null, 0.2), 0.2), "interval helper: an invalid stats object returns the input")
+
+	# b. SequencedGeometry through the test-only probe.
+	var timed: SequencedGeometry = SequenceProbe.new()
+	world.add_child(timed)
+	fx.track(timed)
+	timed.start(4, 0.1)
+	check(timed.steps_run == [0] and timed.finished_count == 0, "sequence: step 0 runs at once, the rest wait")
+	await _wait_physics_frames(3)
+	check(timed.steps_run == [0], "sequence: no later step before the delay has passed")
+	await _wait_physics_frames(6)
+	check(timed.steps_run == [0, 1] and timed.finished_count == 0, "sequence: step 1 runs after about one delay")
+	await _wait_physics_frames(40)
+	check(timed.steps_run == [0, 1, 2, 3] and timed.finished_count == 1, "sequence: every step runs in order and delivery finishes once")
+	await _wait_physics_frames(10)
+	check(timed.finished_count == 1, "sequence: no second finish afterwards")
+
+	var early: SequencedGeometry = SequenceProbe.new()
+	early.stop_at = 1
+	world.add_child(early)
+	fx.track(early)
+	early.start(4, 0.05)
+	await _wait_physics_frames(40)
+	check(early.steps_run == [0, 1] and early.finished_count == 1, "sequence: returning false ends it early, with one finish")
+
+	var instant: SequencedGeometry = SequenceProbe.new()
+	world.add_child(instant)
+	fx.track(instant)
+	instant.start(3, 0.0)
+	check(instant.steps_run == [0, 1, 2] and instant.finished_count == 1, "sequence: delay 0 runs every step and finishes before the call returns")
+	var instant_early: SequencedGeometry = SequenceProbe.new()
+	instant_early.stop_at = 1
+	world.add_child(instant_early)
+	fx.track(instant_early)
+	instant_early.start(5, 0.0)
+	check(instant_early.steps_run == [0, 1] and instant_early.finished_count == 1, "sequence: delay 0 honors the early stop")
+
+	var replaced: SequencedGeometry = SequenceProbe.new()
+	world.add_child(replaced)
+	fx.track(replaced)
+	replaced.start(5, 0.1)
+	await _wait_physics_frames(9)
+	replaced.steps_run.clear()
+	replaced.start(2, 0.1)
+	await _wait_physics_frames(40)
+	check(replaced.steps_run == [0, 1] and replaced.finished_count == 1, "sequence: a second sequence replaces a running one with no extra finish")
+
+	var doomed: SequencedGeometry = SequenceProbe.new()
+	world.add_child(doomed)
+	doomed.start(5, 0.1)
+	await _wait_physics_frames(3)
+	doomed.free()
+	await _wait_physics_frames(20)
+	check(not is_instance_valid(doomed), "sequence: freeing the node mid-sequence ends it without an error")
+
+	# c. Chain link with a step delay.
+	var plain := await _cast_chain_line("cn_a", Vector2(100000, 100000), 0.1, 0.0)
+	check(_tagged_hit_count("cn_a", 6) == 1, "stepped chain: right after the cast only the first bat is hit")
+	await _wait_physics_frames(9)
+	check(_tagged_hit_count("cn_a", 6) == 2 and int(_std_hits["fin_cn_a"]) == 0, "stepped chain: after about 0.15 s exactly two bats are hit")
+	await _wait_physics_frames(60)
+	check(_tagged_hit_count("cn_a", 6) == 5 and int(_std_hits["fin_cn_a"]) == 1 and int(_std_hits["cn_a_5"]) == 0, "stepped chain: later all five bats are hit, the sixth is not, and delivery finishes once")
+
+	var boosted := await _cast_chain_line("cn_b", Vector2(100000, 101000), 0.1, 1.0)
+	await _wait_physics_frames(9)
+	check(_tagged_hit_count("cn_b", 6) >= 3 and _tagged_hit_count("cn_b", 6) > 2, "stepped chain: SPEED_BONUS 1.0 bounces twice as fast (3 or more hits at the checkpoint where the plain chain had 2)")
+	await _wait_physics_frames(60)
+	check(_tagged_hit_count("cn_b", 6) == 5 and int(_std_hits["fin_cn_b"]) == 1, "stepped chain: the boosted chain still ends with five hits and one finish")
+
+	var moved := await _cast_chain_line("cn_m", Vector2(100000, 102000), 0.1, 0.0)
+	var moved_bats: Array = moved["bats"]
+	moved_bats[1].global_position += Vector2(0, 5000)
+	moved_bats[3].global_position = Vector2(100000, 102000) + Vector2(60, 40)
+	await _wait_physics_frames(80)
+	check(int(_std_hits["cn_m_1"]) == 0 and int(_std_hits["cn_m_3"]) == 1, "stepped chain: a bat moved out of range is skipped and one moved into range is chosen")
+
+	var freed := await _cast_chain_line("cn_f", Vector2(100000, 103000), 0.1, 0.0)
+	var freed_bats: Array = freed["bats"]
+	freed_bats[0].queue_free()
+	await _wait_physics_frames(80)
+	check(int(_std_hits["cn_f_1"]) == 1 and _tagged_hit_count("cn_f", 6) >= 4 and int(_std_hits["fin_cn_f"]) == 1, "stepped chain: freeing the first bat does not stop the chain, which continues from its last position")
+
+	var sync_chain := ChainLinkGeometry.new()
+	world.add_child(sync_chain)
+	fx.track(sync_chain)
+	check(is_equal_approx(sync_chain.step_delay, 0.0), "stepped chain: .new() defaults to delay 0")
+	_std_hits["fin_sync"] = 0
+	sync_chain.delivery_finished.connect(func() -> void: _std_hits["fin_sync"] = int(_std_hits["fin_sync"]) + 1)
+	var sync_origin := Vector2(100000, 104000)
+	var sync_bats: Array[Enemy] = []
+	for i in range(6):
+		sync_bats.append(_spawn_counted_bat(sync_origin + Vector2(100.0 * i, 0.0), "cn_s_%d" % i))
+	await _wait_physics_frames(2)
+	var sync_payload := CombatPayload.new()
+	sync_payload.stats_container_id = _make_stats({Stat.Type.CHAIN_RADIUS: 150.0}).get_instance_id()
+	sync_chain.execute_geometry({"hit_nodes": [sync_bats[0].hurtbox_component]}, sync_payload)
+	check(_tagged_hit_count("cn_s", 6) == 5 and int(_std_hits["cn_s_5"]) == 0 and int(_std_hits["fin_sync"]) == 1, "stepped chain: delay 0 hits five bats and finishes once before the call returns")
+
+	# d. Fissure with a step delay.
+	var player := fx.fresh_player()
+	player.velocity = Vector2.ZERO
+	var fissure_origin := Vector2(100000, 106000)
+	var fissure := FissureGeometry.new()
+	fissure.step_delay = 0.1
+	world.add_child(fissure)
+	fx.track(fissure)
+	_std_hits["fin_fissure"] = 0
+	fissure.delivery_finished.connect(func() -> void: _std_hits["fin_fissure"] = int(_std_hits["fin_fissure"]) + 1)
+	# Strikes sit at +70, +140, +210 on x with radii 40, 55, 70; hurtboxes add 10.
+	var bat_first := _spawn_counted_bat(fissure_origin + Vector2(70, 0), "fs_first")
+	var bat_walks_in := _spawn_counted_bat(fissure_origin + Vector2(140, 300), "fs_in")
+	var bat_walks_out := _spawn_counted_bat(fissure_origin + Vector2(140, 0), "fs_out")
+	var bat_third := _spawn_counted_bat(fissure_origin + Vector2(210, 0), "fs_third")
+	await _wait_physics_frames(2)
+	var fissure_payload := CombatPayload.new()
+	fissure_payload.stats_container_id = _make_stats({Stat.Type.AOE_RADIUS: 40.0}).get_instance_id()
+	fissure.execute_geometry({"origin": fissure_origin}, fissure_payload)
+	player.velocity = Vector2(0, 100)
+	check(int(_std_hits["fs_first"]) == 1 and int(_std_hits["fs_third"]) == 0 and int(_std_hits["fs_out"]) == 0, "stepped fissure: the first strike hits at once, the later ones wait")
+	await _wait_physics_frames(3)
+	bat_walks_in.global_position = fissure_origin + Vector2(140, 50)
+	bat_walks_out.global_position = fissure_origin + Vector2(140, 300)
+	await _wait_physics_frames(6)
+	check(int(_std_hits["fs_third"]) == 0 and int(_std_hits["fin_fissure"]) == 0, "stepped fissure: a bat at the third strike is not hit before about 0.2 s")
+	await _wait_physics_frames(40)
+	check(int(_std_hits["fs_third"]) == 1 and int(_std_hits["fs_first"]) == 1, "stepped fissure: the third strike hits its bat later, along the direction fixed at cast time")
+	check(int(_std_hits["fs_in"]) == 1 and int(_std_hits["fs_out"]) == 0, "stepped fissure: a bat that walks into the second circle is hit and one that leaves is not")
+	check(int(_std_hits["fin_fissure"]) == 1, "stepped fissure: delivery finishes once")
+	player.velocity = Vector2.ZERO
+	var plain_fissure := FissureGeometry.new()
+	check(is_equal_approx(plain_fissure.step_delay, 0.0) and is_equal_approx(ChainLinkGeometry.new().step_delay, 0.0), "stepped fissure: .new() defaults to delay 0 for both stepped geometries")
+	plain_fissure.free()
+
+	# e. Evolution in the middle of a chain.
+	var evo_player := _plasma_evolved_player()
+	var evo_ability := evo_player.ability_container.get_ability_by_slot(1)
+	var old_driver := evo_ability.geometry_driver
+	var evo_origin := Vector2(100000, 108000)
+	var evo_bats: Array[Enemy] = []
+	for i in range(6):
+		evo_bats.append(_spawn_counted_bat(evo_origin + Vector2(100.0 * i, 0.0), "ev_%d" % i))
+	await _wait_physics_frames(2)
+	var evo_payload := CombatPayload.new()
+	evo_payload.stats_container_id = evo_ability.stats_container.get_instance_id()
+	var chain_driver := old_driver as ChainLinkGeometry
+	check(chain_driver != null and is_equal_approx(chain_driver.step_delay, 0.08), "evolution mid-chain: the evolved ability runs the shipped chain scene with delay 0.08")
+	if chain_driver != null:
+		chain_driver.execute_geometry({"hit_nodes": [evo_bats[0].hurtbox_component]}, evo_payload)
+	evo_player.ability_container.execute_ability_evolution(load(ARC_BOLT_DATA) as AbilityData)
+	await _wait_physics_frames(30)
+	check(not is_instance_valid(old_driver) and is_instance_valid(evo_ability.geometry_driver), "evolution mid-chain: the old geometry is gone and a new one is mounted")
+	check(_tagged_hit_count("ev", 6) == 1, "evolution mid-chain: the old chain stopped after its first hit")
+	check(not evo_ability._cooldown_timer.is_stopped(), "evolution mid-chain: the ability's cooldown is running afterwards")
+
+	# f. Shipped scenes and the class tree.
+	var chain_scene := (load(GEOMETRY_DRIVER_DIR + "/area/chain_link_geometry.tscn") as PackedScene).instantiate() as ChainLinkGeometry
+	var fissure_scene := (load(GEOMETRY_DRIVER_DIR + "/area/fissure_geometry.tscn") as PackedScene).instantiate() as FissureGeometry
+	fx.track(chain_scene)
+	fx.track(fissure_scene)
+	check(is_equal_approx(chain_scene.step_delay, 0.08) and is_equal_approx(fissure_scene.step_delay, 0.12), "stepped scenes: chain_link_geometry.tscn sets 0.08 and fissure_geometry.tscn sets 0.12")
+	var sequenced_scenes: Array[String] = []
+	for path in _list_tscn_files(GEOMETRY_DRIVER_DIR):
+		var scene_driver := (load(path) as PackedScene).instantiate() as GeometryDriver
+		fx.track(scene_driver)
+		if scene_driver is SequencedGeometry:
+			sequenced_scenes.append(path.get_file().get_basename())
+	sequenced_scenes.sort()
+	check(sequenced_scenes == ["chain_link_geometry", "fissure_geometry"], "stepped scenes: only chain link and fissure extend SequencedGeometry (found %s)" % str(sequenced_scenes))

@@ -4,3 +4,4 @@
 
 [node name="ChainLinkGeometry" type="Node"]
 script = ExtResource("1_oaayu")
+step_delay = 0.08

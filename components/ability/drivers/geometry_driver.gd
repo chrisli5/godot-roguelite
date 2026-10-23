@@ -38,7 +38,7 @@ func _enemy_hurtboxes_in(shape: Shape2D, global_pos: Vector2, exclude_instance_i
 
 
 ## Geometry families. Every concrete geometry declares one through get_family().
-const FAMILIES: Array[StringName] = [&"moving_hitbox", &"area_instant", &"chain", &"timed"]
+const FAMILIES: Array[StringName] = [&"moving_hitbox", &"area_instant", &"area_stepped", &"chain", &"timed"]
 
 
 ## Which family this geometry belongs to (one of FAMILIES). Every concrete geometry must override it; an empty family means the geometry has not declared its contract.

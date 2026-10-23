@@ -1,6 +1,6 @@
 # res://components/ability/drivers/geometry/fissure_geometry.gd
 class_name FissureGeometry
-extends GeometryDriver
+extends SequencedGeometry
 
 @export_group("Fissure Scaling")
 ## Total number of sequential step explosions created in a line per cast
@@ -15,7 +15,7 @@ extends GeometryDriver
 
 ## Geometry contract: the family of this geometry.
 func get_family() -> StringName:
-	return &"area_instant"
+	return &"area_stepped"
 
 
 ## Geometry contract: the stats that set how far this geometry reaches.
@@ -38,8 +38,9 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 		delivery_finished.emit()
 		return
 
+	# Everything the strikes need is read now, at cast time
 	var global_origin: Vector2 = query_results.get("origin", Vector2.ZERO)
-	
+
 	var target_direction := Vector2.RIGHT
 	var player = instance_from_id(EventBus.active_player_instance_id) as Player
 	if is_instance_valid(player):
@@ -47,17 +48,15 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 
 	var stats := _stats_of(final_payload)
 	var first_radius := _get_area_radius(stats, starting_radius)
+	var delay := _sequence_delay(stats)
 	var step_shape := CircleShape2D.new()
 
-	# Execute sequential queries on the physics server directly for step tracking line rules
-	for step in range(fissure_steps):
-		var calculated_distance := (step + 1) * distance_step
-		var target_strike_point := global_origin + (target_direction * calculated_distance)
-		
-		var growth_factor := step * expansion_rate_per_step
-		step_shape.radius = (first_radius + growth_factor)
-		
+	# Each step is one strike, queried when it fires
+	var on_step := func(step: int) -> bool:
+		var target_strike_point := global_origin + (target_direction * ((step + 1) * distance_step))
+		step_shape.radius = first_radius + step * expansion_rate_per_step
 		for hurtbox in _enemy_hurtboxes_in(step_shape, target_strike_point):
 			hurtbox.take_hit(final_payload)
+		return true
 
-	delivery_finished.emit()
+	_begin_sequence(fissure_steps, delay, on_step)

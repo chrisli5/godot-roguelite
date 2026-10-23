@@ -4,3 +4,4 @@
 
 [node name="FissureGeometry" type="Node"]
 script = ExtResource("1_j3lap")
+step_delay = 0.12
