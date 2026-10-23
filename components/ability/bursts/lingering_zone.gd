@@ -48,7 +48,7 @@ func configure(source_payload: CombatPayload) -> void:
 	_payload = source_payload
 	var stats := instance_from_id(source_payload.stats_container_id) as StatsContainer
 	if is_instance_valid(stats):
-		_radius = stats.get_final_stat_value(Stat.Type.AOE_RADIUS) * radius_multiplier
+		_radius = StatBonus.reach(stats, Stat.Type.AOE_RADIUS) * radius_multiplier
 	if _radius > 0.0:
 		_shape = CircleShape2D.new()
 		_shape.radius = _radius

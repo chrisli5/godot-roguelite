@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `5ccfd8b`. Update this line whenever this file changes.
+Last synced with code commit: `72120b9`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -56,7 +56,7 @@ An ability is a stack of swappable drivers chosen by its `AbilityData`: a deploy
 
 ### Geometry contract (Implemented, Task W)
 
-Every concrete geometry declares its family, its reach stats (what Earth scales) and its speed stats (what Wind scales). The classes are not refactored; the declarations sit on each driver, and a logic check fails if a geometry scene has none. Fire, Frost and Lightning need no declaration: they work through statuses, the cooldown and the cast-time crit, so they reach every geometry that ends in `HurtboxComponent.take\_hit`. Timed areas (a melee swing arc, an aura, a trap) will join the area family as wrappers around the lingering zone; summons are out of scope until designed.
+Every concrete geometry declares its family, its reach stats (what Earth scales) and its speed stats (what Wind scales). Earth raises the `REACH\_BONUS` stat and Wind the `SPEED\_BONUS` stat; each driver multiplies its declared reach and speed stats by one plus the bonus (Task X). The classes are not refactored; the declarations sit on each driver, and a logic check fails if a geometry scene has none. Fire, Frost and Lightning need no declaration: they work through statuses, the cooldown and the cast-time crit, so they reach every geometry that ends in `HurtboxComponent.take\_hit`. Timed areas (a melee swing arc, an aura, a trap) will join the area family as wrappers around the lingering zone; summons are out of scope until designed.
 
 |Family|Drivers|Reach stats (Earth)|Speed stats (Wind)|
 |-|-|-|-|
@@ -109,8 +109,8 @@ Each infusion has a direct stat that works from level 1 and an indirect scaling 
 |Fire|Duration and DoT|`STATUS\_DURATION` and `STATUS\_RAMP\_CAP`, both flat per level (Implemented). No damage of its own|Burn's ramp: the cap grows per level (Implemented), and a longer duration keeps the ramp running. DoT only|Burn (Implemented)|
 |Frost|Cooldown|`COOLDOWN` (Implemented)|Level 2: bonus damage per 0.1 s shaved off the ability's default cooldown, with a cooldown floor and a cap on the bonus|Chill (Implemented)|
 |Lightning|Crit|`CRIT\_CHANCE` +0.03 per level and `CRIT\_MULTIPLIER` +0.15 per level (Implemented, placeholders; open item 49)|Level 3: a crit releases an overload that damages nearby enemies for a percentage of the crit damage|None|
-|Wind|Action velocity|One speed stat that every driver reads as its own speed: projectile travel, orbit rotation, sweep rate, and melee swing rate later. Drivers with no speed concept ignore it. Today `PROJECTILE\_MOVEMENT\_SPEED` (Implemented)|Level 2: damage scale from the speed ratio, read at cast time|None|
-|Earth|Area|`AOE\_RADIUS` for hitbox and area size (Implemented: the projectile hitbox follows it)|Level 3: an on-impact explosion whose damage scales with the number of enemies it catches|None|
+|Wind|Action velocity|`SPEED\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own speed (`PROJECTILE\_MOVEMENT\_SPEED`, `ORBIT\_ROTATION\_SPEED`) by one plus the bonus; geometries with no speed concept ignore it until they get a base delay (item 47)|Level 2: damage scale from the bonus, read at cast time|None|
+|Earth|Area|`REACH\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own reach (`AOE\_RADIUS`, `CHAIN\_RADIUS`, `ORBIT\_RADIUS`) by one plus the bonus|Level 3: an on-impact explosion whose damage scales with the number of enemies it catches|None|
 
 Rules:
 
@@ -304,7 +304,7 @@ The `player\_core\_blueprints` loop currently ends in `pass`, so the starting ab
 
 ## 10\. Open items
 
-Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6, 11, 16, 17 and 30).
+Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6, 11, 16, 17, 30 and 36).
 
 |#|Item|Type|
 |-|-|-|
@@ -337,7 +337,6 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |33|Level-gated infusion effects: where an effect reads the infusion level at cast time and whether each effect carries its own unlock level. The level itself comes from the ledger (`get\_infusion\_level(slot, element)`)|Gap|
 |34|The damage budget, the hit/DoT split per specialization and the hit-to-DoT exchange rate are not in `balance\_notes.md`. The workbook solved Fire as an additive amount and needs re-solving for the potency model|Balance|
 |35|REFRESH takes the latest applier's snapshot, so a weaker Burn applied later can downgrade a stronger one, now that every ability can apply Burn. Left as is. Alternative: keep the higher `dot\_damage`|Design decision|
-|36|Wind's generic speed stat: reuse `PROJECTILE\_MOVEMENT\_SPEED` or add a stat, and what each driver reads as its speed (orbit rotation, sweep rate, melee swing rate)|Design decision|
 |37|Every ability profile needs nonzero `BASE\_DAMAGE` and `DOT\_DAMAGE`, plus `STATUS\_DURATION` and `STATUS\_RAMP\_CAP` entries (a missing stat ignores modifiers). Only Arcane Bolt's profile has them (`DOT\_DAMAGE` 0.15, placeholder). A headless warning for zeros was offered, not requested|Gap|
 |38|Fire's duration does little for fast abilities, by arithmetic from the numbers: Arcane Bolt's cooldown is 1.0 s and Burn lasts 3.0 s at level 1, so REFRESH keeps it up, and the ramp keeps running because a refresh keeps `elapsed`. The ramp cap and Frost's cooldown cuts matter more there. Duration matters for slow abilities and after target changes|Balance|
 |39|Per-hit or per-cast bursts. Today a burst fires on every qualifying hit, so a chain, a fan or an area hit produces many. A per-cast cap needs shared per-cast state, which the shared payload cannot hold|Design decision|
@@ -348,7 +347,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |44|How stack cards are introduced (level-up pool, a separate draft, or tied to something else). Not Fire levels: Fire stays build agnostic|Design decision|
 |45|Stack caps and per-stack strength are untuned: at the placeholder numbers a cap of 4 gives a hit-specialist ability as much DoT as hit damage. Needs the hit/DoT budget (item 34) first|Balance|
 |46|Stacks from several sources share one instance per target. A re-apply never lowers the stack count, so a cap-1 source keeps a cap-4 source's stacks and its own snapshot wins. Decide whether that is wanted|Design decision|
-|47|Wind's direct stat does nothing on the chain form (chain link does not read projectile speed), and Earth's `AOE\_RADIUS` does not change chain reach. A poor fit should be a weak synergy, not a dead pick (item 36 covers Wind's speed stat)|Design decision|
+|47|Earth now scales chain reach (`REACH\_BONUS` scales `CHAIN\_RADIUS`, Task X). Wind's direct stat still does nothing on instant geometries (chain, fissure, sweep, pulse) until they get a base delay (decided Oct 22, not built)|Design decision|
 |48|Plasma numbers are placeholders. At Lightning 3 the crit chance is 14% (0.05 plus 0.03 per level) and the multiplier is 1.95, so the average Burn bonus is about +13%; at Lightning 5 it is about +25%|Balance|
 |49|Lightning's crit chance and multiplier ship on the infusion card (+0.03 and +0.15 per level, placeholders; the balance workbook used +0.05 and +0.15). Whether crit stats stay on the infusion card is undecided, because the library of non-infusion cards is not designed yet. The workbook's hit-build numbers need re-running with the multiplier|Design decision|
 

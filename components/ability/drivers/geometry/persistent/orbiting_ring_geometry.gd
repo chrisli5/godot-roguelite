@@ -30,8 +30,8 @@ func _on_persistent_started(spawn_origin: Vector2, _query_results: Dictionary) -
 	var stats = instance_from_id(_active_payload.stats_container_id)
 	var has_stats := is_instance_valid(stats)
 	
-	rotation_speed = stats.get_final_stat_value(Stat.Type.ORBIT_ROTATION_SPEED) if has_stats else 90.0
-	orbit_radius = stats.get_final_stat_value(Stat.Type.ORBIT_RADIUS) if has_stats else 80.0
+	rotation_speed = StatBonus.speed(stats, Stat.Type.ORBIT_ROTATION_SPEED) if has_stats else 90.0
+	orbit_radius = StatBonus.reach(stats, Stat.Type.ORBIT_RADIUS) if has_stats else 80.0
 	_shard_amount = int(stats.get_final_stat_value(Stat.Type.PROJECTILE_AMOUNT)) if has_stats else 1
 	
 	for i in range(_shard_amount):

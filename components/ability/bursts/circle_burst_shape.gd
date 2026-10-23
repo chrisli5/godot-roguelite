@@ -15,7 +15,7 @@ func find_targets(origin: Vector2, stats: StatsContainer, space_state: PhysicsDi
 	var targets: Array[HurtboxComponent] = []
 	var radius := 0.0
 	if is_instance_valid(stats):
-		radius = stats.get_final_stat_value(Stat.Type.AOE_RADIUS) * radius_multiplier
+		radius = StatBonus.reach(stats, Stat.Type.AOE_RADIUS) * radius_multiplier
 	if radius <= 0.0:
 		if not _warned_missing_radius:
 			_warned_missing_radius = true

@@ -5,9 +5,8 @@
 
 [sub_resource type="Resource" id="Resource_windmod"]
 script = ExtResource("2_windmod")
-type = 1
 value = 0.1
-target_stat_type = 13
+target_stat_type = 22
 metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 
 [resource]

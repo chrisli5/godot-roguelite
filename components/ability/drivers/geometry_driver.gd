@@ -44,7 +44,7 @@ func get_speed_stats() -> Array[Stat.Type]:
 ## Reach of an area geometry: the AOE_RADIUS stat, or `fallback` (with a one-time warning) when it is missing or 0.
 func _get_area_radius(stats: StatsContainer, fallback: float) -> float:
 	if is_instance_valid(stats):
-		var radius: float = stats.get_final_stat_value(Stat.Type.AOE_RADIUS)
+		var radius: float = StatBonus.reach(stats, Stat.Type.AOE_RADIUS)
 		if radius > 0.0:
 			return radius
 	if not _warned_area_fallback:

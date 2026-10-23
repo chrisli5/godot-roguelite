@@ -42,7 +42,7 @@ func _ready() -> void:
 	# The radius comes from the AOE_RADIUS stat, so read it before the shape is touched.
 	var stats: Node = instance_from_id(combat_payload.stats_container_id)
 	if is_instance_valid(stats):
-		var radius: float = stats.get_final_stat_value(Stat.Type.AOE_RADIUS)
+		var radius: float = StatBonus.reach(stats as StatsContainer, Stat.Type.AOE_RADIUS)
 		if radius > 0.0:
 			collision_radius = radius
 		elif not _warned_missing_radius:

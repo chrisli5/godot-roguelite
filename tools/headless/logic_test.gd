@@ -59,6 +59,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_burst_extensions,
 		_section_lingering_zone,
 		_section_geometry_contract,
+		_section_speed_reach_bonus,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -508,7 +509,7 @@ func _section_area_geometries() -> void:
 	fx.track(pulse)
 	check(is_equal_approx((pulse.get_query_shape(area_stats) as CircleShape2D).radius, 200.0), "radial pulse: query circle = AOE_RADIUS (200)")
 	player.run_ledger_component.log_slot_specific_purchase(earth, 2)
-	var earth_area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0}, 2, player.run_ledger_component)
+	var earth_area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0, Stat.Type.REACH_BONUS: 0.0}, 2, player.run_ledger_component)
 	var earth_pulse_radius := (pulse.get_query_shape(earth_area_stats) as CircleShape2D).radius
 	print("INFO  radial pulse with Earth level 1 -> radius %.3f" % earth_pulse_radius)
 	check(is_equal_approx(earth_pulse_radius, 220.0), "radial pulse with Earth L1: radius %.1f" % earth_pulse_radius)
@@ -2469,6 +2470,11 @@ func _section_geometry_contract() -> void:
 		declared.append_array(geometry.get_speed_stats())
 		for stat in declared:
 			check(data.stats_profile.base_stats.has(stat), "geometry contract: %s profile has %s" % [ability_name, Stat.Type.keys()[stat]])
+		# Task X: a declared reach or speed stat needs its bonus key, or Earth and Wind do nothing for the ability.
+		if not geometry.get_reach_stats().is_empty():
+			check(data.stats_profile.base_stats.has(Stat.Type.REACH_BONUS), "geometry contract: %s profile has REACH_BONUS" % ability_name)
+		if not geometry.get_speed_stats().is_empty():
+			check(data.stats_profile.base_stats.has(Stat.Type.SPEED_BONUS), "geometry contract: %s profile has SPEED_BONUS" % ability_name)
 
 	# f. Behavior guard: query shapes for a fixed stats dictionary are unchanged.
 	var area_stats := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0})
@@ -2482,3 +2488,246 @@ func _section_geometry_contract() -> void:
 	check(wedge != null and is_equal_approx(wedge.points[1].length(), 200.0) and is_equal_approx(wedge.points[2].length(), 200.0), "geometry contract: linear_sweep_geometry far vertices still AOE_RADIUS (200)")
 	check((drivers["fissure_geometry"] as GeometryDriver).get_query_shape(area_stats) == null, "geometry contract: fissure_geometry query shape still null")
 	check((drivers["orbiting_ring_geometry"] as GeometryDriver).get_query_shape(area_stats) == null, "geometry contract: orbiting_ring_geometry query shape still null")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task X: SPEED_BONUS and REACH_BONUS, applied through StatBonus
+# ---------------------------------------------------------------------------------------------
+
+## Spawns a projectile with `stats` and returns the speed it applies.
+func _spawn_projectile_speed(container: Node, stats: StatsContainer) -> float:
+	var payload := CombatPayload.new()
+	payload.stats_container_id = stats.get_instance_id()
+	var projectile := (load("res://components/ability/projectile.tscn") as PackedScene).instantiate() as Projectile
+	projectile.initialize_volume(Vector2(100000.0, 100000.0), Vector2.RIGHT, 0, payload)
+	container.add_child(projectile)
+	var speed := projectile.movement_speed
+	projectile.queue_free()
+	return speed
+
+
+var _chain_hits: Array[int] = []
+
+
+func _count_chain_hit(_payload: CombatPayload, index: int) -> void:
+	_chain_hits[index] += 1
+
+
+## Casts a chain from a bat to a second bat `gap` away and returns how many bats were hit.
+func _cast_chain(stats: StatsContainer, gap: float) -> int:
+	var chain := ChainLinkGeometry.new()
+	world.add_child(chain)
+	fx.track(chain)
+	var origin := Vector2(84000.0, 84000.0)
+	_chain_hits = [0, 0]
+	var bats: Array[Enemy] = []
+	for i in range(2):
+		var bat := _spawn_bat()
+		bat.set_physics_process(false)
+		bat.global_position = origin + Vector2(gap * i, 0.0)
+		bat.hurtbox_component.hit_received.connect(_count_chain_hit.bind(i))
+		bats.append(bat)
+	await tree.physics_frame
+	await tree.physics_frame
+	var payload := CombatPayload.new()
+	payload.stats_container_id = stats.get_instance_id()
+	var primary: Array = [bats[0].hurtbox_component]
+	chain.execute_geometry({"hit_nodes": primary}, payload)
+	var total := _chain_hits[0] + _chain_hits[1]
+	for bat in bats:
+		bat.queue_free()
+	chain.queue_free()
+	return total
+
+
+## Starts an orbit with `stats` and returns [rotation_speed, orbit_radius, first shard hitbox radius].
+func _start_orbit(stats: StatsContainer) -> Array:
+	var orbit := (load("res://components/ability/drivers/geometry/persistent/orbiting_ring_geometry.tscn") as PackedScene).instantiate() as OrbitingRingGeometry
+	world.add_child(orbit)
+	fx.track(orbit)
+	var caster := Node2D.new()
+	world.add_child(caster)
+	fx.track(caster)
+	var payload := CombatPayload.new()
+	payload.stats_container_id = stats.get_instance_id()
+	payload.caster_instance_id = caster.get_instance_id()
+	orbit.execute_geometry({"origin": Vector2(88000.0, 88000.0)}, payload)
+	var shard_radius := 0.0
+	if not orbit._active_shards.is_empty():
+		shard_radius = ((orbit._active_shards[0] as OrbitingShard).collision_shape.shape as CircleShape2D).radius
+	var result: Array = [orbit.rotation_speed, orbit.orbit_radius, shard_radius]
+	orbit._terminate_persistent_delivery()
+	orbit.queue_free()
+	return result
+
+
+func _list_gd_files(dir_path: String) -> Array[String]:
+	var found: Array[String] = []
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return found
+	for entry in dir.get_directories():
+		found.append_array(_list_gd_files(dir_path.path_join(entry)))
+	for file in dir.get_files():
+		if file.ends_with(".gd"):
+			found.append(dir_path.path_join(file))
+	return found
+
+
+func _section_speed_reach_bonus() -> void:
+	var proj_container := world.get_node("GameWorld/ProjectilesContainer")
+	var space_state := tree.root.get_world_2d().direct_space_state
+
+	# a. StatBonus.
+	var helper_ok := true
+	for bonus in [0.0, 0.1, 1.0]:
+		var s := _make_stats({Stat.Type.AOE_RADIUS: 10.0, Stat.Type.PROJECTILE_MOVEMENT_SPEED: 500.0, Stat.Type.REACH_BONUS: bonus, Stat.Type.SPEED_BONUS: bonus})
+		helper_ok = helper_ok and is_equal_approx(StatBonus.reach(s, Stat.Type.AOE_RADIUS), 10.0 * (1.0 + bonus)) \
+				and is_equal_approx(StatBonus.speed(s, Stat.Type.PROJECTILE_MOVEMENT_SPEED), 500.0 * (1.0 + bonus))
+	check(helper_ok, "bonus helper: reach and speed return base * (1 + bonus) for bonus 0, 0.1 and 1.0")
+	check(is_equal_approx(StatBonus.reach(null, Stat.Type.AOE_RADIUS), 0.0) and is_equal_approx(StatBonus.speed(null, Stat.Type.PROJECTILE_MOVEMENT_SPEED), 0.0), "bonus helper: an invalid stats object returns 0.0")
+	var no_key := _make_stats({Stat.Type.AOE_RADIUS: 10.0, Stat.Type.PROJECTILE_MOVEMENT_SPEED: 500.0})
+	check(is_equal_approx(StatBonus.reach(no_key, Stat.Type.AOE_RADIUS), 10.0) and is_equal_approx(StatBonus.speed(no_key, Stat.Type.PROJECTILE_MOVEMENT_SPEED), 500.0), "bonus helper: a container with no bonus key behaves as bonus 0")
+
+	# b. Reach doubles with REACH_BONUS 1.0 on every geometry.
+	var reach_stats := _make_stats({
+		Stat.Type.AOE_RADIUS: 10.0, Stat.Type.QUERY_RADIUS: 150.0, Stat.Type.REACH_BONUS: 1.0,
+		Stat.Type.ORBIT_RADIUS: 50.0, Stat.Type.ORBIT_ROTATION_SPEED: 90.0, Stat.Type.PROJECTILE_AMOUNT: 2.0,
+		Stat.Type.DURATION: 5.0, Stat.Type.PROJECTILE_MOVEMENT_SPEED: 100.0, Stat.Type.CHAIN_RADIUS: 60.0,
+	})
+	check(is_equal_approx(_spawn_projectile_radius(proj_container, reach_stats), 20.0), "reach bonus: projectile hitbox radius 10 -> 20")
+	var pulse := RadialPulseGeometry.new()
+	fx.track(pulse)
+	var wide := _make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.QUERY_RADIUS: 150.0, Stat.Type.REACH_BONUS: 1.0})
+	check(is_equal_approx((pulse.get_query_shape(wide) as CircleShape2D).radius, 400.0), "reach bonus: radial pulse query circle 200 -> 400")
+	var sweep := LinearSweepGeometry.new()
+	fx.track(sweep)
+	var wedge := sweep.get_query_shape(wide) as ConvexPolygonShape2D
+	check(is_equal_approx(wedge.points[1].length(), 400.0) and is_equal_approx(wedge.points[2].length(), 400.0), "reach bonus: linear sweep wedge length 200 -> 400")
+	var fissure_hits := await _cast_fissure(_make_stats({Stat.Type.AOE_RADIUS: 40.0, Stat.Type.REACH_BONUS: 1.0}), Vector2(80000.0, 80000.0), [Vector2(70, 85), Vector2(70, 95)])
+	check(fissure_hits[0] == 1 and fissure_hits[1] == 0, "reach bonus: fissure first strike radius 40 -> 80 (hit at 85, miss at 95)")
+	var vortex := ConvergingVortexGeometry.new()
+	fx.track(vortex)
+	check(is_equal_approx((vortex.get_query_shape(wide) as CircleShape2D).radius, 400.0), "reach bonus: converging vortex query circle 200 -> 400")
+	var vortex_origin := Vector2(60000.0, 60000.0)
+	var vortex_bat := _spawn_bat()
+	vortex_bat.set_physics_process(false)
+	vortex_bat.global_position = vortex_origin + Vector2(200.0, 0.0)
+	vortex_bat.velocity = Vector2.ZERO
+	var vortex_payload := CombatPayload.new()
+	vortex_payload.stats_container_id = wide.get_instance_id()
+	vortex._process_volume_hit(vortex_bat.hurtbox_component, vortex_origin, vortex_payload)
+	check(is_equal_approx(vortex_bat.velocity.length(), vortex.horizontal_suction_force * 1.5), "reach bonus: converging vortex falloff uses the doubled reach (weight 0.5 at 200 of 400)")
+	var chain_wide := await _cast_chain(_make_stats({Stat.Type.CHAIN_RADIUS: 60.0, Stat.Type.REACH_BONUS: 1.0}), 100.0)
+	var chain_plain := await _cast_chain(_make_stats({Stat.Type.CHAIN_RADIUS: 60.0, Stat.Type.REACH_BONUS: 0.0}), 100.0)
+	check(chain_wide == 2 and chain_plain == 1, "reach bonus: chain 60 -> 120 reaches a bat 100 away (hits %d); with bonus 0 it does not (hits %d)" % [chain_wide, chain_plain])
+	var orbit_wide := _start_orbit(reach_stats)
+	check(is_equal_approx(orbit_wide[1], 100.0) and is_equal_approx(orbit_wide[2], 20.0), "reach bonus: orbit radius 50 -> 100 and shard hitbox 10 -> 20")
+	var burst_shape := CircleBurstShape.new()
+	var burst_origin := Vector2(86000.0, 86000.0)
+	var bats := await _spawn_burst_bats(burst_origin, [Vector2(45, 0)])
+	var burst_stats := _make_stats({Stat.Type.AOE_RADIUS: 20.0, Stat.Type.REACH_BONUS: 1.0})
+	var plain_burst_stats := _make_stats({Stat.Type.AOE_RADIUS: 20.0})
+	check(burst_shape.find_targets(burst_origin, burst_stats, space_state, 0).size() == 1 and burst_shape.find_targets(burst_origin, plain_burst_stats, space_state, 0).is_empty(), "reach bonus: burst circle radius 20 -> 40 catches a bat at 45 (hurtbox radius 10); without it, no")
+	_free_bats(bats)
+	LingeringZone.reset_registry()
+	var zone_scene := load(TEST_LINGERING_ZONE) as PackedScene
+	var zone_def := _zone_burst(&"test_bonus_zone", zone_scene)
+	var no_statuses: Array[StatusEffect] = []
+	var zone := await _spawn_zone(zone_def, _zone_payload(_make_stats({Stat.Type.AOE_RADIUS: 10.0, Stat.Type.REACH_BONUS: 1.0}), zone_def, no_statuses), Vector2(86500.0, 86500.0))
+	check(zone != null and is_equal_approx(zone._radius, 80.0), "reach bonus: lingering zone radius (10 * 2) * multiplier 4 = 80")
+	if zone != null:
+		zone.queue_free()
+	LingeringZone.reset_registry()
+	# QUERY_RADIUS targeting range is not a reach stat.
+	var query_only := _make_stats({Stat.Type.QUERY_RADIUS: 150.0, Stat.Type.REACH_BONUS: 1.0})
+	var query_ok := is_equal_approx((pulse.get_query_shape(query_only) as CircleShape2D).radius, 150.0)
+	for scene_path in [GEOMETRY_DRIVER_DIR + "/projectile/targeted_projectile_geometry.tscn", GEOMETRY_DRIVER_DIR + "/area/chain_link_geometry.tscn"]:
+		var driver := (load(scene_path) as PackedScene).instantiate() as GeometryDriver
+		fx.track(driver)
+		query_ok = query_ok and is_equal_approx((driver.get_query_shape(wide) as CircleShape2D).radius, 150.0)
+	check(query_ok, "reach bonus: QUERY_RADIUS targeting range (150) does not change")
+
+	# c. Speed doubles with SPEED_BONUS 1.0.
+	var fast := _make_stats({Stat.Type.PROJECTILE_MOVEMENT_SPEED: 100.0, Stat.Type.ORBIT_ROTATION_SPEED: 90.0, Stat.Type.ORBIT_RADIUS: 50.0,
+			Stat.Type.AOE_RADIUS: 10.0, Stat.Type.PROJECTILE_AMOUNT: 2.0, Stat.Type.DURATION: 5.0, Stat.Type.SPEED_BONUS: 1.0})
+	check(is_equal_approx(_spawn_projectile_speed(proj_container, fast), 200.0), "speed bonus: projectile speed 100 -> 200")
+	var fast_orbit := _start_orbit(fast)
+	check(is_equal_approx(fast_orbit[0], 180.0) and is_equal_approx(fast_orbit[1], 50.0) and is_equal_approx(fast_orbit[2], 10.0), "speed bonus: orbit rotation 90 -> 180, orbit radius and shard hitbox unchanged")
+	var speed_pulse := (pulse.get_query_shape(_make_stats({Stat.Type.AOE_RADIUS: 200.0, Stat.Type.SPEED_BONUS: 1.0})) as CircleShape2D).radius
+	check(is_equal_approx(speed_pulse, 200.0) and is_equal_approx(_spawn_projectile_radius(proj_container, fast), 10.0), "speed bonus: instant geometries and the projectile hitbox are unaffected")
+
+	# d. The real cards.
+	var wind := load(WIND_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var sc := ability.stats_container
+	var wind_ok := true
+	var earth_ok := true
+	for level in range(0, 4):
+		if level > 0:
+			player.run_ledger_component.log_slot_specific_purchase(wind, 1)
+			player.run_ledger_component.log_slot_specific_purchase(earth, 1)
+		wind_ok = wind_ok and is_equal_approx(sc.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.1 * level) \
+				and is_equal_approx(sc.get_final_stat_value(Stat.Type.PROJECTILE_MOVEMENT_SPEED), 500.0)
+		earth_ok = earth_ok and is_equal_approx(sc.get_final_stat_value(Stat.Type.REACH_BONUS), 0.1 * level) \
+				and is_equal_approx(sc.get_final_stat_value(Stat.Type.AOE_RADIUS), 10.0)
+	check(wind_ok, "Wind levels 0-3: SPEED_BONUS 0, 0.1, 0.2, 0.3 and PROJECTILE_MOVEMENT_SPEED stays 500")
+	check(earth_ok, "Earth levels 0-3: REACH_BONUS 0, 0.1, 0.2, 0.3 and AOE_RADIUS stays 10")
+	check(is_equal_approx(StatBonus.speed(sc, Stat.Type.PROJECTILE_MOVEMENT_SPEED), 650.0), "Wind 3: effective projectile speed 650")
+	var bolt_payload := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
+	check(is_equal_approx(_spawn_projectile_radius_from_payload(proj_container, bolt_payload), 13.0), "Earth 3: projectile hitbox radius 13")
+	var evolved := _plasma_evolved_player()
+	var arc := evolved.ability_container.get_ability_by_slot(1)
+	check(is_instance_valid(arc) and is_equal_approx(StatBonus.reach(arc.stats_container, Stat.Type.CHAIN_RADIUS), 150.0), "Earth 0 on the evolved Arc Bolt: chain reach 150")
+	for i in range(3):
+		evolved.run_ledger_component.log_slot_specific_purchase(earth, 1)
+	check(is_instance_valid(arc) and is_equal_approx(StatBonus.reach(arc.stats_container, Stat.Type.CHAIN_RADIUS), 195.0) and is_equal_approx(arc.stats_container.get_final_stat_value(Stat.Type.CHAIN_RADIUS), 150.0), "Earth 3 on the evolved Arc Bolt: chain reach 150 -> 195 (the stat itself stays 150)")
+
+	# e. Guards.
+	var wind_mods := 0
+	var earth_mods := 0
+	var stray := 0
+	for path in _list_tres("res://resources"):
+		var resource := load(path)
+		var modifiers: Array[StatModifier] = []
+		if resource is UpgradeDefinition:
+			modifiers.append_array(resource.stat_modifiers)
+			if resource.status_effect_payload != null:
+				modifiers.append_array(resource.status_effect_payload.stat_modifiers)
+		elif resource is StatusEffect:
+			modifiers.append_array(resource.stat_modifiers)
+		for modifier in modifiers:
+			var is_wind: bool = path == WIND_CARD
+			var is_earth: bool = path == EARTH_CARD
+			if modifier.target_stat_type == Stat.Type.SPEED_BONUS:
+				wind_mods += 1 if is_wind else 0
+				stray += 0 if is_wind else 1
+			elif modifier.target_stat_type == Stat.Type.REACH_BONUS:
+				earth_mods += 1 if is_earth else 0
+				stray += 0 if is_earth else 1
+			elif is_wind or is_earth:
+				stray += 1
+	check(wind_mods == 1 and earth_mods == 1 and stray == 0, "bonus guards: only Wind modifies SPEED_BONUS, only Earth modifies REACH_BONUS, and neither modifies anything else")
+	check(wind.stat_modifiers.size() == 1 and earth.stat_modifiers.size() == 1 and wind.stat_modifiers[0].type == StatModifier.Type.FLAT and earth.stat_modifiers[0].type == StatModifier.Type.FLAT, "bonus guards: the Wind and Earth cards each carry one FLAT modifier")
+	# Every read of a reach or speed stat goes through StatBonus: no script reads one directly.
+	var direct_reads: Array[String] = []
+	for dir_path in ["res://components", "res://scenes", "res://autoloads", "res://ui", "res://debug"]:
+		for path in _list_gd_files(dir_path):
+			if path.ends_with("stat_bonus.gd"):
+				continue
+			var source := FileAccess.get_file_as_string(path)
+			for stat_name in ["AOE_RADIUS", "CHAIN_RADIUS", "ORBIT_RADIUS", "PROJECTILE_MOVEMENT_SPEED", "ORBIT_ROTATION_SPEED"]:
+				if source.contains("get_final_stat_value(Stat.Type.%s)" % stat_name):
+					direct_reads.append("%s:%s" % [path.get_file(), stat_name])
+	check(direct_reads.is_empty(), "bonus guards: no script reads a reach or speed stat directly %s" % [direct_reads])
+	# Every geometry declares only stats the helper scales.
+	var known: Array[int] = [Stat.Type.AOE_RADIUS, Stat.Type.CHAIN_RADIUS, Stat.Type.ORBIT_RADIUS, Stat.Type.PROJECTILE_MOVEMENT_SPEED, Stat.Type.ORBIT_ROTATION_SPEED]
+	var declared_ok := true
+	for path in _list_tscn_files(GEOMETRY_DRIVER_DIR):
+		var geometry := (load(path) as PackedScene).instantiate() as GeometryDriver
+		fx.track(geometry)
+		for stat_id in _stat_ids(geometry.get_reach_stats()) + _stat_ids(geometry.get_speed_stats()):
+			declared_ok = declared_ok and known.has(stat_id)
+	check(declared_ok, "bonus guards: every declared reach and speed stat is one the helper scales")

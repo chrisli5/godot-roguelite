@@ -7,7 +7,7 @@ extends AreaGeometry # Inherits the clean uniform AoE loop helper
 ## The script only implements the exact calculation where its behavior diverges!
 func _process_volume_hit(hurtbox: HurtboxComponent, origin: Vector2, payload: CombatPayload) -> void:
 	var stats = instance_from_id(payload.stats_container_id)
-	var max_radius = stats.get_final_stat_value(Stat.Type.AOE_RADIUS) if is_instance_valid(stats) else 160.0
+	var max_radius = StatBonus.reach(stats, Stat.Type.AOE_RADIUS) if is_instance_valid(stats) else 160.0
 
 	var entity = hurtbox.owner_entity as CharacterBody2D
 	if is_instance_valid(entity):

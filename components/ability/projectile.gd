@@ -13,7 +13,7 @@ func _ready() -> void:
 	
 	var stats: Node = instance_from_id(combat_payload.stats_container_id)
 	var has_stats := is_instance_valid(stats)
-	movement_speed = stats.get_final_stat_value(Stat.Type.PROJECTILE_MOVEMENT_SPEED) if has_stats else 400.0
+	movement_speed = StatBonus.speed(stats as StatsContainer, Stat.Type.PROJECTILE_MOVEMENT_SPEED) if has_stats else 400.0
 	lifetime = stats.get_final_stat_value(Stat.Type.DURATION) if has_stats else 1.0
 	velocity = direction * movement_speed
 	

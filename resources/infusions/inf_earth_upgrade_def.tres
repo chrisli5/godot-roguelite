@@ -5,9 +5,8 @@
 
 [sub_resource type="Resource" id="Resource_earthmod"]
 script = ExtResource("2_earthmod")
-type = 1
 value = 0.1
-target_stat_type = 9
+target_stat_type = 23
 metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 
 [resource]
