@@ -60,6 +60,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
+		_section_geometry_standardization,
 	]
 	for section in sections:
 		fx.begin_section()
@@ -2731,3 +2732,161 @@ func _section_speed_reach_bonus() -> void:
 		for stat_id in _stat_ids(geometry.get_reach_stats()) + _stat_ids(geometry.get_speed_stats()):
 			declared_ok = declared_ok and known.has(stat_id)
 	check(declared_ok, "bonus guards: every declared reach and speed stat is one the helper scales")
+
+
+var _std_hits: Dictionary = {}
+
+
+func _count_std_hit(_payload: CombatPayload, key: String) -> void:
+	_std_hits[key] = int(_std_hits.get(key, 0)) + 1
+
+
+## Spawns a frozen bat at `pos` whose hits are counted in _std_hits under `key`.
+func _spawn_counted_bat(pos: Vector2, key: String) -> Enemy:
+	var bat := _spawn_bat()
+	bat.set_physics_process(false)
+	bat.global_position = pos
+	bat.velocity = Vector2.ZERO
+	_std_hits[key] = 0
+	bat.hurtbox_component.hit_received.connect(_count_std_hit.bind(key))
+	return bat
+
+
+func _section_geometry_standardization() -> void:
+	var space_state := tree.root.get_world_2d().direct_space_state
+
+	# a. The constants.
+	check(CombatPhysics.ENEMY_HURTBOX_MASK == 4 and CombatPhysics.MAX_QUERY_RESULTS == 32, "standardization: mask is 4 and the result limit is 32")
+
+	# b. filter_enemy_hurtboxes.
+	var player := fx.fresh_player()
+	var enemy_a := _spawn_counted_bat(Vector2(90000, 90000), "filter_a")
+	var enemy_b := _spawn_counted_bat(Vector2(90100, 90000), "filter_b")
+	var excluded := _spawn_counted_bat(Vector2(90200, 90000), "filter_x")
+	var plain_area := Area2D.new()
+	fx.track(plain_area)
+	var raw: Array[Dictionary] = [
+		{"collider": enemy_a.hurtbox_component},
+		{"collider": player.hurtbox_component},
+		{"collider": excluded.hurtbox_component},
+		{"collider": null},
+		{"collider": plain_area},
+		{"collider": enemy_b.hurtbox_component},
+		{"collider": enemy_a.hurtbox_component},
+	]
+	var filtered := SpatialQuery.filter_enemy_hurtboxes(raw, excluded.hurtbox_component.get_instance_id())
+	check(filtered.size() == 3 and filtered[0] == enemy_a.hurtbox_component and filtered[1] == enemy_b.hurtbox_component and filtered[2] == enemy_a.hurtbox_component,
+			"standardization filter: keeps only enemy hurtboxes, in order, and keeps a repeated one twice")
+	var unfiltered := SpatialQuery.filter_enemy_hurtboxes(raw)
+	check(unfiltered.size() == 4 and unfiltered.has(excluded.hurtbox_component) and not unfiltered.has(player.hurtbox_component),
+			"standardization filter: without an exclude id the excluded bat is kept; the player hurtbox is still dropped")
+
+	# c. query_enemy_hurtboxes.
+	var origin := Vector2(91000, 91000)
+	var circle := CircleShape2D.new()
+	circle.radius = 50.0
+	var inside_1 := _spawn_counted_bat(origin + Vector2(10, 0), "q_in1")
+	var inside_2 := _spawn_counted_bat(origin + Vector2(0, 30), "q_in2")
+	var outside := _spawn_counted_bat(origin + Vector2(200, 0), "q_out")
+	await tree.physics_frame
+	await tree.physics_frame
+	var found := SpatialQuery.query_enemy_hurtboxes(space_state, circle, origin)
+	check(found.size() == 2 and found.has(inside_1.hurtbox_component) and found.has(inside_2.hurtbox_component) and not found.has(outside.hurtbox_component),
+			"standardization query: returns every enemy bat inside the circle and none outside")
+	var found_excluding := SpatialQuery.query_enemy_hurtboxes(space_state, circle, origin, inside_1.hurtbox_component.get_instance_id())
+	check(found_excluding.size() == 1 and found_excluding[0] == inside_2.hurtbox_component, "standardization query: honors the exclude id")
+
+	# d. The cap.
+	var crowd_origin := Vector2(93000, 93000)
+	for i in range(40):
+		_spawn_counted_bat(crowd_origin, "crowd_%d" % i)
+	await tree.physics_frame
+	await tree.physics_frame
+	var crowd := SpatialQuery.query_enemy_hurtboxes(space_state, circle, crowd_origin)
+	check(crowd.size() == 32, "standardization cap: 40 bats in one circle return exactly 32 (the current limit, not a goal); got %d" % crowd.size())
+
+	# e. Hierarchy.
+	var pulse := RadialPulseGeometry.new()
+	var sweep := LinearSweepGeometry.new()
+	var fissure := FissureGeometry.new()
+	var chain := ChainLinkGeometry.new()
+	for driver in [pulse, sweep, fissure, chain]:
+		world.add_child(driver)
+		fx.track(driver)
+	check(pulse is AreaGeometry and sweep is AreaGeometry, "standardization hierarchy: radial pulse and linear sweep are AreaGeometry")
+	var fissure_as_driver: GeometryDriver = fissure
+	var chain_as_driver: GeometryDriver = chain
+	check(not (fissure_as_driver is AreaGeometry) and not (chain_as_driver is AreaGeometry), "standardization hierarchy: fissure and chain are GeometryDriver but not AreaGeometry")
+
+	# f. Behavior per geometry.
+	var area_origin := Vector2(95000, 95000)
+	var player_pos := player.global_position
+	player.velocity = Vector2.ZERO
+	var pulse_stats := _make_stats({Stat.Type.AOE_RADIUS: 100.0, Stat.Type.QUERY_RADIUS: 150.0})
+	var pulse_in := _spawn_counted_bat(area_origin + Vector2(60, 0), "pulse_in")
+	var pulse_edge := _spawn_counted_bat(area_origin + Vector2(0, -105), "pulse_edge")
+	var pulse_out := _spawn_counted_bat(area_origin + Vector2(130, 0), "pulse_out")
+	var sweep_in := _spawn_counted_bat(area_origin + Vector2(0, 5000) + Vector2(60, 0), "sweep_in")
+	var sweep_behind := _spawn_counted_bat(area_origin + Vector2(0, 5000) + Vector2(-60, 0), "sweep_behind")
+	await tree.physics_frame
+	await tree.physics_frame
+	var query_component := SpatialQueryComponent.new()
+	world.add_child(query_component)
+	fx.track(query_component)
+	var payload := CombatPayload.new()
+	payload.stats_container_id = pulse_stats.get_instance_id()
+	pulse.execute_geometry(query_component.execute_spatial_query(area_origin, pulse.get_query_shape(pulse_stats)), payload)
+	check(int(_std_hits["pulse_in"]) == 1 and int(_std_hits["pulse_edge"]) == 1 and int(_std_hits["pulse_out"]) == 0,
+			"standardization behavior: radial pulse hits bats inside AOE_RADIUS (hurtbox radius 10) and none outside")
+	var sweep_origin := area_origin + Vector2(0, 5000)
+	sweep.execute_geometry(query_component.execute_spatial_query(sweep_origin, sweep.get_query_shape(pulse_stats)), payload)
+	check(int(_std_hits["sweep_in"]) == 1 and int(_std_hits["sweep_behind"]) == 0, "standardization behavior: linear sweep hits a bat in its wedge and not one behind it")
+
+	# Player hurtbox in reach of fissure and chain is never hit.
+	var shared_origin := Vector2(97000, 97000)
+	_std_hits["player"] = 0
+	player.hurtbox_component.hit_received.connect(_count_std_hit.bind("player"))
+	player.global_position = shared_origin + Vector2(70, 0)
+	var fissure_bat := _spawn_counted_bat(shared_origin + Vector2(70, 20), "fissure_bat")
+	var chain_origin := shared_origin + Vector2(0, 3000)
+	var chain_first := _spawn_counted_bat(chain_origin, "chain_first")
+	var chain_second := _spawn_counted_bat(chain_origin + Vector2(60, 0), "chain_second")
+	await tree.physics_frame
+	await tree.physics_frame
+	var fissure_stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var fissure_payload := CombatPayload.new()
+	fissure_payload.stats_container_id = fissure_stats.get_instance_id()
+	fissure.execute_geometry({"origin": shared_origin}, fissure_payload)
+	check(int(_std_hits["fissure_bat"]) == 1 and int(_std_hits["player"]) == 0, "standardization behavior: fissure hits the bat and never the player hurtbox in its reach")
+	player.global_position = chain_origin + Vector2(30, 0)
+	var chain_stats := _make_stats({Stat.Type.CHAIN_RADIUS: 100.0, Stat.Type.QUERY_RADIUS: 100.0})
+	var chain_payload := CombatPayload.new()
+	chain_payload.stats_container_id = chain_stats.get_instance_id()
+	chain.execute_geometry({"hit_nodes": [chain_first.hurtbox_component]}, chain_payload)
+	check(int(_std_hits["chain_first"]) == 1 and int(_std_hits["chain_second"]) == 1 and int(_std_hits["player"]) == 0,
+			"standardization behavior: chain hits both bats and never the player hurtbox in its reach")
+	player.global_position = player_pos
+	player.hurtbox_component.hit_received.disconnect(_count_std_hit.bind("player"))
+
+	# g. Duplicate-declaration guard.
+	var mask_declared: Array[String] = []
+	var limit_declared: Array[String] = []
+	var driver_leftovers: Array[String] = []
+	var query_component_names: Array[String] = []
+	for dir_path in ["res://components", "res://scenes", "res://debug", "res://ui"]:
+		for path in _list_gd_files(dir_path):
+			var text := FileAccess.get_file_as_string(path)
+			if text.contains("const ENEMY_HURTBOX_MASK"):
+				mask_declared.append(path)
+			if text.contains("const MAX_QUERY_RESULTS"):
+				limit_declared.append(path)
+			var is_driver_file := path.begins_with("res://components/ability/drivers/") or path.begins_with("res://components/ability/bursts/")
+			if is_driver_file and (text.contains("max_results_buffer") or text.contains("enemy_collision_mask")):
+				driver_leftovers.append(path)
+			if path == "res://components/ability/spatial_query_component.gd":
+				query_component_names.append("enemy_collision_mask" if text.contains("enemy_collision_mask") else "")
+				query_component_names.append("max_results_buffer" if text.contains("max_results_buffer") else "")
+	check(mask_declared == ["res://components/utility/combat_physics.gd"], "standardization guard: ENEMY_HURTBOX_MASK is defined only in combat_physics.gd (found %s)" % str(mask_declared))
+	check(limit_declared == ["res://components/utility/combat_physics.gd"], "standardization guard: MAX_QUERY_RESULTS is defined only in combat_physics.gd (found %s)" % str(limit_declared))
+	check(driver_leftovers.is_empty(), "standardization guard: no geometry driver, burst shape or burst effect declares its own mask or buffer (found %s)" % str(driver_leftovers))
+	check(query_component_names == ["enemy_collision_mask", "max_results_buffer"], "standardization guard: SpatialQueryComponent keeps its two exports under the standard names")

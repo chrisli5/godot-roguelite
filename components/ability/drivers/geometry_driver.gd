@@ -22,6 +22,21 @@ func get_query_shape(stats: StatsContainer) -> Shape2D:
 	return circle
 
 
+## The StatsContainer a payload was cast from, or null when the payload or the container is gone.
+func _stats_of(payload: CombatPayload) -> StatsContainer:
+	if not is_instance_valid(payload):
+		return null
+	return instance_from_id(payload.stats_container_id) as StatsContainer
+
+
+## Enemy hurtboxes overlapping `shape` at `global_pos`, through the shared query helper. Empty when there is no physics space.
+func _enemy_hurtboxes_in(shape: Shape2D, global_pos: Vector2, exclude_instance_id: int = 0) -> Array[HurtboxComponent]:
+	var viewport := get_viewport()
+	if viewport == null or viewport.get_world_2d() == null:
+		return []
+	return SpatialQuery.query_enemy_hurtboxes(viewport.get_world_2d().direct_space_state, shape, global_pos, exclude_instance_id)
+
+
 ## Geometry families. Every concrete geometry declares one through get_family().
 const FAMILIES: Array[StringName] = [&"moving_hitbox", &"area_instant", &"chain", &"timed"]
 

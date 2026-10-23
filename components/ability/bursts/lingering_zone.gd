@@ -16,9 +16,6 @@ extends BurstEffect
 @export var merge_distance: float = 40.0
 ## At most this many live zones per zone_id; the oldest is removed first.
 @export var max_live_zones: int = 8
-@export_group("Physics Hardware Configuration")
-@export_flags_2d_physics var enemy_collision_mask: int = 4
-@export var max_results_buffer: int = 32
 @export_group("Placeholder Visual")
 @export var zone_color: Color = Color(1.0, 0.45, 0.1, 0.35)
 
@@ -131,14 +128,8 @@ func _unregister() -> void:
 func _apply_statuses() -> void:
 	if _shape == null or _payload == null or _payload.status_effects_to_apply.is_empty():
 		return
-	var intersections := SpatialQuery.query_shape_intersections(
-		get_world_2d().direct_space_state, _shape, global_position, enemy_collision_mask, max_results_buffer
-	)
 	var zone_hit: CombatPayload = null
-	for result in intersections:
-		var hurtbox := result.get("collider") as HurtboxComponent
-		if hurtbox == null or hurtbox.is_player_hurtbox:
-			continue
+	for hurtbox in SpatialQuery.query_enemy_hurtboxes(get_world_2d().direct_space_state, _shape, global_position):
 		# One shared copy for every target: statuses and snapshots kept, no damage.
 		if zone_hit == null:
 			zone_hit = _payload.duplicate() as CombatPayload

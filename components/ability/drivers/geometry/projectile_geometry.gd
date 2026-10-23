@@ -49,7 +49,7 @@ func _spawn_scatter_projectiles(
 		return
 
 	var base_angle := base_direction.angle()
-	var stats: Node = instance_from_id(payload.stats_container_id)
+	var stats := _stats_of(payload)
 	var has_stats := is_instance_valid(stats)
 	var projectile_amount: float = stats.get_final_stat_value(Stat.Type.PROJECTILE_AMOUNT) if has_stats else 1.0
 	

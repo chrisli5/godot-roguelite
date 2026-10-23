@@ -3,9 +3,6 @@ extends BurstShape
 ## A circle of radius AOE_RADIUS * radius_multiplier around the burst origin.
 
 @export var radius_multiplier: float = 1.0
-@export_group("Physics Hardware Configuration")
-@export_flags_2d_physics var enemy_collision_mask: int = 4
-@export var max_results_buffer: int = 32
 
 ## Set once per game run so a missing AOE_RADIUS warns a single time.
 static var _warned_missing_radius: bool = false
@@ -24,14 +21,4 @@ func find_targets(origin: Vector2, stats: StatsContainer, space_state: PhysicsDi
 
 	var circle := CircleShape2D.new()
 	circle.radius = radius
-	var intersections := SpatialQuery.query_shape_intersections(
-		space_state, circle, origin, enemy_collision_mask, max_results_buffer
-	)
-	for result in intersections:
-		var hurtbox := result.get("collider") as HurtboxComponent
-		if hurtbox == null or hurtbox.is_player_hurtbox:
-			continue
-		if hurtbox.get_instance_id() == exclude_instance_id:
-			continue
-		targets.append(hurtbox)
-	return targets
+	return SpatialQuery.query_enemy_hurtboxes(space_state, circle, origin, exclude_instance_id)

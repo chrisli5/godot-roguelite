@@ -2,10 +2,6 @@
 class_name FissureGeometry
 extends GeometryDriver
 
-@export_group("Physics Hardware Configuration")
-@export_flags_2d_physics var enemy_collision_mask: int = 4
-@export var max_results_buffer: int = 32
-
 @export_group("Fissure Scaling")
 ## Total number of sequential step explosions created in a line per cast
 @export var fissure_steps: int = 3
@@ -49,7 +45,7 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 	if is_instance_valid(player):
 		target_direction = player.velocity.normalized() if player.velocity != Vector2.ZERO else Vector2.RIGHT
 
-	var stats := instance_from_id(final_payload.stats_container_id) as StatsContainer if is_instance_valid(final_payload) else null
+	var stats := _stats_of(final_payload)
 	var first_radius := _get_area_radius(stats, starting_radius)
 	var step_shape := CircleShape2D.new()
 
@@ -61,14 +57,7 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 		var growth_factor := step * expansion_rate_per_step
 		step_shape.radius = (first_radius + growth_factor)
 		
-		# Direct call using our shared engine server logic utility
-		var intersections := SpatialQuery.query_shape_intersections(
-			space_state, step_shape, target_strike_point, enemy_collision_mask, max_results_buffer
-		)
-		
-		for result in intersections:
-			var target_collider = result.get("collider") as Node2D
-			if is_instance_valid(target_collider) and target_collider is HurtboxComponent:
-				target_collider.take_hit(final_payload)
+		for hurtbox in _enemy_hurtboxes_in(step_shape, target_strike_point):
+			hurtbox.take_hit(final_payload)
 
 	delivery_finished.emit()

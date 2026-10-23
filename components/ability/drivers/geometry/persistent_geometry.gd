@@ -34,7 +34,7 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 		return
 
 	# Dynamically extract duration lengths directly from current active runtime stats
-	var stats = instance_from_id(_active_payload.stats_container_id)
+	var stats := _stats_of(_active_payload)
 	var has_stats := is_instance_valid(stats)
 	_duration_left = stats.get_final_stat_value(Stat.Type.DURATION) if has_stats else 1.0
 	

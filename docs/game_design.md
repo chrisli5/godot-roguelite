@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `72120b9`. Update this line whenever this file changes.
+Last synced with code commit: `e584ddb`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -56,7 +56,7 @@ An ability is a stack of swappable drivers chosen by its `AbilityData`: a deploy
 
 ### Geometry contract (Implemented, Task W)
 
-Every concrete geometry declares its family, its reach stats (what Earth scales) and its speed stats (what Wind scales). Earth raises the `REACH\_BONUS` stat and Wind the `SPEED\_BONUS` stat; each driver multiplies its declared reach and speed stats by one plus the bonus (Task X). The classes are not refactored; the declarations sit on each driver, and a logic check fails if a geometry scene has none. Fire, Frost and Lightning need no declaration: they work through statuses, the cooldown and the cast-time crit, so they reach every geometry that ends in `HurtboxComponent.take\_hit`. Timed areas (a melee swing arc, an aura, a trap) will join the area family as wrappers around the lingering zone; summons are out of scope until designed.
+Every concrete geometry declares its family, its reach stats (what Earth scales) and its speed stats (what Wind scales). Earth raises the `REACH\_BONUS` stat and Wind the `SPEED\_BONUS` stat; each driver multiplies its declared reach and speed stats by one plus the bonus (Task X). The radial pulse and the linear sweep share the `AreaGeometry` base (Task Y); the other classes keep their parents. The declarations sit on each driver, and a logic check fails if a geometry scene has none. Fire, Frost and Lightning need no declaration: they work through statuses, the cooldown and the cast-time crit, so they reach every geometry that ends in `HurtboxComponent.take\_hit`. Timed areas (a melee swing arc, an aura, a trap) will join the area family as wrappers around the lingering zone; summons are out of scope until designed.
 
 |Family|Drivers|Reach stats (Earth)|Speed stats (Wind)|
 |-|-|-|-|
@@ -350,6 +350,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |47|Earth now scales chain reach (`REACH\_BONUS` scales `CHAIN\_RADIUS`, Task X). Wind's direct stat still does nothing on instant geometries (chain, fissure, sweep, pulse) until they get a base delay (decided Oct 22, not built)|Design decision|
 |48|Plasma numbers are placeholders. At Lightning 3 the crit chance is 14% (0.05 plus 0.03 per level) and the multiplier is 1.95, so the average Burn bonus is about +13%; at Lightning 5 it is about +25%|Balance|
 |49|Lightning's crit chance and multiplier ship on the infusion card (+0.03 and +0.15 per level, placeholders; the balance workbook used +0.05 and +0.15). Whether crit stats stay on the infusion card is undecided, because the library of non-infusion cards is not designed yet. The workbook's hit-build numbers need re-running with the multiplier|Design decision|
+|50|Every shape query returns at most 32 enemies (`MAX\_QUERY\_RESULTS`), so an area or chain hits only the 32 nearest in a crowd larger than that. Decide whether the limit should be higher before swarms are designed|Balance|
 
 
 

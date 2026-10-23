@@ -1,10 +1,6 @@
 class_name ChainLinkGeometry
 extends GeometryDriver
 
-@export_group("Physics Hardware Configuration")
-@export_flags_2d_physics var enemy_collision_mask: int = 4
-@export var max_results_buffer: int = 32
-
 @export_group("Chaining Constraints")
 @export var max_bounces: int = 4
 
@@ -44,7 +40,7 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 		return
 
 	# Extract chain jump stats from dynamic runtime memory banks
-	var stats = instance_from_id(final_payload.stats_container_id)
+	var stats := _stats_of(final_payload)
 	var has_stats := is_instance_valid(stats)
 	var chain_jump_radius: float = StatBonus.reach(stats, Stat.Type.CHAIN_RADIUS) if has_stats else 400.0
 
@@ -60,34 +56,24 @@ func execute_geometry(query_results: Dictionary, final_payload: CombatPayload) -
 		lookup_shape.radius = chain_jump_radius
 		
 		# Execute a secondary spatial sweep centered precisely on the current hit target
-		var intersections := SpatialQuery.query_shape_intersections(
-			space_state,
-			lookup_shape,
-			active_search_position,
-			enemy_collision_mask,
-			max_results_buffer
-		)
-		
-		if intersections.is_empty():
+		var candidates := _enemy_hurtboxes_in(lookup_shape, active_search_position)
+
+		if candidates.is_empty():
 			break
 
 		var next_target: HurtboxComponent = null
 		var shortest_dist_sq := chain_jump_radius * chain_jump_radius
 		
 		# Proximity filtering layout logic for cascading chains
-		for result in intersections:
-			var target_collider = result.get("collider") as Node2D
-			if is_instance_valid(target_collider) and target_collider is HurtboxComponent:
-				var instance_id := target_collider.get_instance_id()
-				
-				# Enforce bounce safety rules: Do not hit the same enemy twice during a single cast tree loop
-				if excluded_instance_ids.has(instance_id):
-					continue
-					
-				var dist_sq := active_search_position.distance_squared_to(target_collider.global_position)
-				if dist_sq < shortest_dist_sq:
-					shortest_dist_sq = dist_sq
-					next_target = target_collider
+		for target_collider in candidates:
+			# Enforce bounce safety rules: Do not hit the same enemy twice during a single cast tree loop
+			if excluded_instance_ids.has(target_collider.get_instance_id()):
+				continue
+
+			var dist_sq := active_search_position.distance_squared_to(target_collider.global_position)
+			if dist_sq < shortest_dist_sq:
+				shortest_dist_sq = dist_sq
+				next_target = target_collider
 
 		# Apply cascade hit if a valid untargeted neighbor unit exists
 		if is_instance_valid(next_target):

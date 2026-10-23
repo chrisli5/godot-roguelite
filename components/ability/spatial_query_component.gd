@@ -2,8 +2,8 @@ class_name SpatialQueryComponent
 extends Node
 
 @export_group("Physics Server Configuration")
-@export_flags_2d_physics var target_collision_mask: int = 4
-@export var max_results_buffer: int = 32
+@export_flags_2d_physics var enemy_collision_mask: int = CombatPhysics.ENEMY_HURTBOX_MASK
+@export var max_results_buffer: int = CombatPhysics.MAX_QUERY_RESULTS
 
 ## Injected sorting callback template. Defaults to proximity sorting.
 ## Expected signature: func(a: Dictionary, b: Dictionary) -> bool
@@ -37,7 +37,7 @@ func execute_spatial_query(query_origin: Vector2, query_shape: Shape2D) -> Dicti
 		space_state, 
 		query_shape, 
 		query_origin, 
-		target_collision_mask, 
+		enemy_collision_mask, 
 		max_results_buffer
 	)
 	

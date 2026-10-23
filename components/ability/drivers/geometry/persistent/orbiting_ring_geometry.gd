@@ -27,7 +27,7 @@ func get_speed_stats() -> Array[Stat.Type]:
 
 ## Step 1: Handle unique first-frame spawning logic cleanly
 func _on_persistent_started(spawn_origin: Vector2, _query_results: Dictionary) -> void:
-	var stats = instance_from_id(_active_payload.stats_container_id)
+	var stats := _stats_of(_active_payload)
 	var has_stats := is_instance_valid(stats)
 	
 	rotation_speed = StatBonus.speed(stats, Stat.Type.ORBIT_ROTATION_SPEED) if has_stats else 90.0
