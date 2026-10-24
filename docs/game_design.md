@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `b1ca55e`. Update this line whenever this file changes.
+Last synced with code commit: `8b6a915`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -130,7 +130,7 @@ A burst is not an ability. It has no slot, cooldown, anchor, stats profile or ta
 
 * **Centered on the enemy hit.** The origin is that enemy's position at the moment of the hit. The burst is not attached to the enemy, so it survives the enemy dying. Damage is credited to the casting ability.
 * **Defined as data.** A burst definition holds a trigger (on hit, or on crit), an optional required tag on the primary target, a shape (none means an effect-only burst), a damage fraction, an optional bonus per enemy caught with a cap, an optional switch to carry the cast's statuses, and an optional visual. A card carries one, chosen at cast time like a status.
-* **Shapes only find targets.** The shape decides where the burst reaches. Earth's explosion is a circle sized from the ability's `AOE\_RADIUS`. Lightning's overload could emit a series of sparks around the impact. Damage and every rule below are applied by one runner, so a new shape cannot skip them.
+* **Shapes only find targets.** The shape decides where the burst reaches. Earth's explosion is a circle sized from the ability's `AOE\_RADIUS`. Lightning's overload could emit a series of sparks around the impact. Damage and every rule below are applied by one runner, so a new shape cannot skip them. A burst's size is the originating slot's AOE\_RADIUS and REACH\_BONUS, read from the caster's stats when the burst fires, times the shape's radius\_multiplier. Damage and statuses carry over from the cast's payload; crit, speed and cooldown do not.
 * **Damage.** A fraction of the hit's final damage (a crit's extra damage is included). With a per-enemy bonus, the fraction grows with the number of enemies caught, up to a cap.
 * **Limits.** A burst never crits and never triggers another burst. It applies no status unless its definition opts in, in which case it carries the cast's statuses and their snapshots. The enemy just hit is not hit again by its own burst. A required tag is checked on the primary target before the hit's own statuses apply.
 * **Per-cast cap (Implemented, Task AB).** Each burst definition has `max_per_cast` (0 = unlimited, the default, so a fan, a chain or an area hit with many targets produces a burst per qualifying hit). The limit is enforced through a per-cast budget shared by every copy of the cast's payload. Only a qualifying burst spends it. No card sets a cap yet. Open item 40 still revisits the rest.

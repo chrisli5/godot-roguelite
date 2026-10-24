@@ -64,6 +64,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_geometry_standardization,
 		_section_stepped_delivery,
 		_section_indirect_scaling,
+		_section_burst_stat_inheritance,
 		_section_error_guard,
 	]
 	for section in sections:
@@ -3332,6 +3333,83 @@ func _section_indirect_scaling() -> void:
 	var level1 := CombatCalculations.generate_hit_payload(null, direct, null)
 	check(is_equal_approx(direct.get_final_stat_value(Stat.Type.COOLDOWN), 0.92) and level1.status_effects_to_apply.size() == 1 and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 still cuts the cooldown and carries Chill, with scale 1.0")
 	fx.reset_player_state()
+
+
+# Task AD: a burst's size comes from the caster's AOE_RADIUS and REACH_BONUS. This section pins current behavior.
+func _section_burst_stat_inheritance() -> void:
+	# Hurtbox circles have radius 10, so a circle of radius R catches a bat whose centre is within R + 10.
+	var space_state := (world as Node2D).get_world_2d().direct_space_state
+	var origin := Vector2(120000.0, 120000.0)
+	var shape := CircleBurstShape.new()
+	var bats := await _spawn_burst_bats(origin, [Vector2(33, 0), Vector2(15, 0)])
+
+	# a. reach 0: radius = AOE_RADIUS * radius_multiplier. AOE 20 reaches 30: the bat at 15 is caught, the one at 33 is not.
+	var plain := _make_stats({Stat.Type.AOE_RADIUS: 20.0, Stat.Type.REACH_BONUS: 0.0})
+	var plain_hits := shape.find_targets(origin, plain, space_state, 0)
+	check(plain_hits.size() == 1 and plain_hits[0] == bats[1].hurtbox_component, "burst stats: reach 0 gives radius 20 (catches the bat at 15, not the one at 33)")
+	var doubled := CircleBurstShape.new()
+	doubled.radius_multiplier = 2.0
+	check(doubled.find_targets(origin, plain, space_state, 0).size() == 2, "burst stats: radius_multiplier 2 gives radius 40 (catches both)")
+
+	# b. REACH_BONUS 0.3: radius 26, reaches 36. The bat at 33 is between the old edge (30) and the new one (36).
+	var reach := _make_stats({Stat.Type.AOE_RADIUS: 20.0, Stat.Type.REACH_BONUS: 0.3})
+	check(shape.find_targets(origin, reach, space_state, 0).size() == 2, "burst stats: REACH_BONUS 0.3 (radius x1.3) catches the bat at 33")
+	check(shape.find_targets(origin, plain, space_state, 0).size() == 1, "burst stats: the same bat is missed with REACH_BONUS 0.0")
+
+	# c. A changed AOE_RADIUS scales the burst.
+	var wide := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	check(shape.find_targets(origin, wide, space_state, 0).size() == 2, "burst stats: AOE_RADIUS 20 -> 40 catches the bat at 33")
+
+	# d. The shared shape resource is not mutated by scaling.
+	check(is_equal_approx(shape.radius_multiplier, 1.0) and is_equal_approx(doubled.radius_multiplier, 2.0), "burst stats: scaling never changes the shape's radius_multiplier")
+
+	# e. Characterization (current behavior, not a requirement): the stats are read when the burst fires, not at cast time.
+	var definition := _make_burst(&"test_ad_live", ImpactBurstDefinition.Trigger.ON_HIT)
+	var live := _make_stats({Stat.Type.AOE_RADIUS: 20.0, Stat.Type.REACH_BONUS: 0.0})
+	var cast := _burst_payload(live, 10.0, [definition])
+	var bigger := StatsProfile.new()
+	var bigger_stats: Dictionary[Stat.Type, float] = {Stat.Type.AOE_RADIUS: 20.0, Stat.Type.REACH_BONUS: 0.3}
+	bigger.base_stats = bigger_stats
+	live.mutate_base_profile(bigger)
+	ImpactBurst.run(definition, cast, origin + Vector2(0, -500), 0, tree.root.get_world_2d())
+	var fired := _lost(bats[0])
+	# The burst above was centered away from the bats; fire one at the bats' origin instead.
+	ImpactBurst.run(definition, cast, origin, 0, tree.root.get_world_2d())
+	check(is_equal_approx(fired, 0.0) and is_equal_approx(_lost(bats[0]), 5.0), "burst stats (current behavior): a REACH_BONUS change between cast and fire changes the radius (bat at 33 is hit, 0.5 of 10 = 5)")
+
+	# f. Caster freed or invalid when the burst fires: no reach, no error (instance_from_id gives null).
+	var doomed := _make_stats({Stat.Type.AOE_RADIUS: 20.0})
+	var orphan := _burst_payload(doomed, 10.0, [definition])
+	doomed.free()
+	var before := _lost(bats[1])
+	ImpactBurst.run(definition, orphan, origin, 0, tree.root.get_world_2d())
+	check(is_equal_approx(_lost(bats[1]), before), "burst stats (current behavior): a freed caster StatsContainer gives the burst no reach and no error")
+	_free_bats(bats)
+
+	# g. The 32-result cap still holds with a scaled burst: 40 bats inside it, at most 32 targets.
+	var crowd_offsets: Array[Vector2] = []
+	for i in range(40):
+		crowd_offsets.append(Vector2(float(i % 8) * 3.0, float(i / 8) * 3.0))
+	var crowd_origin := Vector2(120000.0, 121000.0)
+	var crowd := await _spawn_burst_bats(crowd_origin, crowd_offsets)
+	var crowd_hits := shape.find_targets(crowd_origin, reach, space_state, 0)
+	check(crowd_hits.size() == CombatPhysics.MAX_QUERY_RESULTS, "burst stats: a scaled burst over 40 enemies returns exactly %d targets" % CombatPhysics.MAX_QUERY_RESULTS)
+	_free_bats(crowd)
+
+	# h. Lingering zone: radius = AOE_RADIUS * (1 + REACH_BONUS) * its multiplier (test zone multiplier 4).
+	LingeringZone.reset_registry()
+	var zone_def := _zone_burst(&"test_ad_zone", load(TEST_LINGERING_ZONE) as PackedScene)
+	var no_statuses: Array[StatusEffect] = []
+	var zone_plain := await _spawn_zone(zone_def, _zone_payload(_make_stats({Stat.Type.AOE_RADIUS: 10.0}), zone_def, no_statuses), Vector2(120000.0, 122000.0))
+	check(zone_plain != null and is_equal_approx(zone_plain._radius, 40.0), "burst stats: lingering zone at reach 0 has radius 10 * 4 = 40")
+	if zone_plain != null:
+		zone_plain.queue_free()
+	LingeringZone.reset_registry()
+	var zone_reach := await _spawn_zone(zone_def, _zone_payload(_make_stats({Stat.Type.AOE_RADIUS: 10.0, Stat.Type.REACH_BONUS: 0.3}), zone_def, no_statuses), Vector2(120000.0, 123000.0))
+	check(zone_reach != null and is_equal_approx(zone_reach._radius, 52.0), "burst stats: lingering zone at REACH_BONUS 0.3 has radius 10 * 1.3 * 4 = 52")
+	if zone_reach != null:
+		zone_reach.queue_free()
+	LingeringZone.reset_registry()
 
 
 func _section_error_guard() -> void:
