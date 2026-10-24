@@ -8,6 +8,9 @@ extends Resource
 @export var damage_tags: Array[Tags.Type] = []
 ## True when the cast's crit roll succeeded. Rolled once per cast, so a whole volley shares it.
 @export var is_critical_hit: bool = false
+## Indirect damage scale applied once to this cast's hit damage and DoT snapshot (1.0 = none). Copies keep it
+## and never apply it again.
+@export var damage_scale: float = 1.0
 
 @export_group("Static Status Integration")
 ## Status effects that this hit applies to the target on impact

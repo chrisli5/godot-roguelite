@@ -29,8 +29,11 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		var crit_chance: float = stats.get_final_stat_value(Stat.Type.CRIT_CHANCE) # 5% baseline
 		var crit_mult: float = stats.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER)  # 150% baseline
 		var is_critical_hit: bool = randf() < crit_chance
-		var calculated_damage: float = base_damage
-		
+		# Indirect scale (Frost, Wind): applied once per cast, to the hit before the crit roll and to the DoT snapshot.
+		var damage_scale: float = stats.get_indirect_damage_scale()
+		payload.damage_scale = damage_scale
+		var calculated_damage: float = base_damage * damage_scale
+
 		if is_critical_hit:
 			calculated_damage *= crit_mult
 			# Append a temporary indicator tag so receivers know to play unique visual feedback (e.g. crit text bounce)
@@ -40,7 +43,7 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.is_critical_hit = is_critical_hit
 
 		# DoT magnitudes are snapshotted here, independent of BASE_DAMAGE and crit.
-		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE)
+		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE) * damage_scale
 		payload.status_duration_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_DURATION)
 		payload.status_ramp_cap_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_RAMP_CAP)
 		payload.status_stack_bonus_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_STACK_BONUS)

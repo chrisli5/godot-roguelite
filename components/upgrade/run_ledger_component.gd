@@ -94,6 +94,18 @@ func get_impact_bursts(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[
 	return bursts
 
 
+## Indirect effects of the cards that apply to this slot whose level (the card's tier in the slot) has reached the
+## effect's unlock level. Duplicate copies of a card add nothing: one effect per card.
+func get_active_indirect_effects(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[IndirectEffectDefinition]:
+	var effects: Array[IndirectEffectDefinition] = []
+	for def in active_upgrades:
+		if def.indirect_effect == null:
+			continue
+		if IndirectScaling.is_active(def.indirect_effect, get_card_tier(def, slot_index, weapon_tags)):
+			effects.append(def.indirect_effect)
+	return effects
+
+
 ## Walks the purchased cards in purchase order and appends each card's payload to `result`, skipping cards that
 ## do not apply to this slot (tier <= 0), null payloads, and payloads whose key was already added (first wins).
 ## `get_payload` maps a card to its payload (Callable(UpgradeDefinition) -> Resource); `get_key` maps a payload to its dedup key.

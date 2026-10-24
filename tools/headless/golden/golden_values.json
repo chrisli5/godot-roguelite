@@ -740,8 +740,8 @@
 	},
 	"payload/fire_2_frost_2/crit_off": {
 		"burst_ids": [],
-		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.0,
+		"dot_damage_snapshot": 0.159599999785423,
+		"final_damage": 1.06399999856949,
 		"is_burst": false,
 		"is_critical_hit": false,
 		"status_duration_snapshot": 6.0,
@@ -753,8 +753,8 @@
 	},
 	"payload/fire_2_frost_2/crit_on": {
 		"burst_ids": [],
-		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"dot_damage_snapshot": 0.159599999785423,
+		"final_damage": 1.59599999785423,
 		"is_burst": false,
 		"is_critical_hit": true,
 		"status_duration_snapshot": 6.0,
@@ -818,8 +818,8 @@
 	},
 	"payload/frost_2/crit_off": {
 		"burst_ids": [],
-		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.0,
+		"dot_damage_snapshot": 0.159599999785423,
+		"final_damage": 1.06399999856949,
 		"is_burst": false,
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
@@ -830,8 +830,8 @@
 	},
 	"payload/frost_2/crit_on": {
 		"burst_ids": [],
-		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"dot_damage_snapshot": 0.159599999785423,
+		"final_damage": 1.59599999785423,
 		"is_burst": false,
 		"is_critical_hit": true,
 		"status_duration_snapshot": 0.0,

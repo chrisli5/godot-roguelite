@@ -63,6 +63,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_speed_reach_bonus,
 		_section_geometry_standardization,
 		_section_stepped_delivery,
+		_section_indirect_scaling,
 		_section_error_guard,
 	]
 	for section in sections:
@@ -3214,6 +3215,123 @@ func _section_stepped_delivery() -> void:
 			sequenced_scenes.append(path.get_file().get_basename())
 	sequenced_scenes.sort()
 	check(sequenced_scenes == ["chain_link_geometry", "fissure_geometry"], "stepped scenes: only chain link and fissure extend SequencedGeometry (found %s)" % str(sequenced_scenes))
+
+
+## A slot-1 lane on the player's ledger with `values` as its profile, plus `frost` Frost and `wind` Wind levels bought for slot 1.
+func _indirect_lane(player: Player, values: Dictionary, frost: int, wind: int) -> StatsContainer:
+	var lane := _make_stats(values, 1, player.run_ledger_component)
+	for i in range(frost):
+		player.run_ledger_component.log_slot_specific_purchase(load(FROST_CARD) as UpgradeDefinition, 1)
+	for i in range(wind):
+		player.run_ledger_component.log_slot_specific_purchase(load(WIND_CARD) as UpgradeDefinition, 1)
+	return lane
+
+
+func _section_indirect_scaling() -> void:
+	var player := fx.fresh_player()
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var wind := load(WIND_CARD) as UpgradeDefinition
+	check(frost.indirect_effect != null and frost.indirect_effect.kind == IndirectEffectDefinition.Kind.COOLDOWN_DAMAGE and frost.indirect_effect.unlock_level == 2, "indirect: Frost carries a COOLDOWN_DAMAGE effect unlocking at level 2")
+	check(wind.indirect_effect != null and wind.indirect_effect.kind == IndirectEffectDefinition.Kind.SPEED_DAMAGE and wind.indirect_effect.unlock_level == 2, "indirect: Wind carries a SPEED_DAMAGE effect unlocking at level 2")
+
+	# Frost: -8% cooldown per level. Base 1.875 at level 2 gives exactly 0.3 s shaved.
+	var frost1 := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.875}, 1, 0)
+	check(is_equal_approx(frost1.get_final_stat_value(Stat.Type.COOLDOWN), 1.725) and is_equal_approx(frost1.get_indirect_damage_scale(), 1.0), "frost L1: the cooldown is shaved but there is no indirect bonus")
+	player.run_ledger_component.log_slot_specific_purchase(frost, 1)
+	check(is_equal_approx(frost1.get_final_stat_value(Stat.Type.COOLDOWN), 1.575) and is_equal_approx(frost1.get_indirect_damage_scale(), 1.12), "frost L2, 0.3 s shaved: +12%")
+	fx.reset_player_state()
+
+	# Frost floor: counts as 0.25 s when the effective cooldown is lower; never negative.
+	var floored := _indirect_lane(player, {Stat.Type.COOLDOWN: 0.3}, 5, 0)
+	check(is_equal_approx(floored.get_final_stat_value(Stat.Type.COOLDOWN), 0.18) and is_equal_approx(floored.get_indirect_damage_scale(), 1.0 + 0.05 / 0.1 * 0.04), "frost floor: a cooldown of 0.18 counts as 0.25, so 0.05 s shaved from 0.3 gives +2%")
+	fx.reset_player_state()
+	var below := _indirect_lane(player, {Stat.Type.COOLDOWN: 0.2}, 3, 0)
+	check(is_equal_approx(below.get_indirect_damage_scale(), 1.0), "frost floor: a base cooldown under the floor gives no bonus, never a negative one")
+	fx.reset_player_state()
+
+	# Wind: 0.5 * SPEED_BONUS, level 2 and up. Wind adds +0.1 SPEED_BONUS per level.
+	var wind1 := _indirect_lane(player, {Stat.Type.SPEED_BONUS: 0.1}, 0, 1)
+	check(is_equal_approx(wind1.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.2) and is_equal_approx(wind1.get_indirect_damage_scale(), 1.0), "wind L1: the speed bonus applies, the indirect does not")
+	player.run_ledger_component.log_slot_specific_purchase(wind, 1)
+	check(is_equal_approx(wind1.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.3) and is_equal_approx(wind1.get_indirect_damage_scale(), 1.15), "wind L2 with SPEED_BONUS 0.3: +15%")
+	fx.reset_player_state()
+	var wind_tenth := _indirect_lane(player, {Stat.Type.SPEED_BONUS: -0.1}, 0, 2)
+	check(is_equal_approx(wind_tenth.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.1) and is_equal_approx(wind_tenth.get_indirect_damage_scale(), 1.05), "wind L2 with SPEED_BONUS 0.1: +5%")
+	fx.reset_player_state()
+
+	# Combined: summed, then clamped at +50%.
+	var both := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: 0.0}, 2, 2)
+	check(is_equal_approx(both.get_indirect_damage_scale(), 1.0 + 0.12 + 0.1), "frost + wind: bonuses are summed (0.12 + 0.1)")
+	fx.reset_player_state()
+	var capped := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: 1.0}, 2, 2)
+	check(is_equal_approx(capped.get_indirect_damage_scale(), 1.5), "frost + wind: the total clamps at +50%% (raw 0.12 + 0.6)")
+	fx.reset_player_state()
+
+	# generate_hit_payload: hit scaled before the crit roll, DoT scaled before the crit share, nothing else scaled.
+	var values: Dictionary = {
+		Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0,
+		Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.STATUS_DURATION: 6.0, Stat.Type.STATUS_RAMP_CAP: 0.3, Stat.Type.STATUS_STACK_BONUS: 2.0,
+		Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: -0.1, Stat.Type.CRIT_DOT_SHARE: 1.0, Stat.Type.AOE_RADIUS: 40.0,
+	}
+	var lane := _indirect_lane(player, values, 2, 2) # scale 1 + 0.12 + 0.05
+	var scale := lane.get_indirect_damage_scale()
+	var plain_lane := _make_stats(values)
+	check(is_equal_approx(scale, 1.17) and is_equal_approx(plain_lane.get_indirect_damage_scale(), 1.0), "payload: lane scale 1.17; a lane with no ledger 1.0")
+	var plain := CombatCalculations.generate_hit_payload(null, plain_lane, null)
+	var scaled := CombatCalculations.generate_hit_payload(null, lane, null)
+	check(is_equal_approx(plain.damage_scale, 1.0) and is_equal_approx(plain.final_damage, 10.0) and is_equal_approx(plain.dot_damage_snapshot, 4.0), "payload: no indirect cards leave scale 1.0, damage 10 and DoT 4")
+	check(is_equal_approx(scaled.damage_scale, 1.17) and is_equal_approx(scaled.final_damage, 11.7) and is_equal_approx(scaled.dot_damage_snapshot, 4.68), "payload: damage 10 * 1.17 and DoT 4 * 1.17, no crit")
+	check(is_equal_approx(scaled.status_duration_snapshot, plain.status_duration_snapshot) and is_equal_approx(scaled.status_ramp_cap_snapshot, plain.status_ramp_cap_snapshot) and is_equal_approx(scaled.status_stack_bonus_snapshot, plain.status_stack_bonus_snapshot), "payload: duration, ramp cap and stack bonus snapshots are not scaled")
+	values[Stat.Type.CRIT_CHANCE] = 1.0
+	values[Stat.Type.CRIT_MULTIPLIER] = 1.5
+	var crit_lane := _indirect_lane(player, values, 0, 0)
+	var crit := CombatCalculations.generate_hit_payload(null, crit_lane, null)
+	check(crit.is_critical_hit and is_equal_approx(crit.final_damage, 10.0 * 1.17 * 1.5), "payload crit: hit = base * scale * crit multiplier (17.55)")
+	check(is_equal_approx(crit.dot_damage_snapshot, 4.0 * 1.17 * (1.0 + 0.5 * 1.0)), "payload crit: DoT = base * scale, then the crit share (7.02)")
+	fx.reset_player_state()
+
+	# Burst copies and zone hits carry the cast's scale and are not scaled again.
+	player = fx.fresh_player()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	values[Stat.Type.CRIT_CHANCE] = 0.0
+	var cast_lane := _indirect_lane(player, values, 2, 2)
+	player.run_ledger_component.log_slot_specific_purchase(fire, 1)
+	var cast := CombatCalculations.generate_hit_payload(null, cast_lane, null)
+	check(cast.status_effects_to_apply.size() == 2 and is_equal_approx(cast.damage_scale, 1.17), "burst/zone setup: the cast carries Chill, Burn and scale 1.17")
+	var burst_def := _make_burst(&"test_indirect_burst", ImpactBurstDefinition.Trigger.ON_HIT, 0.5)
+	var origin := Vector2(87000.0, 87000.0)
+	var bats := await _spawn_burst_bats(origin, [Vector2.ZERO, Vector2(20, 0)])
+	var bat_id: int = bats[0].get_instance_id()
+	ImpactBurst.run(burst_def, cast, origin, bat_id, tree.root.get_world_2d())
+	var burst_seen: CombatPayload = _recorded[1][0] if not _recorded[1].is_empty() else null
+	check(burst_seen != null and is_equal_approx(burst_seen.final_damage, cast.final_damage * 0.5) and is_equal_approx(burst_seen.damage_scale, 1.17), "burst copy: damage is the cast's scaled hit * fraction, not scaled again")
+	check(burst_seen != null and is_equal_approx(cast.final_damage, 11.7) and is_equal_approx(cast.dot_damage_snapshot, 4.68), "burst copy: the cast's own payload is untouched")
+	_free_bats(bats)
+
+	LingeringZone.reset_registry()
+	var zone_def := _zone_burst(&"test_indirect_zone", load(TEST_LINGERING_ZONE) as PackedScene)
+	cast.impact_bursts = [zone_def]
+	var zone_bats := await _spawn_burst_bats(origin + Vector2(500, 0), [Vector2.ZERO])
+	var zone := await _spawn_zone(zone_def, cast, origin + Vector2(500, 0))
+	# The zone re-applies every 0.5 s; wait (bounded) for its first hit instead of a fixed frame count.
+	for i in range(240):
+		if not _recorded[0].is_empty():
+			break
+		await tree.physics_frame
+	var zone_hits: Array = _recorded[0]
+	check(zone != null and not zone_hits.is_empty(), "zone: the zone hit the bat inside it")
+	if not zone_hits.is_empty():
+		var zone_hit: CombatPayload = zone_hits[0]
+		check(is_equal_approx(zone_hit.final_damage, 0.0) and is_equal_approx(zone_hit.dot_damage_snapshot, 4.68) and is_equal_approx(zone_hit.damage_scale, 1.17), "zone: 0 hit damage, the cast's scaled DoT snapshot (4.68), scale unchanged")
+	_free_bats(zone_bats)
+	LingeringZone.reset_registry()
+
+	# Direct effects are never gated: Chill at level 1 and Frost's cooldown cut.
+	player = fx.fresh_player()
+	var direct := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 1.0}, 1, 0)
+	var level1 := CombatCalculations.generate_hit_payload(null, direct, null)
+	check(is_equal_approx(direct.get_final_stat_value(Stat.Type.COOLDOWN), 0.92) and level1.status_effects_to_apply.size() == 1 and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 still cuts the cooldown and carries Chill, with scale 1.0")
+	fx.reset_player_state()
 
 
 func _section_error_guard() -> void:

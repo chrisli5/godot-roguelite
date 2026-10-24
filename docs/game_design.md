@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `9177916`. Update this line whenever this file changes.
+Last synced with code commit: `b1ca55e`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -108,9 +108,9 @@ Each infusion has a direct stat that works from level 1 and an indirect scaling 
 |Element|Role|Direct stat (level 1)|Indirect scaling (unlock level)|Status applied|
 |-|-|-|-|-|
 |Fire|Duration and DoT|`STATUS\_DURATION` and `STATUS\_RAMP\_CAP`, both flat per level (Implemented). No damage of its own|Burn's ramp: the cap grows per level (Implemented), and a longer duration keeps the ramp running. DoT only|Burn (Implemented)|
-|Frost|Cooldown|`COOLDOWN` (Implemented)|Level 2: bonus damage per 0.1 s shaved off the ability's default cooldown, with a cooldown floor and a cap on the bonus|Chill (Implemented)|
+|Frost|Cooldown|`COOLDOWN` (Implemented)|Level 2 (Implemented, Task AC, placeholders): bonus damage of 0.04 per 0.1 s shaved off the ability's default cooldown, counting the effective cooldown as at least 0.25 s in this calculation only (the real cooldown has no floor). Summed with the other indirect bonuses, capped at +50%, and applied as a cast-time damage scale to hit damage and DoT|Chill (Implemented)|
 |Lightning|Crit|`CRIT\_CHANCE` +0.03 per level and `CRIT\_MULTIPLIER` +0.15 per level (Implemented, placeholders; open item 49)|Level 3: a crit releases an overload that damages nearby enemies for a percentage of the crit damage|None|
-|Wind|Action velocity|`SPEED\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own speed (`PROJECTILE\_MOVEMENT\_SPEED`, `ORBIT\_ROTATION\_SPEED`) by one plus the bonus; geometries with no speed concept ignore it until they get a base delay (item 47)|Level 2: damage scale from the bonus, read at cast time|None|
+|Wind|Action velocity|`SPEED\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own speed (`PROJECTILE\_MOVEMENT\_SPEED`, `ORBIT\_ROTATION\_SPEED`) by one plus the bonus; geometries with no speed concept ignore it until they get a base delay (item 47)|Level 2 (Implemented, Task AC, placeholders): bonus damage of 0.5 * `SPEED\_BONUS` (+0.10 gives +5%), read at cast time. Summed with the other indirect bonuses, capped at +50%, and applied as a cast-time damage scale to hit damage and DoT|None|
 |Earth|Area|`REACH\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own reach (`AOE\_RADIUS`, `CHAIN\_RADIUS`, `ORBIT\_RADIUS`) by one plus the bonus|Level 3: an on-impact explosion whose damage scales with the number of enemies it catches|None|
 
 Rules:
@@ -334,8 +334,8 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |28|No pierce: `CombatVolume` frees itself on every hit, and orbit shards (same class) vanish after one hit|Gap|
 |29|The impact-burst mechanism is built, but no card uses it yet. Earth's explosion and Lightning's overload still need authoring and level gating (item 33). Magma would reuse it later|Gap|
 |31|Crit is rolled once per cast (decided, simplest). Revisit if the Lightning theme needs per-hit crit|Design decision|
-|32|Cast-time `damage\_scale` for Frost and Wind (applied to hit damage and `dot\_damage\_snapshot`, indirect bonuses summed then capped): the cap value and where the scale is computed|Design decision|
-|33|Level-gated infusion effects: where an effect reads the infusion level at cast time and whether each effect carries its own unlock level. The level itself comes from the ledger (`get\_infusion\_level(slot, element)`)|Gap|
+|32|Built (Task AC, placeholders): Frost and Wind compute one cast-time `damage\_scale`, 1 plus the summed indirect bonuses clamped to +50%. It multiplies the cast's hit damage before the crit roll and its DoT snapshot before the `CRIT\_DOT\_SHARE` bonus. It does not change status duration, ramp cap, stack bonus, tick interval, burst damage or burst shape, and a burst copy or lingering-zone hit is never scaled again. The cap is a constant in `IndirectScaling`|Built|
+|33|Built for Frost and Wind (Task AC, placeholders): each card carries an optional `indirect\_effect` with its own `unlock\_level` (2 for both). The effect is active in a slot only when the card's level in that slot (`get\_card\_tier`) reaches it; direct effects are never gated. Earth's and Lightning's level 3 effects reuse the gate when built. Level gating of burst cards is not built|Partly built|
 |34|The damage budget, the hit/DoT split per specialization and the hit-to-DoT exchange rate are not in `balance\_notes.md`. The workbook solved Fire as an additive amount and needs re-solving for the potency model|Balance|
 |35|REFRESH takes the latest applier's snapshot, so a weaker Burn applied later can downgrade a stronger one, now that every ability can apply Burn. Left as is. Alternative: keep the higher `dot\_damage`|Design decision|
 |37|Every ability profile needs nonzero `BASE\_DAMAGE` and `DOT\_DAMAGE`, plus `STATUS\_DURATION` and `STATUS\_RAMP\_CAP` entries (a missing stat ignores modifiers). Only Arcane Bolt's profile has them (`DOT\_DAMAGE` 0.15, placeholder). A headless warning for zeros was offered, not requested|Gap|

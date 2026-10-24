@@ -39,6 +39,8 @@ enum Category { GENERAL, INFUSION }
 @export var status_effect_payload: StatusEffect
 ## Optional impact burst fired by hits from abilities this card applies to (chosen at cast time).
 @export var impact_burst_payload: ImpactBurstDefinition
+## Optional level-gated indirect effect (infusion cards only: Frost, Wind). Null for every other card.
+@export var indirect_effect: IndirectEffectDefinition
 
 @export_group("Evolution Gating")
 ## Only used by ABILITY_UNLOCK cards that are evolutions: the base ability this card evolves.
