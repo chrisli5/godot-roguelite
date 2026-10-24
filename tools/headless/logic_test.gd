@@ -39,6 +39,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_pending_drafts,
 		_section_fissure,
 		_section_impact_bursts,
+		_section_burst_cap,
 		_section_infusion_level_definition,
 		_section_tracker_reads_ledger,
 		_section_infusion_category,
@@ -292,6 +293,114 @@ func _section_impact_bursts() -> void:
 	await tree.process_frame
 	check(_recorded[0].size() == 1 and is_equal_approx(_lost(bats[0]), 10.0), "physics callback: the volume hit the primary once (10.0)")
 	check(is_equal_approx(_lost(bats[1]), 5.0), "physics callback: the burst ran after a real area_entered hit (neighbor took 5.0; no space-state error in the output)")
+	_free_bats(bats)
+
+
+## Lands `hits` primary hits of `payload` on bats[0] and waits for the deferred bursts to run.
+## Returns how many burst hits the neighbor (bats[1]) received.
+func _burst_hits_on_neighbor(payload: CombatPayload, y: float, hits: int) -> int:
+	var bats := await _spawn_burst_bats(Vector2(90000.0, y), [Vector2(0, 0), Vector2(30, 0)])
+	for i in range(hits):
+		bats[0].hurtbox_component.take_hit(payload)
+	await tree.process_frame
+	await tree.process_frame
+	var seen: int = _recorded[1].size()
+	_free_bats(bats)
+	return seen
+
+
+func _section_burst_cap() -> void:
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var capped := _make_burst(&"cap_three", ImpactBurstDefinition.Trigger.ON_HIT)
+	capped.max_per_cast = 3
+	var single := _make_burst(&"cap_one", ImpactBurstDefinition.Trigger.ON_HIT)
+	single.max_per_cast = 1
+	var unlimited := _make_burst(&"cap_none", ImpactBurstDefinition.Trigger.ON_HIT)
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+
+	var cast_a := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
+	var cast_b := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
+	check(cast_a.cast_id != 0 and cast_b.cast_id != cast_a.cast_id, "cast id: every generated payload gets a new nonzero cast_id")
+	check(cast_a.cast_budget != null and cast_b.cast_budget != cast_a.cast_budget, "cast budget: every generated payload gets its own budget")
+	var fallback := CombatCalculations.generate_hit_payload(null, null, null)
+	check(fallback.cast_id != 0 and fallback.cast_budget != null, "cast budget: the no-stats fallback payload gets a cast_id and budget too")
+	var budget := CastBudget.new()
+	check(budget.try_spend(1, 2) and budget.try_spend(1, 2) and not budget.try_spend(1, 2) and budget.count_of(1) == 2, "CastBudget: spends up to max_count, then refuses without changing the count")
+	check(budget.try_spend(2, 0) and budget.try_spend(2, 0) and budget.count_of(2) == 2, "CastBudget: max_count 0 never refuses but still counts")
+
+	# --- cap 3: five qualifying hits from one cast spawn 3 bursts ---
+	cast_a.impact_bursts = [capped]
+	check(await _burst_hits_on_neighbor(cast_a, 101000.0, 5) == 3, "burst cap 3: five qualifying hits spawn 3 bursts")
+	check(cast_a.cast_budget.count_of(capped.get_instance_id()) == 3, "burst cap 3: the cast's budget recorded 3 spends")
+
+	# --- a second cast (new payload) gets a fresh budget ---
+	cast_b.impact_bursts = [capped]
+	check(await _burst_hits_on_neighbor(cast_b, 102000.0, 5) == 3, "burst cap: a second cast has a fresh budget (3 bursts again)")
+
+	# --- two definitions in one cast are counted separately ---
+	var cast_c := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
+	cast_c.impact_bursts = [capped, single]
+	check(await _burst_hits_on_neighbor(cast_c, 103000.0, 5) == 4, "burst cap: cap 3 and cap 1 in one cast count separately (3 + 1 = 4)")
+
+	# --- max_per_cast 0 spawns on every hit as before ---
+	var cast_d := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
+	cast_d.impact_bursts = [unlimited]
+	check(await _burst_hits_on_neighbor(cast_d, 104000.0, 5) == 5, "burst cap: max_per_cast 0 spawns on every hit (5 of 5)")
+
+	# --- a null budget is unlimited, even with a cap set ---
+	var no_budget := _burst_payload(stats, 10.0, [single])
+	check(no_budget.cast_budget == null and await _burst_hits_on_neighbor(no_budget, 105000.0, 4) == 4, "burst cap: a null budget means unlimited (4 of 4 despite cap 1)")
+
+	# --- a hit failing required_target_tag does not spend budget ---
+	var tagged := _make_burst(&"cap_tagged", ImpactBurstDefinition.Trigger.ON_HIT)
+	tagged.max_per_cast = 1
+	tagged.required_target_tag = Tags.Type.BURNING
+	var cast_e := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
+	cast_e.impact_bursts = [tagged]
+	check(await _burst_hits_on_neighbor(cast_e, 106000.0, 3) == 0 and cast_e.cast_budget.count_of(tagged.get_instance_id()) == 0, "burst cap: hits failing required_target_tag spawn nothing and spend nothing")
+	var bats := await _spawn_burst_bats(Vector2(90000.0, 107000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].tag_component.add_temporary_tag(Tags.Type.BURNING)
+	bats[0].hurtbox_component.take_hit(cast_e)
+	bats[0].hurtbox_component.take_hit(cast_e)
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[1].size() == 1 and cast_e.cast_budget.count_of(tagged.get_instance_id()) == 1, "burst cap: once the tag is present the burst fires, and only up to its cap (1)")
+	_free_bats(bats)
+
+	# --- duplicated payloads share the budget and the cast id ---
+	var copy := cast_a.duplicate() as CombatPayload
+	check(copy.cast_budget == cast_a.cast_budget and copy.cast_id == cast_a.cast_id and copy.cast_id != 0, "payload.duplicate shares the CastBudget by reference and keeps cast_id")
+	check(copy.impact_bursts.size() == 1 and copy.impact_bursts[0].get_instance_id() == capped.get_instance_id(), "payload.duplicate keeps the same definition instance (the budget key is stable)")
+
+	# --- a skipped burst applies none of its statuses ---
+	var status_burst := _make_burst(&"cap_status", ImpactBurstDefinition.Trigger.ON_HIT)
+	status_burst.max_per_cast = 1
+	status_burst.applies_statuses = true
+	var status_list: Array[StatusEffect] = [burn]
+	var cast_f := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
+	cast_f.impact_bursts = [status_burst]
+	cast_f.status_effects_to_apply = status_list
+	cast_f.dot_damage_snapshot = 1.0
+	cast_f.status_duration_snapshot = 3.0
+	bats = await _spawn_burst_bats(Vector2(90000.0, 108000.0), [Vector2(0, 0), Vector2(30, 0), Vector2(5000, 0), Vector2(5030, 0)])
+	bats[0].hurtbox_component.take_hit(cast_f)
+	bats[2].hurtbox_component.take_hit(cast_f)
+	await tree.process_frame
+	await tree.process_frame
+	check(bats[1].status_effect_component._active_effects.has("burn"), "burst cap: the burst that fired applied its status (neighbor burns)")
+	check(bats[3].status_effect_component._active_effects.is_empty() and is_equal_approx(_lost(bats[3]), 0.0), "burst cap: the skipped burst applied no status and no damage")
+	_free_bats(bats)
+
+	# --- a burst-copy payload keeps the budget and carries no bursts, so it never spends ---
+	var spent_before: int = cast_f.cast_budget.count_of(status_burst.get_instance_id())
+	bats = await _spawn_burst_bats(Vector2(90000.0, 109000.0), [Vector2(0, 0), Vector2(30, 0)])
+	var burst_copy := cast_f.duplicate() as CombatPayload
+	var no_bursts: Array[ImpactBurstDefinition] = []
+	burst_copy.impact_bursts = no_bursts
+	burst_copy.is_burst = true
+	bats[0].hurtbox_component.take_hit(burst_copy)
+	await tree.process_frame
+	check(burst_copy.cast_budget == cast_f.cast_budget and cast_f.cast_budget.count_of(status_burst.get_instance_id()) == spent_before, "burst copy: keeps the cast's budget and spends nothing")
 	_free_bats(bats)
 
 

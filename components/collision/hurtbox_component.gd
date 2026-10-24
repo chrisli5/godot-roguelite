@@ -37,6 +37,9 @@ func _get_qualifying_bursts(payload: CombatPayload) -> Array[ImpactBurstDefiniti
 			var tags: TagComponent = owner_entity.tag_component if is_instance_valid(owner_entity) else null
 			if not is_instance_valid(tags) or not tags.has_tag(definition.required_target_tag):
 				continue
+		# Only a qualifying burst spends the cast's budget; a null budget means unlimited.
+		if payload.cast_budget != null and not payload.cast_budget.try_spend(definition.get_instance_id(), definition.max_per_cast):
+			continue
 		qualifying.append(definition)
 	return qualifying
 

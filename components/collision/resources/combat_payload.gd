@@ -26,6 +26,10 @@ extends Resource
 @export var impact_bursts: Array[ImpactBurstDefinition] = []
 ## True on the payload a burst delivers to its targets. Such a payload never starts another burst.
 @export var is_burst: bool = false
+## Identifies the cast that made this payload (0 = none). Copies of the payload keep it.
+@export var cast_id: int = 0
+## Per-cast spend counters, shared (never copied) by every duplicate of this payload. Null means unlimited.
+@export var cast_budget: CastBudget = null
 
 @export_group("Dynamic Strategy Core Targets")
 ## Injected by the spawning Ability: Points to the live Enemy Node2D locked by the hotbar strategy

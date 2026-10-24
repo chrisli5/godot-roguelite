@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `e7f7bfc`. Update this line whenever this file changes.
+Last synced with code commit: `9177916`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -133,7 +133,7 @@ A burst is not an ability. It has no slot, cooldown, anchor, stats profile or ta
 * **Shapes only find targets.** The shape decides where the burst reaches. Earth's explosion is a circle sized from the ability's `AOE\_RADIUS`. Lightning's overload could emit a series of sparks around the impact. Damage and every rule below are applied by one runner, so a new shape cannot skip them.
 * **Damage.** A fraction of the hit's final damage (a crit's extra damage is included). With a per-enemy bonus, the fraction grows with the number of enemies caught, up to a cap.
 * **Limits.** A burst never crits and never triggers another burst. It applies no status unless its definition opts in, in which case it carries the cast's statuses and their snapshots. The enemy just hit is not hit again by its own burst. A required tag is checked on the primary target before the hit's own statuses apply.
-* **Every hit, no per-cast cap.** A fan, a chain or an area hit with many targets produces a burst per qualifying hit. Open items 39 and 40 revisit this.
+* **Per-cast cap (Implemented, Task AB).** Each burst definition has `max_per_cast` (0 = unlimited, the default, so a fan, a chain or an area hit with many targets produces a burst per qualifying hit). The limit is enforced through a per-cast budget shared by every copy of the cast's payload. Only a qualifying burst spends it. No card sets a cap yet. Open item 40 still revisits the rest.
 * **Timing.** The burst runs one frame after the hit, because a hit can land inside a physics callback.
 * **Lingering zones (Implemented as a component, Task V).** An effect-only burst can spawn a zone that lingers (4 s by default), re-applies the cast's statuses with their snapshots to enemies inside it every 0.5 s, and deals no damage of its own. A new zone near a live one of the same kind refreshes it instead of stacking, and at most 8 live zones per kind exist. No card uses it yet.
 
@@ -340,7 +340,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |35|REFRESH takes the latest applier's snapshot, so a weaker Burn applied later can downgrade a stronger one, now that every ability can apply Burn. Left as is. Alternative: keep the higher `dot\_damage`|Design decision|
 |37|Every ability profile needs nonzero `BASE\_DAMAGE` and `DOT\_DAMAGE`, plus `STATUS\_DURATION` and `STATUS\_RAMP\_CAP` entries (a missing stat ignores modifiers). Only Arcane Bolt's profile has them (`DOT\_DAMAGE` 0.15, placeholder). A headless warning for zeros was offered, not requested|Gap|
 |38|Fire's duration does little for fast abilities, by arithmetic from the numbers: Arcane Bolt's cooldown is 1.0 s and Burn lasts 3.0 s at level 1, so REFRESH keeps it up, and the ramp keeps running because a refresh keeps `elapsed`. The ramp cap and Frost's cooldown cuts matter more there. Duration matters for slow abilities and after target changes|Balance|
-|39|Per-hit or per-cast bursts. Today a burst fires on every qualifying hit, so a chain, a fan or an area hit produces many. A per-cast cap needs shared per-cast state, which the shared payload cannot hold|Design decision|
+|39|Per-hit or per-cast bursts. Built (Task AB): `max_per_cast` on each burst definition (0 = unlimited), enforced through a per-cast budget shared by the cast's payload copies. Intended values for the later cards (placeholders): Earth's explosion 3 per cast, Lightning's overload 1 per cast. No card sets a cap yet|Built|
 |40|Earth's explosion on area abilities. A radial pulse already hits everything in range, so an explosion per target is mostly redundant. Option: projectile hits only, with area abilities getting only the larger radius|Design decision|
 |41|Statuses on bursts are built behind an opt-in switch (Task U) and no card uses it yet. Revisit stacking and spam on chains and fans before authoring one (see item 39)|Design decision|
 |42|Lightning's spark shape: spark count, reach, spread pattern, whether each spark hits like a ray or jumps like a chain, and how damage splits per spark. `BurstShape` is built so it can be added as a new shape|Design decision|

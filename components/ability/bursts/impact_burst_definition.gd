@@ -22,5 +22,7 @@ enum Trigger { ON_HIT, ON_CRIT }
 @export var per_enemy_bonus_cap: float = 0.0
 ## Keep the cast's statuses and their snapshots on the burst's hits. Off by default: a burst applies no status.
 @export var applies_statuses: bool = false
+## Most times this burst may fire per cast (0 = unlimited). Enforced through the cast's shared CastBudget.
+@export var max_per_cast: int = 0
 ## Optional visual spawned at the burst origin.
 @export var effect_scene: PackedScene

@@ -5,8 +5,15 @@ extends Resource
 static var _warned_effect_ids: Dictionary[String, bool] = {}
 
 
+## Last cast id handed out; 0 is reserved for "no cast".
+static var _last_cast_id: int = 0
+
+
 static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_tags: TagComponent) -> CombatPayload:
 	var payload = CombatPayload.new()
+	_last_cast_id += 1
+	payload.cast_id = _last_cast_id
+	payload.cast_budget = CastBudget.new()
 	if is_instance_valid(caster):
 		payload.caster_instance_id = caster.get_instance_id()
 	
