@@ -9,7 +9,12 @@ const TOTAL_BONUS_CAP: float = 0.5
 
 ## The level gate every indirect effect uses: active only when the card's level in the slot reaches the unlock level.
 static func is_active(effect: IndirectEffectDefinition, card_level: int) -> bool:
-	return effect != null and effect.kind != IndirectEffectDefinition.Kind.NONE and card_level >= effect.unlock_level
+	return effect != null and effect.kind != IndirectEffectDefinition.Kind.NONE and is_unlocked(card_level, effect.unlock_level)
+
+
+## The one level comparison: a card's level in a slot has reached an unlock level. Burst cards use it too.
+static func is_unlocked(card_level: int, unlock_level: int) -> bool:
+	return card_level >= unlock_level
 
 
 ## 1.0 + the summed bonuses of `effects` (already gated), clamped to TOTAL_BONUS_CAP. 1.0 for no effects or invalid stats.

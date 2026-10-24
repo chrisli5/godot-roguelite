@@ -87,10 +87,10 @@ func get_status_effects(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array
 
 ## Impact bursts carried by the upgrades that apply to this slot, in purchase order. Resolved exactly
 ## like get_status_effects: a card only needs to be present, and bursts are deduplicated by burst_id
-## (first wins).
+## (first wins). A burst is active only when its card's level in the slot reaches the burst's unlock_level.
 func get_impact_bursts(slot_index: int, weapon_tags: Array[Tags.Type]) -> Array[ImpactBurstDefinition]:
 	var bursts: Array[ImpactBurstDefinition] = []
-	_collect_unique_payloads(slot_index, weapon_tags, _burst_payload_of, _burst_key_of, bursts)
+	_collect_unique_payloads(slot_index, weapon_tags, _burst_payload_of, _burst_key_of, bursts, _burst_unlock_level_of)
 	return bursts
 
 
@@ -109,13 +109,17 @@ func get_active_indirect_effects(slot_index: int, weapon_tags: Array[Tags.Type])
 ## Walks the purchased cards in purchase order and appends each card's payload to `result`, skipping cards that
 ## do not apply to this slot (tier <= 0), null payloads, and payloads whose key was already added (first wins).
 ## `get_payload` maps a card to its payload (Callable(UpgradeDefinition) -> Resource); `get_key` maps a payload to its dedup key.
-func _collect_unique_payloads(slot_index: int, weapon_tags: Array[Tags.Type], get_payload: Callable, get_key: Callable, result: Array) -> void:
+## An optional `get_unlock_level` (Callable(Resource) -> int) also skips a payload whose unlock level the card's tier has not reached.
+func _collect_unique_payloads(slot_index: int, weapon_tags: Array[Tags.Type], get_payload: Callable, get_key: Callable, result: Array, get_unlock_level: Callable = Callable()) -> void:
 	var seen_keys: Array[String] = []
 	for def in active_upgrades:
 		var payload := get_payload.call(def) as Resource
 		if payload == null:
 			continue
-		if get_card_tier(def, slot_index, weapon_tags) <= 0:
+		var tier := get_card_tier(def, slot_index, weapon_tags)
+		if tier <= 0:
+			continue
+		if get_unlock_level.is_valid() and not IndirectScaling.is_unlocked(tier, get_unlock_level.call(payload)):
 			continue
 		var key := String(get_key.call(payload))
 		if seen_keys.has(key):
@@ -134,6 +138,10 @@ func _status_key_of(payload: Resource) -> String:
 
 func _burst_payload_of(def: UpgradeDefinition) -> Resource:
 	return def.impact_burst_payload
+
+
+func _burst_unlock_level_of(payload: Resource) -> int:
+	return (payload as ImpactBurstDefinition).unlock_level
 
 
 func _burst_key_of(payload: Resource) -> String:

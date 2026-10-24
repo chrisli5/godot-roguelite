@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="CircleBurstShape" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://1rjmpqfr10dr" path="res://components/ability/bursts/circle_burst_shape.gd" id="1_shape"]
+
+[resource]
+script = ExtResource("1_shape")
+radius_multiplier = 6.0

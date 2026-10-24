@@ -65,6 +65,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_stepped_delivery,
 		_section_indirect_scaling,
 		_section_burst_stat_inheritance,
+		_section_earth_lightning_bursts,
 		_section_error_guard,
 	]
 	for section in sections:
@@ -2273,17 +2274,23 @@ func _section_burst_extensions() -> void:
 		spawned.queue_free()
 	_free_bats(bats)
 
-	# j. Guards: nothing shipped uses the new fields.
-	var users := 0
-	var burst_resources := 0
+	# j. Guards: the only shipped bursts are Task AE's two, and neither uses the extension fields.
+	var users: Array[String] = []
+	var burst_ids: Array[String] = []
+	var uses_extension := 0
 	for path in _list_tres("res://resources"):
 		var resource := load(path)
 		if resource is UpgradeDefinition and (resource as UpgradeDefinition).impact_burst_payload != null:
-			users += 1
+			users.append((resource as UpgradeDefinition).upgrade_id)
 		if resource is ImpactBurstDefinition:
-			burst_resources += 1
-	check(users == 0, "burst ext guards: no shipped card carries an impact_burst_payload")
-	check(burst_resources == 0, "burst ext guards: no shipped resource is an ImpactBurstDefinition, so none uses the new fields")
+			var shipped := resource as ImpactBurstDefinition
+			burst_ids.append(String(shipped.burst_id))
+			if shipped.applies_statuses or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0:
+				uses_extension += 1
+	users.sort()
+	burst_ids.sort()
+	check(users == ["inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards carry an impact_burst_payload (found %s)" % str(users))
+	check(burst_ids == ["earth_explosion", "lightning_overload"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion and lightning_overload, and none uses the extension fields (found %s)" % str(burst_ids))
 
 
 func _clear_test_effects() -> void:
@@ -3333,6 +3340,113 @@ func _section_indirect_scaling() -> void:
 	var level1 := CombatCalculations.generate_hit_payload(null, direct, null)
 	check(is_equal_approx(direct.get_final_stat_value(Stat.Type.COOLDOWN), 0.92) and level1.status_effects_to_apply.size() == 1 and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 still cuts the cooldown and carries Chill, with scale 1.0")
 	fx.reset_player_state()
+
+
+# Task AE: the Earth explosion and Lightning overload cards, and burst level gating.
+func _burst_lane(player: Player, slot: int, extra: Dictionary = {}) -> StatsContainer:
+	var values := {Stat.Type.AOE_RADIUS: 10.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0, Stat.Type.REACH_BONUS: 0.0, Stat.Type.DOT_DAMAGE: 1.0}
+	values.merge(extra, true)
+	return _make_stats(values, slot, player.run_ledger_component)
+
+
+func _grant(player: Player, card_path: String, slot: int, levels: int) -> void:
+	for i in range(levels):
+		player.run_ledger_component.log_slot_specific_purchase(load(card_path) as UpgradeDefinition, slot)
+
+
+func _burst_ids_of(payload: CombatPayload) -> Array[String]:
+	var ids: Array[String] = []
+	for burst in payload.impact_bursts:
+		ids.append(String(burst.burst_id))
+	return ids
+
+
+func _section_earth_lightning_bursts() -> void:
+	var player := fx.fresh_player()
+	var explosion := load("res://resources/bursts/earth_explosion.tres") as ImpactBurstDefinition
+	var overload := load("res://resources/bursts/lightning_overload.tres") as ImpactBurstDefinition
+	check(explosion.burst_id == &"earth_explosion" and explosion.trigger == ImpactBurstDefinition.Trigger.ON_HIT and is_equal_approx(explosion.damage_fraction, 0.4) and explosion.max_per_cast == 3 and explosion.unlock_level == 3 and not explosion.applies_statuses and explosion.required_target_tag == Tags.Type.NONE and is_equal_approx(explosion.per_enemy_bonus, 0.0), "bursts AE: the Earth explosion definition (ON_HIT, 0.4, cap 3, level 3, no statuses, no tag, no bonus)")
+	check(overload.burst_id == &"lightning_overload" and overload.trigger == ImpactBurstDefinition.Trigger.ON_CRIT and is_equal_approx(overload.damage_fraction, 0.6) and overload.max_per_cast == 1 and overload.unlock_level == 3 and not overload.applies_statuses and overload.required_target_tag == Tags.Type.NONE and is_equal_approx(overload.per_enemy_bonus, 0.0), "bursts AE: the Lightning overload definition (ON_CRIT, 0.6, cap 1, level 3, no statuses, no tag, no bonus)")
+	check(is_equal_approx((explosion.shape as CircleBurstShape).radius_multiplier, 6.0) and is_equal_approx((overload.shape as CircleBurstShape).radius_multiplier, 8.0), "bursts AE: radius multipliers 6.0 and 8.0")
+	check((load(EARTH_CARD) as UpgradeDefinition).impact_burst_payload == explosion and (load(LIGHTNING_CARD) as UpgradeDefinition).impact_burst_payload == overload, "bursts AE: the Earth and Lightning cards carry their burst")
+	check(ImpactBurstDefinition.new().unlock_level == 1 and IndirectScaling.is_unlocked(3, 3) and not IndirectScaling.is_unlocked(2, 3), "bursts AE: unlock_level defaults to 1; the shared gate is level >= unlock")
+
+	# Gating by level, per slot.
+	var earth_lane := _burst_lane(player, 1)
+	var other_lane := _burst_lane(player, 2)
+	_grant(player, EARTH_CARD, 1, 2)
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)).is_empty(), "bursts AE: Earth 2 gives no explosion")
+	check(is_equal_approx(earth_lane.get_final_stat_value(Stat.Type.REACH_BONUS), 0.2), "bursts AE: Earth 2 still gives its direct REACH_BONUS 0.2")
+	_grant(player, EARTH_CARD, 1, 1)
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)) == ["earth_explosion"], "bursts AE: Earth 3 gives the explosion")
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, other_lane, null)).is_empty(), "bursts AE: Earth 3 in slot 1 gives slot 2 no burst")
+	var light_lane := _burst_lane(player, 3, {Stat.Type.CRIT_CHANCE: 1.0})
+	_grant(player, LIGHTNING_CARD, 3, 1)
+	check(is_equal_approx(light_lane.get_final_stat_value(Stat.Type.CRIT_CHANCE), 1.03) and CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null).impact_bursts.is_empty(), "bursts AE: Lightning 1 gives its direct crit chance and no overload")
+	_grant(player, LIGHTNING_CARD, 3, 1)
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)).is_empty(), "bursts AE: Lightning 2 gives no overload")
+	_grant(player, LIGHTNING_CARD, 3, 1)
+	var crit_cast := CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)
+	check(_burst_ids_of(crit_cast) == ["lightning_overload"], "bursts AE: Lightning 3 gives the overload")
+
+	# Explosion: fires on a hit, scaled radius 10 * 1.3 * 6 = 78 (reach 88 with the hurtbox), damage 0.4 of the hit, cap 3 per cast.
+	var origin := Vector2(130000.0, 130000.0)
+	var cast := CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(60, 0), Vector2(85, 0), Vector2(100, 0)])
+	bats[0].hurtbox_component.take_hit(cast)
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 4.0), "bursts AE: the explosion deals 0.4 of the 10 damage hit (4.0)")
+	check(is_equal_approx(_lost(bats[2]), 4.0) and is_equal_approx(_lost(bats[3]), 0.0), "bursts AE: radius 10 * (1 + 0.3) * 6: a bat at 85 is caught (without reach it would not be), one at 100 is not")
+	check(is_equal_approx(_lost(bats[0]), 10.0), "bursts AE: the primary target takes only the hit")
+	check(_recorded[1].size() == 1 and _recorded[1][0].is_burst and _recorded[1][0].impact_bursts.is_empty() and not _recorded[1][0].is_critical_hit, "bursts AE: the burst copy is marked is_burst, holds no bursts and never crits (no recursion)")
+	_free_bats(bats)
+	var five := CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)
+	check(await _burst_hits_on_neighbor(five, 131000.0, 5) == 3, "bursts AE: five hits from one cast spawn 3 explosions")
+
+	# Overload: crit only, once per cast, 0.6 of the crit's final damage (the multiplier is included).
+	var expected := 10.0 * light_lane.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER)
+	check(crit_cast.is_critical_hit and is_equal_approx(crit_cast.final_damage, expected) and expected > 10.0, "bursts AE: the crit cast's final damage includes the multiplier")
+	check(await _burst_hits_on_neighbor(crit_cast, 132000.0, 4) == 1, "bursts AE: four crit hits from one cast spawn one overload")
+	bats = await _spawn_burst_bats(Vector2(130000.0, 133000.0), [Vector2(0, 0), Vector2(30, 0)])
+	var crit_fresh := CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)
+	bats[0].hurtbox_component.take_hit(crit_fresh)
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 0.6 * crit_fresh.final_damage), "bursts AE: the overload deals 0.6 of the crit's final damage")
+	_free_bats(bats)
+	var plain_cast := CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)
+	plain_cast.is_critical_hit = false
+	check(await _burst_hits_on_neighbor(plain_cast, 134000.0, 3) == 0, "bursts AE: a non-crit hit never fires the overload")
+	fx.reset_player_state()
+
+	# Overload radius at reach 0: 10 * 8 = 80 (reach 90): a bat at 85 is caught, one at 100 is not.
+	var wide_player := fx.fresh_player()
+	var wide_lane := _burst_lane(wide_player, 1, {Stat.Type.CRIT_CHANCE: 1.0})
+	_grant(wide_player, LIGHTNING_CARD, 1, 3)
+	var wide_cast := CombatCalculations.generate_hit_payload(world as Node2D, wide_lane, null)
+	bats = await _spawn_burst_bats(Vector2(130000.0, 135000.0), [Vector2(0, 0), Vector2(85, 0), Vector2(100, 0)])
+	bats[0].hurtbox_component.take_hit(wide_cast)
+	await tree.process_frame
+	await tree.process_frame
+	check(_lost(bats[1]) > 0.0 and is_equal_approx(_lost(bats[2]), 0.0), "bursts AE: overload radius 10 * 8 = 80 catches a bat at 85, not one at 100")
+	_free_bats(bats)
+	fx.reset_player_state()
+
+	# Guard: every ability profile, and every evolved profile, keeps AOE_RADIUS (key 9) above 0 so a burst has reach.
+	var profiles := 0
+	var bad: Array[String] = []
+	for path in _list_tres("res://resources/abilities"):
+		var resource := load(path)
+		var data := resource as AbilityData
+		if resource is UpgradeDefinition:
+			data = (resource as UpgradeDefinition).ability_data_payload
+		if data == null or data.stats_profile == null:
+			continue
+		profiles += 1
+		if float(data.stats_profile.base_stats.get(Stat.Type.AOE_RADIUS, 0.0)) <= 0.0:
+			bad.append(path)
+	check(profiles >= 2 and bad.is_empty(), "profile guard: every ability and evolved profile has AOE_RADIUS > 0 (%d profiles, missing: %s)" % [profiles, str(bad)])
 
 
 # Task AD: a burst's size comes from the caster's AOE_RADIUS and REACH_BONUS. This section pins current behavior.
