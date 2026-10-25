@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `3c51f30`. Update this line whenever this file changes.
+Last synced with code commit: `3745f2d`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -138,6 +138,23 @@ A burst is not an ability. It has no slot, cooldown, anchor, stats profile or ta
 * **Lingering zones (Implemented as a component, Task V).** An effect-only burst can spawn a zone that lingers (4 s by default), re-applies the cast's statuses with their snapshots to enemies inside it every 0.5 s, and deals no damage of its own. A new zone near a live one of the same kind refreshes it instead of stacking, and at most 8 live zones per kind exist. No card uses it yet.
 
 A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.stat\_modifiers`. Fire uses two. Lightning's `CRIT\_MULTIPLIER` can use it later. See the open items.
+
+### Compound infusions (draft)
+
+Settled rules: ten compounds, one per unordered pair of the five base elements. A compound is unlocked when both elements are at soft cap 5 in a slot. Fire and Lightning are kept. A compound has no level of its own. Each compound needs a distinct on-hit or on-cast mechanic, built from bursts, zones, statuses or tag conditions, not a stat bridge. All numbers are placeholders. Names are working names.
+
+|Pair|Name|Mechanic|Status|
+|-|-|-|-|
+|Fire + Lightning|Plasma|Evolved profile with `CRIT\_DOT\_SHARE` 1.0: a crit's bonus also scales the cast's DoT snapshot|Built (evolution), untuned|
+|Fire + Earth|Magma|Hits leave lingering lava zones that carry the cast's statuses (Burn); needs the Arcane Bolt to Fissure evolution and a lava-zone card|Designed, not built|
+|Frost + Earth|Shatter|ON\_HIT burst on a Chilled target (`required\_target\_tag`), applies the cast's statuses so Chill spreads; no Chill consumption in v1; placeholders 0.5x hit, radius multiplier 8, 2 per cast|Designed, not built|
+|Lightning + Wind|Storm|Mechanic not yet designed|Sketched|
+|Frost + Wind|Blizzard|Mechanic not yet designed|Sketched|
+|Fire + Frost|Steam cloud|Idea (unapproved): a lingering zone; mechanic not yet designed|Sketched|
+|Frost + Lightning|Superconduct|Mechanic not yet designed|Sketched|
+|Fire + Wind|Wildfire|Idea (unapproved): a burst on a Burning target that spreads Burn; needs a status filter and a Burning tag|Sketched|
+|Lightning + Earth|(unnamed)|Mechanic not yet designed|Sketched|
+|Wind + Earth|Sandstorm|Needs a new status|Sketched|
 
 ### Compounds and evolutions
 
@@ -353,6 +370,11 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |49|Lightning's crit chance and multiplier ship on the infusion card (+0.03 and +0.15 per level, placeholders; the balance workbook used +0.05 and +0.15). Whether crit stats stay on the infusion card is undecided, because the library of non-infusion cards is not designed yet. The workbook's hit-build numbers need re-running with the multiplier|Design decision|
 |50|Every shape query returns at most 32 enemies (`MAX\_QUERY\_RESULTS`), so an area or chain hits only the 32 nearest in a crowd larger than that. Decide whether the limit should be higher before swarms are designed|Balance|
 |51|Earth's explosion is meant for projectile and chain hits only (see item 40). Both current abilities (Arcane Bolt, Arc Bolt) are projectile or chain, so it is unrestricted until an area ability exists|Design decision|
+|52|Compound as card or evolution. Plasma is an evolution. The proposal is a card: additive, no strategy swap, no profile change. Undecided|Open|
+|53|Burst status filter. `applies\_statuses` is all-or-nothing, so Shatter with Fire in the slot would also spread Burn. A filter field does not exist|Open|
+|54|Compound stacking. Tier 2 allows three elements, so a slot could hold up to three compounds as cards. Undecided|Open|
+|55|Burst primary target. Whether the enemy that triggers a burst also takes the burst's damage has not been confirmed|Open|
+|56|Card compound offers. Unverified: whether the offer path can offer a card that has a recipe but no `evolves\_from`; whether a Chilled tag exists; how a recipe expresses level 5 in both elements|Open|
 
 
 
