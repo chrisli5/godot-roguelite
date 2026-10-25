@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_def"]
+[ext_resource type="Resource" path="res://resources/bursts/magma_lava.tres" id="2_burst"]
+
+[resource]
+script = ExtResource("1_def")
+upgrade_id = "compound_magma_evolve"
+display_name = "Evolve + Magma"
+description = "Evolve this ability: it can take a third element and its element cap rises to 5. Hits leave lingering lava zones that Burn enemies standing in them."
+payload_type = 1
+impact_burst_payload = ExtResource("2_burst")
+compound_pair = Array[int]([9, 13])
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

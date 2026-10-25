@@ -60,6 +60,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_burst_extensions,
 		_section_burst_status_filter,
 		_section_compound_offer,
+		_section_magma,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -2288,12 +2289,12 @@ func _section_burst_extensions() -> void:
 		if resource is ImpactBurstDefinition:
 			var shipped := resource as ImpactBurstDefinition
 			burst_ids.append(String(shipped.burst_id))
-			if shipped.burst_id != &"shatter" and (not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0):
+			if shipped.burst_id != &"shatter" and shipped.burst_id != &"magma_lava" and (not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0):
 				uses_extension += 1
 	users.sort()
 	burst_ids.sort()
-	check(users == ["compound_shatter_evolve", "compound_shatter_overclock", "inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards and the two Shatter compound cards carry an impact_burst_payload (found %s)" % str(users))
-	check(burst_ids == ["earth_explosion", "lightning_overload", "shatter"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion, lightning_overload and shatter, and only shatter uses the extension fields (found %s)" % str(burst_ids))
+	check(users == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards and the four compound cards (Shatter, Magma) carry an impact_burst_payload (found %s)" % str(users))
+	check(burst_ids == ["earth_explosion", "lightning_overload", "magma_lava", "shatter"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion, lightning_overload, magma_lava and shatter, and only shatter and magma_lava use the extension fields (found %s)" % str(burst_ids))
 
 
 func _section_burst_status_filter() -> void:
@@ -2568,6 +2569,156 @@ func _section_compound_offer() -> void:
 	_free_bats(bats)
 
 
+const MAGMA_EVOLVE_CARD := "res://resources/compounds/magma_evolution_upgrade_def.tres"
+const MAGMA_OVERCLOCK_CARD := "res://resources/compounds/magma_overclock_upgrade_def.tres"
+const MAGMA_BURST := "res://resources/bursts/magma_lava.tres"
+const LAVA_ZONE_SCENE := "res://scenes/effects/lava_zone.tscn"
+
+
+func _section_magma() -> void:
+	var T1 := EvolutionGateComponent.EvolutionState.TIER_1_BASE
+	var T2 := EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED
+	var mgr := fx.get_upgrade_manager()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var evolve_card := load(MAGMA_EVOLVE_CARD) as UpgradeDefinition
+	var overclock_card := load(MAGMA_OVERCLOCK_CARD) as UpgradeDefinition
+	var lava := load(MAGMA_BURST) as ImpactBurstDefinition
+	var lava_scene := load(LAVA_ZONE_SCENE) as PackedScene
+	LingeringZone.reset_registry()
+
+	# a. Data.
+	check(evolve_card.is_compound_card() and overclock_card.is_compound_card() and evolve_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and overclock_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "magma data: both Magma cards are compound cards (ABILITY_UNLOCK and ABILITY_OVERCLOCK)")
+	check(evolve_card.compound_pair.has(Tags.Type.FIRE) and evolve_card.compound_pair.has(Tags.Type.EARTH) and overclock_card.compound_pair == evolve_card.compound_pair and evolve_card.impact_burst_payload == lava and overclock_card.impact_burst_payload == lava, "magma data: both cards name Fire + Earth and carry the lava burst")
+	check(evolve_card.evolves_from == null and evolve_card.ability_data_payload == null and overclock_card.ability_data_payload == null, "magma data: no ability data and no evolves_from")
+	check(lava.burst_id == &"magma_lava" and lava.trigger == ImpactBurstDefinition.Trigger.ON_HIT and lava.shape == null and lava.effect_scene == lava_scene and lava.carried_status_tags == [Tags.Type.BURNING] and lava.required_target_tag == Tags.Type.NONE and lava.unlock_level == 1 and lava.max_per_cast == 1, "magma data: the lava burst is effect-only, ON_HIT, carries only BURNING, level 1, cap 1")
+	var zone_probe := lava_scene.instantiate() as LingeringZone
+	check(zone_probe != null and zone_probe.zone_id == &"magma_lava" and is_equal_approx(zone_probe.lifetime, 4.0) and is_equal_approx(zone_probe.apply_interval, 0.5) and is_equal_approx(zone_probe.radius_multiplier, 6.0) and is_equal_approx(zone_probe.merge_distance, 40.0) and zone_probe.max_live_zones == 8, "magma data: the lava zone scene's exports (4 s, 0.5 s, radius 6, merge 40, cap 8)")
+	if zone_probe != null:
+		zone_probe.free()
+
+	# b. Offers.
+	var player := _socket_pair(fire, earth, 3)
+	check(mgr._find_next_offer_slot(player) == 1, "magma offer: Fire 3 + Earth 3 makes slot 1 offer-eligible")
+	var offer := mgr._build_offer_choices(player, 1)
+	check(_offer_ids(offer) == ["compound_magma_evolve", "compound_magma_overclock"], "magma offer: exactly Evolve + Magma and Overclock + Magma (got %s)" % str(_offer_ids(offer)))
+	player = _socket_pair(frost, earth, 3)
+	check(_offer_ids(mgr._build_offer_choices(player, 1)) == ["compound_shatter_evolve", "compound_shatter_overclock"], "magma offer: Frost 3 + Earth 3 still offers the Shatter pair")
+	player = _socket_pair(fire, lightning, 3)
+	check(_offer_ids(mgr._build_offer_choices(player, 1)) == ["evolve_arc_bolt", "overclock"], "magma offer: Fire 3 + Lightning 3 still offers Arc Bolt and the generic Overclock")
+	player = _socket_pair(fire, frost, 3)
+	check(_offer_ids(mgr._build_offer_choices(player, 1)) == ["overclock"], "magma offer: Fire 3 + Frost 3 still offers only the generic Overclock")
+	var leaked := false
+	for choice in mgr.generate_selection_pool(player, 99):
+		leaked = leaked or choice.definition.is_compound_card()
+	for entry in DebugActions.grantable_cards(mgr):
+		leaked = leaked or (entry["definition"] as UpgradeDefinition).is_compound_card()
+	check(not leaked, "magma pool: no compound card appears in level-up drafts or the debug grant list")
+
+	# c. Apply Evolve + Magma.
+	player = _socket_pair(fire, earth, 3)
+	var ability := player.ability_container.get_ability_by_slot(1)
+	var tags: Array[Tags.Type] = ability.tag_component.get_permanent_tags()
+	var ledger := player.run_ledger_component
+	player.apply_contextual_upgrade(offer[0])
+	check(ability.evolution_gate_component.current_state == T2 and ledger.purchase_registry.has(PurchaseKey.make("compound_magma_evolve", 1)) and not ledger.purchase_registry.has("compound_magma_evolve"), "magma evolve: TIER_2_EVOLVED, the slot-specific key exists and the plain key does not")
+	check(ledger.get_impact_bursts(1, tags).has(lava) and not ledger.get_impact_bursts(2, tags).has(lava) and not ledger.is_overclocked(1), "magma evolve: the lava burst resolves for slot 1 only and the slot is not overclocked")
+
+	# d. Apply Overclock + Magma.
+	player = _socket_pair(fire, earth, 3)
+	ability = player.ability_container.get_ability_by_slot(1)
+	tags = ability.tag_component.get_permanent_tags()
+	ledger = player.run_ledger_component
+	player.apply_contextual_upgrade(offer[1])
+	check(ledger.is_overclocked(1) and ability.evolution_gate_component.current_state == T1 and mgr._find_next_offer_slot(player) == 0, "magma overclock: overclocked, still TIER_1_BASE, no further offer")
+	check(ledger.get_impact_bursts(1, tags).has(lava) and not ledger.get_impact_bursts(2, tags).has(lava), "magma overclock: the lava burst resolves for slot 1 only")
+
+	# e. A real hit spawns one lava zone at the hit position; Burn only, no direct damage.
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0})
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+	var both: Array[StatusEffect] = [burn, chill]
+	var origin := Vector2(72000.0, 100000.0)
+	var host := _zone_host()
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(20, 0), Vector2(100, 0)])
+	var children_before := host.get_child_count()
+	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, lava, both))
+	await tree.process_frame
+	await tree.process_frame
+	var zone: LingeringZone = null
+	if host.get_child_count() > children_before:
+		zone = host.get_child(host.get_child_count() - 1) as LingeringZone
+	check(zone != null and host.get_child_count() == children_before + 1 and zone.global_position.is_equal_approx(origin) and LingeringZone.get_live_count(&"magma_lava") == 1, "magma zone: a hit spawns one lava zone at the hit position")
+	check(zone != null and is_equal_approx(zone._radius, 30.0), "magma zone: the radius is AOE_RADIUS 5 * 6 = 30")
+	await tree.create_timer(0.2).timeout
+	var inside: StatusEffectInstance = bats[1].status_effect_component._active_effects.get("burn")
+	check(inside != null and is_equal_approx(inside.dot_damage, 5.0) and is_equal_approx(inside.duration_bonus, 3.0) and is_equal_approx(inside.ramp_cap_bonus, 0.1) and is_equal_approx(inside.stack_cap_bonus, 1.0), "magma zone: an enemy inside gets Burn with the exact cast snapshots")
+	check(not bats[1].status_effect_component._active_effects.has("chill"), "magma zone: with Burn and Chill on the cast, the zone applies no Chill")
+	check(bats[2].status_effect_component._active_effects.is_empty() and is_equal_approx(_lost(bats[2]), 0.0), "magma zone: an enemy outside is untouched")
+	var zone_hits_clean: bool = _recorded[1].size() >= 1
+	for seen in _recorded[1]:
+		zone_hits_clean = zone_hits_clean and seen.is_burst and is_equal_approx(seen.final_damage, 0.0) and seen.status_effects_to_apply.size() == 1 and seen.status_effects_to_apply[0] == burn
+	check(zone_hits_clean and is_equal_approx(_lost(bats[1]), 0.0), "magma zone: every zone hit is is_burst, deals 0 direct damage and carries only Burn")
+	_free_bats(bats)
+	if is_instance_valid(zone):
+		zone.queue_free()
+	await tree.process_frame
+	LingeringZone.reset_registry()
+
+	# f. One zone per cast (max_per_cast 1), through the cast's shared CastBudget.
+	bats = await _spawn_burst_bats(origin + Vector2(0, 1000.0), [Vector2(0, 0), Vector2(5000, 0)])
+	var capped := _ext_payload(stats, 10.0, lava, both)
+	capped.cast_budget = CastBudget.new()
+	capped.cast_id = 515151
+	bats[0].hurtbox_component.take_hit(capped)
+	bats[1].hurtbox_component.take_hit(capped)
+	await tree.process_frame
+	await tree.process_frame
+	check(LingeringZone.get_live_count(&"magma_lava") == 1, "magma zone: a cast with two hits leaves one lava zone (max_per_cast 1)")
+	_free_bats(bats)
+	_free_live_zones(&"magma_lava")
+	await tree.process_frame
+	LingeringZone.reset_registry()
+
+	# g. Merge and the live-zone cap for the new zone_id.
+	var spawned: Array[LingeringZone] = []
+	var first := await _spawn_zone(lava, _ext_payload(stats, 10.0, lava, both), Vector2(72000.0, 110000.0))
+	var second := await _spawn_zone(lava, _ext_payload(stats, 10.0, lava, both), Vector2(72020.0, 110000.0))
+	check(LingeringZone.get_live_count(&"magma_lava") == 1 and is_instance_valid(first) and not is_instance_valid(second), "magma merge: two lava zones 20 apart leave one")
+	spawned.append(first)
+	var far := await _spawn_zone(lava, _ext_payload(stats, 10.0, lava, both), Vector2(72100.0, 110000.0))
+	spawned.append(far)
+	check(LingeringZone.get_live_count(&"magma_lava") == 2, "magma merge: a zone 100 apart makes a second zone")
+	for i in range(10):
+		var extra := await _spawn_zone(lava, _ext_payload(stats, 10.0, lava, both), Vector2(72000.0 + 200.0 * (i + 1), 111000.0))
+		if is_instance_valid(extra):
+			spawned.append(extra)
+	check(LingeringZone.get_live_count(&"magma_lava") == 8, "magma cap: twelve zones leave 8 registered")
+	for node in spawned:
+		if is_instance_valid(node):
+			node.queue_free()
+	await tree.process_frame
+	await tree.process_frame
+	LingeringZone.reset_registry()
+
+	# h. Earth's REACH_BONUS reaches the zone radius (reported, nothing changed).
+	var reach_stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0, Stat.Type.REACH_BONUS: 1.0})
+	var reach_zone := await _spawn_zone(lava, _ext_payload(reach_stats, 10.0, lava, both), Vector2(72000.0, 120000.0))
+	check(reach_zone != null and is_equal_approx(reach_zone._radius, 60.0), "magma reach: REACH_BONUS 1.0 doubles the zone radius ((5 * 2) * 6 = 60)")
+	if is_instance_valid(reach_zone):
+		reach_zone.queue_free()
+	await tree.process_frame
+	LingeringZone.reset_registry()
+
+
+func _free_live_zones(zone_id: StringName) -> void:
+	for entry in LingeringZone._registry.get(zone_id, []).duplicate():
+		if is_instance_valid(entry):
+			(entry as Node).queue_free()
+
+
 func _clear_test_effects() -> void:
 	for node in TestBurstEffect.instances:
 		if is_instance_valid(node):
@@ -2758,7 +2909,7 @@ func _section_lingering_zone() -> void:
 		for path in _list_scene_files(dir_path):
 			if FileAccess.get_file_as_string(path).contains("lingering_zone.gd"):
 				referencing += 1
-	check(referencing == 0, "zone guards: no shipped scene or resource references lingering_zone.gd")
+	check(referencing == 1 and FileAccess.get_file_as_string("res://scenes/effects/lava_zone.tscn").contains("lingering_zone.gd"), "zone guards: the only shipped scene or resource that references lingering_zone.gd is scenes/effects/lava_zone.tscn (found %d)" % referencing)
 	LingeringZone.reset_registry()
 
 
