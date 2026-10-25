@@ -1,7 +1,7 @@
 class_name ImpactBurstDefinition
 extends Resource
 ## Design-time template for an impact burst: secondary area damage centered on a hit enemy.
-## It may carry the cast's statuses (applies_statuses), require a tag on the primary target, or have no
+## It may carry some of the cast's statuses (carried_status_tags), require a tag on the primary target, or have no
 ## shape at all (an effect-only burst that just spawns its effect scene).
 ## Carried by an UpgradeDefinition and chosen at cast time, like a status effect.
 
@@ -20,8 +20,9 @@ enum Trigger { ON_HIT, ON_CRIT }
 ## Extra damage multiplier per enemy caught, capped by per_enemy_bonus_cap.
 @export var per_enemy_bonus: float = 0.0
 @export var per_enemy_bonus_cap: float = 0.0
-## Keep the cast's statuses and their snapshots on the burst's hits. Off by default: a burst applies no status.
-@export var applies_statuses: bool = false
+## Strict status filter: the burst carries a cast status (with the cast's snapshots) only if at least one of that
+## status's granted_tags is in this list. Empty (the default) carries no status; a status with no granted_tags is never carried.
+@export var carried_status_tags: Array[Tags.Type] = []
 ## The carrying card's level in the slot at which this burst becomes active (1 = always, once the card applies).
 @export var unlock_level: int = 1
 ## Most times this burst may fire per cast (0 = unlimited). Enforced through the cast's shared CastBudget.

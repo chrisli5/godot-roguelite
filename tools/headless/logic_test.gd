@@ -58,6 +58,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_plasma_evolution,
 		_section_lightning_crit_multiplier,
 		_section_burst_extensions,
+		_section_burst_status_filter,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -379,7 +380,7 @@ func _section_burst_cap() -> void:
 	# --- a skipped burst applies none of its statuses ---
 	var status_burst := _make_burst(&"cap_status", ImpactBurstDefinition.Trigger.ON_HIT)
 	status_burst.max_per_cast = 1
-	status_burst.applies_statuses = true
+	status_burst.carried_status_tags = [Tags.Type.BURNING]
 	var status_list: Array[StatusEffect] = [burn]
 	var cast_f := CombatCalculations.generate_hit_payload(world as Node2D, stats, null)
 	cast_f.impact_bursts = [status_burst]
@@ -2091,9 +2092,9 @@ const TEST_BURST_EFFECT := "res://tools/headless/test_burst_effect.tscn"
 
 
 ## A test burst with the Task U fields. `shaped` false makes an effect-only burst.
-func _ext_burst(id: StringName, fraction: float, statuses: bool, tag: Tags.Type = Tags.Type.NONE, shaped: bool = true, trigger: ImpactBurstDefinition.Trigger = ImpactBurstDefinition.Trigger.ON_HIT) -> ImpactBurstDefinition:
+func _ext_burst(id: StringName, fraction: float, carried: Array[Tags.Type], tag: Tags.Type = Tags.Type.NONE, shaped: bool = true, trigger: ImpactBurstDefinition.Trigger = ImpactBurstDefinition.Trigger.ON_HIT) -> ImpactBurstDefinition:
 	var definition := _make_burst(id, trigger, fraction)
-	definition.applies_statuses = statuses
+	definition.carried_status_tags = carried
 	definition.required_target_tag = tag
 	if not shaped:
 		definition.shape = null
@@ -2119,7 +2120,7 @@ func _section_burst_extensions() -> void:
 	var chill_list: Array[StatusEffect] = [chill]
 
 	# a. Defaults: damage and no status.
-	var plain := _ext_burst(&"test_ext_plain", 0.5, false)
+	var plain := _ext_burst(&"test_ext_plain", 0.5, [])
 	var bats := await _spawn_burst_bats(Vector2(70000.0, 70000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, plain, burn_list))
 	await tree.process_frame
@@ -2128,8 +2129,8 @@ func _section_burst_extensions() -> void:
 	check(bats[0].status_effect_component._active_effects.has("burn"), "burst ext: the primary still gets the cast Burn")
 	_free_bats(bats)
 
-	# b. applies_statuses true: the neighbor gets Burn with the exact snapshots.
-	var carrying := _ext_burst(&"test_ext_carry", 0.5, true)
+	# b. carried_status_tags [BURNING]: the neighbor gets Burn with the exact snapshots.
+	var carrying := _ext_burst(&"test_ext_carry", 0.5, [Tags.Type.BURNING])
 	bats = await _spawn_burst_bats(Vector2(70000.0, 71000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, carrying, burn_list))
 	await tree.process_frame
@@ -2144,7 +2145,7 @@ func _section_burst_extensions() -> void:
 	_free_bats(bats)
 
 	# c. damage_fraction 0 (a status-only burst), also with final_damage 0.
-	var status_only := _ext_burst(&"test_ext_status_only", 0.0, true)
+	var status_only := _ext_burst(&"test_ext_status_only", 0.0, [Tags.Type.BURNING])
 	bats = await _spawn_burst_bats(Vector2(70000.0, 72000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, status_only, burn_list))
 	await tree.process_frame
@@ -2159,7 +2160,7 @@ func _section_burst_extensions() -> void:
 	_free_bats(bats)
 
 	# d. The required tag is checked before the hit own statuses.
-	var needs_chill := _ext_burst(&"test_ext_needs_chill", 0.5, false, Tags.Type.CHILLED)
+	var needs_chill := _ext_burst(&"test_ext_needs_chill", 0.5, [], Tags.Type.CHILLED)
 	bats = await _spawn_burst_bats(Vector2(70000.0, 74000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, needs_chill))
 	await tree.process_frame
@@ -2183,7 +2184,7 @@ func _section_burst_extensions() -> void:
 	await tree.process_frame
 	check(is_equal_approx(_lost(bats[1]), 5.0), "burst ext: the second hit fires the CHILLED burst")
 	_free_bats(bats)
-	var always := _ext_burst(&"test_ext_always", 0.5, false)
+	var always := _ext_burst(&"test_ext_always", 0.5, [])
 	bats = await _spawn_burst_bats(Vector2(70000.0, 77000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, always))
 	await tree.process_frame
@@ -2197,7 +2198,7 @@ func _section_burst_extensions() -> void:
 	_free_bats(bats)
 
 	# e. ON_CRIT plus a condition: both are required.
-	var crit_chill := _ext_burst(&"test_ext_crit_chill", 0.5, false, Tags.Type.CHILLED, true, ImpactBurstDefinition.Trigger.ON_CRIT)
+	var crit_chill := _ext_burst(&"test_ext_crit_chill", 0.5, [], Tags.Type.CHILLED, true, ImpactBurstDefinition.Trigger.ON_CRIT)
 	var crit_list: Array[ImpactBurstDefinition] = [crit_chill]
 	bats = await _spawn_burst_bats(Vector2(70000.0, 78000.0), [Vector2(0, 0)])
 	var hurtbox := bats[0].hurtbox_component
@@ -2224,7 +2225,7 @@ func _section_burst_extensions() -> void:
 	# g. Effect-only burst (no shape).
 	var effect_scene := load(TEST_BURST_EFFECT) as PackedScene
 	var origin := Vector2(70000.0, 80000.0)
-	var effect_only := _ext_burst(&"test_ext_effect_only", 0.5, false, Tags.Type.NONE, false)
+	var effect_only := _ext_burst(&"test_ext_effect_only", 0.5, [], Tags.Type.NONE, false)
 	effect_only.effect_scene = effect_scene
 	_clear_test_effects()
 	bats = await _spawn_burst_bats(origin, [Vector2(0, 0)])
@@ -2241,7 +2242,7 @@ func _section_burst_extensions() -> void:
 	_clear_test_effects()
 
 	# h. Shaped burst: the effect only when something is caught.
-	var shaped_effect := _ext_burst(&"test_ext_shaped_effect", 0.5, false)
+	var shaped_effect := _ext_burst(&"test_ext_shaped_effect", 0.5, [])
 	shaped_effect.effect_scene = effect_scene
 	bats = await _spawn_burst_bats(Vector2(70000.0, 81000.0), [Vector2(0, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, shaped_effect))
@@ -2263,7 +2264,7 @@ func _section_burst_extensions() -> void:
 	var plain_scene := PackedScene.new()
 	plain_scene.pack(plain_node)
 	plain_node.free()
-	var plain_effect := _ext_burst(&"test_ext_plain_effect", 0.5, false)
+	var plain_effect := _ext_burst(&"test_ext_plain_effect", 0.5, [])
 	plain_effect.effect_scene = plain_scene
 	bats = await _spawn_burst_bats(Vector2(70000.0, 83000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, plain_effect))
@@ -2286,12 +2287,107 @@ func _section_burst_extensions() -> void:
 		if resource is ImpactBurstDefinition:
 			var shipped := resource as ImpactBurstDefinition
 			burst_ids.append(String(shipped.burst_id))
-			if shipped.applies_statuses or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0:
+			if not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0:
 				uses_extension += 1
 	users.sort()
 	burst_ids.sort()
 	check(users == ["inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards carry an impact_burst_payload (found %s)" % str(users))
 	check(burst_ids == ["earth_explosion", "lightning_overload"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion and lightning_overload, and none uses the extension fields (found %s)" % str(burst_ids))
+
+
+func _section_burst_status_filter() -> void:
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+	var untagged := StatusEffect.new()
+	untagged.effect_id = "test_untagged"
+	var both_list: Array[StatusEffect] = [burn, chill]
+	var origin := Vector2(70000.0, 120000.0)
+
+	# a. Empty list: the neighbor's burst hit carries nothing; the primary still gets the cast's statuses.
+	var none_def := _ext_burst(&"test_filter_none", 0.5, [])
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, none_def, both_list))
+	await tree.process_frame
+	await tree.process_frame
+	var burst_seen: CombatPayload = _recorded[1][0] if _recorded[1].size() == 1 else null
+	check(burst_seen != null and burst_seen.status_effects_to_apply.is_empty() and bats[1].status_effect_component._active_effects.is_empty(), "burst filter: an empty list carries no status")
+	check(bats[0].status_effect_component._active_effects.has("burn") and bats[0].status_effect_component._active_effects.has("chill"), "burst filter: the primary still gets both cast statuses")
+	_free_bats(bats)
+
+	# b. [BURNING] carries Burn only. c. [CHILLED] carries Chill only. d. Both carry both.
+	var cases := [
+		{"tags": [Tags.Type.BURNING], "ids": ["burn"], "label": "[BURNING]"},
+		{"tags": [Tags.Type.CHILLED], "ids": ["chill"], "label": "[CHILLED]"},
+		{"tags": [Tags.Type.BURNING, Tags.Type.CHILLED], "ids": ["burn", "chill"], "label": "both tags"},
+	]
+	var row := 1
+	for case in cases:
+		var tag_list: Array[Tags.Type] = []
+		tag_list.assign(case["tags"])
+		var definition := _ext_burst(StringName("test_filter_%d" % row), 0.5, tag_list)
+		bats = await _spawn_burst_bats(origin + Vector2(0, 1000.0 * row), [Vector2(0, 0), Vector2(30, 0)])
+		var source := _ext_payload(stats, 10.0, definition, both_list)
+		bats[0].hurtbox_component.take_hit(source)
+		await tree.process_frame
+		await tree.process_frame
+		var carried_ids: Array[String] = []
+		var snapshots_match := false
+		if _recorded[1].size() == 1:
+			var seen: CombatPayload = _recorded[1][0]
+			for status in seen.status_effects_to_apply:
+				carried_ids.append(status.effect_id)
+			snapshots_match = is_equal_approx(seen.dot_damage_snapshot, source.dot_damage_snapshot) and is_equal_approx(seen.status_duration_snapshot, source.status_duration_snapshot) and is_equal_approx(seen.status_ramp_cap_snapshot, source.status_ramp_cap_snapshot) and is_equal_approx(seen.status_stack_bonus_snapshot, source.status_stack_bonus_snapshot)
+		var expected_ids: Array[String] = []
+		expected_ids.assign(case["ids"])
+		var neighbor_effects: Dictionary = bats[1].status_effect_component._active_effects
+		check(carried_ids == expected_ids and neighbor_effects.size() == expected_ids.size(), "burst filter: %s carries exactly %s (carried %s)" % [case["label"], str(expected_ids), str(carried_ids)])
+		check(snapshots_match, "burst filter: %s keeps the cast snapshots on the burst payload" % case["label"])
+		check(source.status_effects_to_apply.size() == 2 and source.status_effects_to_apply[0] == burn and source.status_effects_to_apply[1] == chill, "burst filter: %s leaves the source payload statuses untouched" % case["label"])
+		_free_bats(bats)
+		row += 1
+
+	# e. A status with no granted_tags is never carried, whatever the list holds.
+	var all_tags: Array[Tags.Type] = [Tags.Type.BURNING, Tags.Type.CHILLED, Tags.Type.NONE]
+	var all_def := _ext_burst(&"test_filter_untagged", 0.5, all_tags)
+	var untagged_list: Array[StatusEffect] = [untagged]
+	check(untagged.granted_tags.is_empty() and ImpactBurst.carried_statuses(all_def, untagged_list).is_empty(), "burst filter: a status with no granted_tags is never carried")
+
+	# f. carried_statuses ignores null entries, returns a new array and does not mutate its input.
+	var with_null: Array[StatusEffect] = [null, burn, null, chill]
+	var carried := ImpactBurst.carried_statuses(all_def, with_null)
+	check(carried.size() == 2 and carried[0] == burn and carried[1] == chill and with_null.size() == 4 and with_null[1] == burn, "burst filter: carried_statuses skips null entries and leaves its input alone")
+	check(not is_same(carried, with_null), "burst filter: carried_statuses returns a new array")
+
+	# g. A lingering zone's payload is filtered by the same list.
+	_clear_test_effects()
+	var effect_scene := load(TEST_BURST_EFFECT) as PackedScene
+	var burn_only: Array[Tags.Type] = [Tags.Type.BURNING]
+	var zone_def := _ext_burst(&"test_filter_zone", 0.0, burn_only, Tags.Type.NONE, false)
+	zone_def.effect_scene = effect_scene
+	var zone_source := _ext_payload(stats, 10.0, zone_def, both_list)
+	ImpactBurst.run(zone_def, zone_source, origin + Vector2(0, 9000.0), 0, tree.root.get_world_2d())
+	var zone_seen: CombatPayload = TestBurstEffect.received[0] if TestBurstEffect.received.size() == 1 else null
+	check(zone_seen != null and zone_seen.status_effects_to_apply.size() == 1 and zone_seen.status_effects_to_apply[0] == burn and zone_seen.is_burst and zone_seen.impact_bursts.is_empty() and not zone_seen.is_critical_hit, "burst filter: the effect payload carries only the listed statuses and keeps is_burst, no bursts, no crit")
+	check(is_equal_approx(zone_seen.dot_damage_snapshot, 5.0) and is_equal_approx(zone_seen.status_duration_snapshot, 3.0) and is_equal_approx(zone_seen.status_ramp_cap_snapshot, 0.1) and is_equal_approx(zone_seen.status_stack_bonus_snapshot, 1.0), "burst filter: the effect payload keeps the cast snapshots")
+	check(zone_source.status_effects_to_apply.size() == 2, "burst filter: the effect's source payload keeps both statuses")
+	_clear_test_effects()
+
+	var zone_scene := load(TEST_LINGERING_ZONE) as PackedScene
+	LingeringZone.reset_registry()
+	var chill_only: Array[Tags.Type] = [Tags.Type.CHILLED]
+	var real_zone_def := _ext_burst(&"test_filter_real_zone", 0.0, chill_only, Tags.Type.NONE, false)
+	real_zone_def.effect_scene = zone_scene
+	bats = await _spawn_burst_bats(origin + Vector2(0, 10000.0), [Vector2(0, 0)])
+	var zone := await _spawn_zone(real_zone_def, _zone_payload(stats, real_zone_def, both_list), origin + Vector2(0, 10000.0))
+	await tree.create_timer(0.15).timeout
+	var zone_effects: Dictionary = bats[0].status_effect_component._active_effects
+	check(zone != null and zone_effects.has("chill") and not zone_effects.has("burn"), "burst filter: a lingering zone applies only the listed status (Chill, not Burn)")
+	_free_bats(bats)
+	if is_instance_valid(zone):
+		zone.queue_free()
+	await tree.process_frame
+	LingeringZone.reset_registry()
 
 
 func _clear_test_effects() -> void:
@@ -2324,7 +2420,7 @@ func _zone_host() -> Node:
 
 ## An effect-only burst that spawns `scene` (a lingering zone) and nothing else.
 func _zone_burst(id: StringName, scene: PackedScene) -> ImpactBurstDefinition:
-	var definition := _ext_burst(id, 0.0, true, Tags.Type.NONE, false)
+	var definition := _ext_burst(id, 0.0, [Tags.Type.BURNING, Tags.Type.CHILLED], Tags.Type.NONE, false)
 	definition.effect_scene = scene
 	return definition
 
@@ -2360,7 +2456,7 @@ func _section_lingering_zone() -> void:
 	var zone_def := _zone_burst(&"test_zone_burst", zone_scene)
 
 	# a. Safety fix: an effect gets a copy that is already a burst payload, with no bursts and no crit.
-	var effect_def := _ext_burst(&"test_zone_effect", 0.5, false, Tags.Type.NONE, false)
+	var effect_def := _ext_burst(&"test_zone_effect", 0.5, [Tags.Type.BURNING], Tags.Type.NONE, false)
 	effect_def.effect_scene = load(TEST_BURST_EFFECT) as PackedScene
 	_clear_test_effects()
 	var crit_source := _ext_payload(stats, 10.0, effect_def, burn_list)
@@ -3366,8 +3462,8 @@ func _section_earth_lightning_bursts() -> void:
 	var player := fx.fresh_player()
 	var explosion := load("res://resources/bursts/earth_explosion.tres") as ImpactBurstDefinition
 	var overload := load("res://resources/bursts/lightning_overload.tres") as ImpactBurstDefinition
-	check(explosion.burst_id == &"earth_explosion" and explosion.trigger == ImpactBurstDefinition.Trigger.ON_HIT and is_equal_approx(explosion.damage_fraction, 0.4) and explosion.max_per_cast == 3 and explosion.unlock_level == 3 and not explosion.applies_statuses and explosion.required_target_tag == Tags.Type.NONE and is_equal_approx(explosion.per_enemy_bonus, 0.0), "bursts AE: the Earth explosion definition (ON_HIT, 0.4, cap 3, level 3, no statuses, no tag, no bonus)")
-	check(overload.burst_id == &"lightning_overload" and overload.trigger == ImpactBurstDefinition.Trigger.ON_CRIT and is_equal_approx(overload.damage_fraction, 0.6) and overload.max_per_cast == 1 and overload.unlock_level == 3 and not overload.applies_statuses and overload.required_target_tag == Tags.Type.NONE and is_equal_approx(overload.per_enemy_bonus, 0.0), "bursts AE: the Lightning overload definition (ON_CRIT, 0.6, cap 1, level 3, no statuses, no tag, no bonus)")
+	check(explosion.burst_id == &"earth_explosion" and explosion.trigger == ImpactBurstDefinition.Trigger.ON_HIT and is_equal_approx(explosion.damage_fraction, 0.4) and explosion.max_per_cast == 3 and explosion.unlock_level == 3 and explosion.carried_status_tags.is_empty() and explosion.required_target_tag == Tags.Type.NONE and is_equal_approx(explosion.per_enemy_bonus, 0.0), "bursts AE: the Earth explosion definition (ON_HIT, 0.4, cap 3, level 3, no statuses, no tag, no bonus)")
+	check(overload.burst_id == &"lightning_overload" and overload.trigger == ImpactBurstDefinition.Trigger.ON_CRIT and is_equal_approx(overload.damage_fraction, 0.6) and overload.max_per_cast == 1 and overload.unlock_level == 3 and overload.carried_status_tags.is_empty() and overload.required_target_tag == Tags.Type.NONE and is_equal_approx(overload.per_enemy_bonus, 0.0), "bursts AE: the Lightning overload definition (ON_CRIT, 0.6, cap 1, level 3, no statuses, no tag, no bonus)")
 	check(is_equal_approx((explosion.shape as CircleBurstShape).radius_multiplier, 6.0) and is_equal_approx((overload.shape as CircleBurstShape).radius_multiplier, 8.0), "bursts AE: radius multipliers 6.0 and 8.0")
 	check((load(EARTH_CARD) as UpgradeDefinition).impact_burst_payload == explosion and (load(LIGHTNING_CARD) as UpgradeDefinition).impact_burst_payload == overload, "bursts AE: the Earth and Lightning cards carry their burst")
 	check(ImpactBurstDefinition.new().unlock_level == 1 and IndirectScaling.is_unlocked(3, 3) and not IndirectScaling.is_unlocked(2, 3), "bursts AE: unlock_level defaults to 1; the shared gate is level >= unlock")

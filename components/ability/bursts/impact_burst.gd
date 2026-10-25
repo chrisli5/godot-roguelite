@@ -1,7 +1,7 @@
 class_name ImpactBurst
 extends RefCounted
 ## Runs impact bursts. Every burst rule lives here, not in the shapes: a burst never crits and never
-## triggers another burst, and applies no status unless its definition sets applies_statuses.
+## triggers another burst, and carries only the cast statuses its definition lists in carried_status_tags.
 
 
 ## Runs `definition` as a one-shot burst at `origin`. Called deferred from HurtboxComponent.take_hit,
@@ -30,12 +30,10 @@ static func run(
 
 	# Shared payloads are never mutated: duplicate, then replace (not clear) the arrays.
 	var burst_payload := source_payload.duplicate() as CombatPayload
-	var no_statuses: Array[StatusEffect] = []
 	var no_bursts: Array[ImpactBurstDefinition] = []
 	burst_payload.final_damage = source_payload.final_damage * _get_damage_multiplier(definition, targets.size())
 	burst_payload.is_critical_hit = false
-	if not definition.applies_statuses:
-		burst_payload.status_effects_to_apply = no_statuses
+	burst_payload.status_effects_to_apply = carried_statuses(definition, source_payload.status_effects_to_apply)
 	burst_payload.impact_bursts = no_bursts
 	burst_payload.is_burst = true
 
@@ -44,6 +42,23 @@ static func run(
 			hurtbox.take_hit(burst_payload)
 
 	_spawn_effect(definition, origin, source_payload)
+
+
+## The statuses `definition` carries: those with at least one granted tag in carried_status_tags. An empty list
+## carries nothing, and a status with no granted_tags is never carried. Skips null entries, returns a new array
+## and never mutates `statuses`.
+static func carried_statuses(definition: ImpactBurstDefinition, statuses: Array[StatusEffect]) -> Array[StatusEffect]:
+	var carried: Array[StatusEffect] = []
+	if definition == null:
+		return carried
+	for status in statuses:
+		if status == null:
+			continue
+		for tag in status.granted_tags:
+			if definition.carried_status_tags.has(tag):
+				carried.append(status)
+				break
+	return carried
 
 
 ## damage_fraction * (1 + min(per_enemy_bonus * enemies caught, per_enemy_bonus_cap)).
@@ -64,6 +79,7 @@ static func _spawn_effect(definition: ImpactBurstDefinition, origin: Vector2, so
 		var effect_payload := source_payload.duplicate() as CombatPayload
 		var no_bursts: Array[ImpactBurstDefinition] = []
 		effect_payload.impact_bursts = no_bursts
+		effect_payload.status_effects_to_apply = carried_statuses(definition, source_payload.status_effects_to_apply)
 		effect_payload.is_burst = true
 		effect_payload.is_critical_hit = false
 		(effect as BurstEffect).configure(effect_payload)
