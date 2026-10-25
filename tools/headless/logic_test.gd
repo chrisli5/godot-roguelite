@@ -66,6 +66,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_indirect_scaling,
 		_section_burst_stat_inheritance,
 		_section_earth_lightning_bursts,
+		_section_health_bar,
 		_section_error_guard,
 	]
 	for section in sections:
@@ -3524,6 +3525,69 @@ func _section_burst_stat_inheritance() -> void:
 	if zone_reach != null:
 		zone_reach.queue_free()
 	LingeringZone.reset_registry()
+
+
+func _section_health_bar() -> void:
+	# a. Ratio math, visibility and colour on a bare bar.
+	var bar := HealthBarComponent.new()
+	fx.track(bar)
+	bar.set_health(5.0, 10.0)
+	check(is_equal_approx(bar.get_ratio(), 0.5), "health bar: 5/10 gives ratio 0.5")
+	bar.set_health(5.0, 0.0)
+	check(bar.get_ratio() == 0.0, "health bar: max 0 gives ratio 0")
+	bar.set_health(5.0, -3.0)
+	check(bar.get_ratio() == 0.0, "health bar: negative max gives ratio 0")
+	bar.set_health(15.0, 10.0)
+	check(bar.get_ratio() == 1.0, "health bar: over max clamps to 1")
+	bar.set_health(10.0, 10.0)
+	check(not bar.visible, "health bar: hidden at full health")
+	bar.set_health(5.0, 10.0)
+	check(bar.visible, "health bar: visible at 0.5")
+	bar.set_health(0.0, 10.0)
+	check(not bar.visible, "health bar: hidden at 0")
+	bar.show_when_full = true
+	bar.set_health(10.0, 10.0)
+	check(bar.visible, "health bar: show_when_full shows the bar at full health")
+	bar.set_health(0.0, 10.0)
+	check(not bar.visible, "health bar: show_when_full still hides the bar at 0")
+	bar.show_when_full = false
+	bar.set_health(3.0, 10.0)
+	check(bar.is_low() and bar.get_fill_color() == bar.low_health_color, "health bar: ratio at the threshold (0.3) uses the low colour")
+	bar.set_health(4.0, 10.0)
+	check(not bar.is_low() and bar.get_fill_color() == bar.fill_color, "health bar: ratio above the threshold uses the normal colour")
+
+	# b. An instanced enemy, wired by the entity.
+	var bat := fx.spawn_bat()
+	await _wait_physics_frames(2)
+	var health_bar := bat.health_bar_component
+	check(health_bar != null and not health_bar.visible, "health bar: a fresh enemy has a bar and it is hidden")
+	bat.health_component.take_damage(bat.health_component.max_health * 0.5)
+	check(health_bar.visible and is_equal_approx(health_bar.get_ratio(), 0.5), "health bar: damaging the enemy shows the bar at the right ratio")
+	bat.health_component.heal(bat.health_component.max_health)
+	check(not health_bar.visible, "health bar: healing back to full hides the bar")
+	bat.health_component.update_max_health(bat.health_component.max_health * 2.0)
+	check(health_bar.visible and is_equal_approx(health_bar.get_ratio(), 0.5), "health bar: a max health change reaches the bar")
+	bat.health_component.take_damage(bat.health_component.max_health * 0.5)
+	var dying_bar := health_bar
+	bat.health_component.take_damage(bat.health_component.max_health)
+	check(not dying_bar.visible, "health bar: lethal damage hides the bar")
+
+	# c. Structure: a child of the enemy root, not of the sprite, and not a child of anything that flips.
+	var bat2 := fx.spawn_bat()
+	await _wait_physics_frames(1)
+	check(bat2.health_bar_component.get_parent() == bat2 and bat2.health_bar_component.get_parent() != bat2.sprite_node, "health bar: the bar is a child of the enemy root, not of the sprite")
+	check(bat2.health_bar_component.top_level, "health bar: the bar is top level, so root rotation or flip never turns it")
+	bat2.rotation = 1.0
+	bat2.health_component.take_damage(1.0)
+	await _wait_physics_frames(1)
+	check(is_zero_approx(bat2.health_bar_component.global_rotation) and bat2.health_bar_component.global_position.is_equal_approx(bat2.global_position + bat2.health_bar_component.offset), "health bar: a rotated enemy leaves the bar upright and above it")
+	var player_has_bar := false
+	var player := fx.get_player()
+	if is_instance_valid(player):
+		for child in player.get_children():
+			if child is HealthBarComponent:
+				player_has_bar = true
+	check(not player_has_bar, "health bar: the player has no bar")
 
 
 func _section_error_guard() -> void:
