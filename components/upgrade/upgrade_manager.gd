@@ -195,7 +195,10 @@ func _find_next_offer_slot(player: Player) -> int:
 	return 0
 
 
-## Offer cards for `slot`: every evolution whose recipe is met (not yet bought), then one Overclock card.
+## Offer cards for `slot`: every evolution whose recipe is met (not yet bought), then, when a compound exists for the
+## slot's element pair, its compound evolution and compound Overclock cards; the generic Overclock card is offered
+## only when there is no compound Overclock card for the pair.
+## The pair exists only at tier 1 with exactly two elements, both at the tier 1 soft cap.
 func _build_offer_choices(player: Player, slot: int) -> Array[UpgradeChoice]:
 	var choices: Array[UpgradeChoice] = []
 	var ability: Ability = player.ability_container.get_ability_by_slot(slot)
@@ -204,11 +207,21 @@ func _build_offer_choices(player: Player, slot: int) -> Array[UpgradeChoice]:
 	
 	var all_definitions: Array[UpgradeDefinition] = []
 	var overclock_definition: UpgradeDefinition = null
+	var compound_evolution: UpgradeDefinition = null
+	var compound_overclock: UpgradeDefinition = null
+	var pair := get_compound_pair(ability)
 	for profile in master_upgrade_pool:
 		if not is_instance_valid(profile): continue
 		for definition in profile.definition_bundle:
 			if not is_instance_valid(definition): continue
 			all_definitions.append(definition)
+			if definition.is_compound_card():
+				if _is_compound_for_pair(definition, pair) and player.run_ledger_component.purchase_registry.get(PurchaseKey.make(definition.upgrade_id, slot), 0) <= 0:
+					if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and compound_evolution == null:
+						compound_evolution = definition
+					elif definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK and compound_overclock == null:
+						compound_overclock = definition
+				continue
 			if overclock_definition == null and definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK:
 				overclock_definition = definition
 	
@@ -220,11 +233,47 @@ func _build_offer_choices(player: Player, slot: int) -> Array[UpgradeChoice]:
 			continue
 		choices.append(_make_offer_choice(definition, slot, ability))
 	
-	if overclock_definition != null:
+	if compound_evolution != null:
+		choices.append(_make_offer_choice(compound_evolution, slot, ability))
+	if compound_overclock != null:
+		choices.append(_make_offer_choice(compound_overclock, slot, ability))
+	elif overclock_definition != null:
 		choices.append(_make_offer_choice(overclock_definition, slot, ability))
 	else:
 		push_error("UpgradeManager: no ABILITY_OVERCLOCK definition in master_upgrade_pool.")
 	return choices
+
+
+## Elements in infusion-level index order (see Tags.get_index_from_element).
+const ELEMENT_ORDER: Array[Tags.Type] = [Tags.Type.FIRE, Tags.Type.FROST, Tags.Type.LIGHTNING, Tags.Type.WIND, Tags.Type.EARTH]
+
+
+## The element pair of `ability` for compound offers: exactly two elements with a level above 0, both at the tier 1
+## soft cap, and the gate in TIER_1_BASE. Empty otherwise.
+func get_compound_pair(ability: Ability) -> Array[Tags.Type]:
+	var pair: Array[Tags.Type] = []
+	if not is_instance_valid(ability) or not is_instance_valid(ability.infusion_tracker_component) or not is_instance_valid(ability.evolution_gate_component):
+		return pair
+	if ability.evolution_gate_component.current_state != EvolutionGateComponent.EvolutionState.TIER_1_BASE:
+		return pair
+	var levels := ability.infusion_tracker_component.infusion_levels
+	for index in range(levels.size()):
+		if levels[index] <= 0:
+			continue
+		if levels[index] != InfusionTrackerComponent.INFUSION_SOFT_CAP_T1 or pair.size() == 2:
+			pair.clear()
+			return pair
+		pair.append(ELEMENT_ORDER[index])
+	if pair.size() != 2:
+		pair.clear()
+	return pair
+
+
+## True if `definition` is a compound card whose pair equals `pair` as a set.
+func _is_compound_for_pair(definition: UpgradeDefinition, pair: Array[Tags.Type]) -> bool:
+	if pair.size() != 2 or not definition.is_compound_card():
+		return false
+	return definition.compound_pair.has(pair[0]) and definition.compound_pair.has(pair[1]) and pair[0] != pair[1]
 
 
 func _make_offer_choice(definition: UpgradeDefinition, slot: int, ability: Ability) -> UpgradeChoice:
@@ -276,7 +325,9 @@ func generate_selection_pool(target_player: Player, processing_level: int) -> Ar
 			if current_tier >= max_allowed:
 				continue
 				
-			# Evolution and Overclock cards are only ever offered through the forced offer flow
+			# Evolution, Overclock and compound cards are only ever offered through the forced offer flow
+			if definition.is_compound_card():
+				continue
 			if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK:
 				continue
 			if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and definition.evolves_from != null:

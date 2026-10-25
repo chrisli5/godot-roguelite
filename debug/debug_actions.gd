@@ -40,7 +40,7 @@ static func grantable_cards(manager: UpgradeManager) -> Array[Dictionary]:
 			if seen_ids.has(definition.upgrade_id):
 				continue
 			seen_ids.append(definition.upgrade_id)
-			if definition.is_infusion() or definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK:
+			if definition.is_infusion() or definition.is_compound_card() or definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK:
 				continue
 			if definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and definition.evolves_from != null:
 				continue

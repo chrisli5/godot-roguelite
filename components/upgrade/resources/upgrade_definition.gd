@@ -50,6 +50,16 @@ enum Category { GENERAL, INFUSION }
 @export var recipe_requirements: Array[Tags.Type] = []
 
 
+@export_group("Compound")
+## Compound cards only: the two elements whose pair this compound belongs to. Empty for every other card.
+@export var compound_pair: Array[Tags.Type] = []
+
+
+## True if this card is a compound card (it names an element pair).
+func is_compound_card() -> bool:
+	return compound_pair.size() == 2
+
+
 ## True if this card is an elemental socket infusion (decided by `category`, not by the id).
 func is_infusion() -> bool:
 	return category == Category.INFUSION

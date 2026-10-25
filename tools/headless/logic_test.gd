@@ -59,6 +59,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_lightning_crit_multiplier,
 		_section_burst_extensions,
 		_section_burst_status_filter,
+		_section_compound_offer,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -2287,12 +2288,12 @@ func _section_burst_extensions() -> void:
 		if resource is ImpactBurstDefinition:
 			var shipped := resource as ImpactBurstDefinition
 			burst_ids.append(String(shipped.burst_id))
-			if not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0:
+			if shipped.burst_id != &"shatter" and (not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0):
 				uses_extension += 1
 	users.sort()
 	burst_ids.sort()
-	check(users == ["inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards carry an impact_burst_payload (found %s)" % str(users))
-	check(burst_ids == ["earth_explosion", "lightning_overload"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion and lightning_overload, and none uses the extension fields (found %s)" % str(burst_ids))
+	check(users == ["compound_shatter_evolve", "compound_shatter_overclock", "inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards and the two Shatter compound cards carry an impact_burst_payload (found %s)" % str(users))
+	check(burst_ids == ["earth_explosion", "lightning_overload", "shatter"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion, lightning_overload and shatter, and only shatter uses the extension fields (found %s)" % str(burst_ids))
 
 
 func _section_burst_status_filter() -> void:
@@ -2388,6 +2389,183 @@ func _section_burst_status_filter() -> void:
 		zone.queue_free()
 	await tree.process_frame
 	LingeringZone.reset_registry()
+
+
+const SHATTER_EVOLVE_CARD := "res://resources/compounds/shatter_evolution_upgrade_def.tres"
+const SHATTER_OVERCLOCK_CARD := "res://resources/compounds/shatter_overclock_upgrade_def.tres"
+const SHATTER_BURST := "res://resources/bursts/shatter.tres"
+const ARCANE_BOLT_DATA_PATH := "res://resources/abilities/arcane_bolt/arcane_bolt_data.tres"
+
+
+## Fresh player with Arcane Bolt and `count` levels of each of two infusion cards in slot 1.
+func _socket_pair(first: UpgradeDefinition, second: UpgradeDefinition, count: int) -> Player:
+	var player := fx.fresh_player()
+	fx.mount_arcane_bolt(player)
+	for i in range(count):
+		player.run_ledger_component.log_slot_specific_purchase(first, 1)
+		player.run_ledger_component.log_slot_specific_purchase(second, 1)
+	return player
+
+
+func _offer_ids(offer: Array[UpgradeChoice]) -> Array[String]:
+	var ids: Array[String] = []
+	for choice in offer:
+		ids.append(choice.definition.upgrade_id)
+	return ids
+
+
+func _section_compound_offer() -> void:
+	var T1 := EvolutionGateComponent.EvolutionState.TIER_1_BASE
+	var T2 := EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED
+	var mgr := fx.get_upgrade_manager()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var wind := load(WIND_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var evolve_card := load(SHATTER_EVOLVE_CARD) as UpgradeDefinition
+	var overclock_card := load(SHATTER_OVERCLOCK_CARD) as UpgradeDefinition
+	var shatter := load(SHATTER_BURST) as ImpactBurstDefinition
+
+	# a. Data.
+	check(evolve_card.is_compound_card() and overclock_card.is_compound_card() and evolve_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and overclock_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "compound data: both Shatter cards are compound cards (evolution = ABILITY_UNLOCK, Overclock = ABILITY_OVERCLOCK)")
+	check(evolve_card.compound_pair == overclock_card.compound_pair and evolve_card.compound_pair.has(Tags.Type.FROST) and evolve_card.compound_pair.has(Tags.Type.EARTH) and evolve_card.impact_burst_payload == shatter and overclock_card.impact_burst_payload == shatter, "compound data: both cards name Frost + Earth and carry the same shatter burst")
+	check(evolve_card.evolves_from == null and evolve_card.ability_data_payload == null and not (load(DBG_OVERCLOCK_CARD) as UpgradeDefinition).is_compound_card() and not earth.is_compound_card(), "compound data: the evolution card has no evolves_from or ability data; the generic Overclock and infusion cards are not compound cards")
+	check(shatter.burst_id == &"shatter" and shatter.trigger == ImpactBurstDefinition.Trigger.ON_HIT and shatter.required_target_tag == Tags.Type.CHILLED and shatter.carried_status_tags == [Tags.Type.CHILLED] and is_equal_approx(shatter.damage_fraction, 0.5) and is_equal_approx(shatter.per_enemy_bonus, 0.0) and shatter.unlock_level == 1 and shatter.max_per_cast == 2 and is_equal_approx((shatter.shape as CircleBurstShape).radius_multiplier, 8.0), "compound data: the shatter burst definition (ON_HIT, CHILLED target, carries CHILLED, 0.5, cap 2, radius 8)")
+
+	# b. Pair detection.
+	var player := _socket_pair(frost, earth, 3)
+	var ability := player.ability_container.get_ability_by_slot(1)
+	var pair := mgr.get_compound_pair(ability)
+	check(pair.size() == 2 and pair.has(Tags.Type.FROST) and pair.has(Tags.Type.EARTH), "compound pair: Frost 3 + Earth 3 at tier 1 gives the pair")
+	# The fixture's player is one shared object: each scenario below resets it and builds its own state.
+	player = _socket_pair(frost, frost, 0)
+	for i in range(3):
+		player.run_ledger_component.log_slot_specific_purchase(frost, 1)
+	check(mgr.get_compound_pair(player.ability_container.get_ability_by_slot(1)).is_empty(), "compound pair: one element gives none")
+	player = _socket_pair(frost, earth, 3)
+	for i in range(3):
+		player.run_ledger_component.log_slot_specific_purchase(fire, 1)
+	check(mgr.get_compound_pair(player.ability_container.get_ability_by_slot(1)).is_empty(), "compound pair: three elements give none")
+	player = _socket_pair(frost, earth, 2)
+	check(mgr.get_compound_pair(player.ability_container.get_ability_by_slot(1)).is_empty(), "compound pair: two elements below level 3 give none")
+	check(mgr.get_compound_pair(null).is_empty(), "compound pair: a null ability gives none")
+	player = _socket_pair(frost, earth, 3)
+	ability = player.ability_container.get_ability_by_slot(1)
+
+	# c. The offer for Frost 3 + Earth 3.
+	check(mgr._find_next_offer_slot(player) == 1, "compound offer: Frost 3 + Earth 3 makes slot 1 offer-eligible")
+	var offer := mgr._build_offer_choices(player, 1)
+	check(_offer_ids(offer) == ["compound_shatter_evolve", "compound_shatter_overclock"], "compound offer: exactly Evolve + Shatter and Overclock + Shatter, no generic Overclock (got %s)" % str(_offer_ids(offer)))
+	check(offer.size() == 2 and offer[0].is_forced_offer and offer[0].target_slot_index == 1 and offer[1].target_slot_index == 1, "compound offer: both cards are forced offers for slot 1")
+
+	# d. Unchanged offers.
+	var arc_player := _socket_pair(fire, lightning, 3)
+	var arc_offer := mgr._build_offer_choices(arc_player, 1)
+	check(arc_offer.size() == 2 and arc_offer[0].definition.upgrade_id == "evolve_arc_bolt" and arc_offer[1].definition.upgrade_id == "overclock", "compound offer: Fire 3 + Lightning 3 still offers Arc Bolt and the generic Overclock")
+	var fire_frost := _socket_pair(fire, frost, 3)
+	var fire_frost_offer := mgr._build_offer_choices(fire_frost, 1)
+	check(fire_frost_offer.size() == 1 and fire_frost_offer[0].definition.upgrade_id == "overclock", "compound offer: Fire 3 + Frost 3 still offers only the generic Overclock")
+
+	# e. Never in level-up drafts or the debug grant list; an already-bought card for the slot is not re-offered.
+	var leaked := false
+	for choice in mgr.generate_selection_pool(player, 99):
+		leaked = leaked or choice.definition.is_compound_card()
+	check(not leaked, "compound pool: neither compound card appears in generate_selection_pool")
+	var grantable_leak := false
+	for entry in DebugActions.grantable_cards(mgr):
+		grantable_leak = grantable_leak or (entry["definition"] as UpgradeDefinition).is_compound_card()
+	check(not grantable_leak, "compound pool: neither compound card appears in grantable_cards")
+
+	# f. Apply Evolve + Shatter.
+	player = _socket_pair(frost, earth, 3)
+	ability = player.ability_container.get_ability_by_slot(1)
+	var tags: Array[Tags.Type] = ability.tag_component.get_permanent_tags()
+	var ledger := player.run_ledger_component
+	player.apply_contextual_upgrade(offer[0])
+	var gate := ability.evolution_gate_component
+	var tracker := ability.infusion_tracker_component
+	var slot_key := PurchaseKey.make("compound_shatter_evolve", 1)
+	check(gate.current_state == T2, "compound evolve: the gate state is TIER_2_EVOLVED")
+	check(ledger.purchase_registry.has(slot_key) and not ledger.purchase_registry.has("compound_shatter_evolve"), "compound evolve: the slot-specific key exists and the plain key does not")
+	var bursts := ledger.get_impact_bursts(1, tags)
+	check(bursts.has(shatter) and not ledger.get_impact_bursts(2, tags).has(shatter), "compound evolve: slot 1 resolves the shatter burst and slot 2 does not (Earth's own explosion also resolves for slot 1)")
+	check(not ledger.is_overclocked(1) and ability.data.resource_path == ARCANE_BOLT_DATA_PATH, "compound evolve: not overclocked and the ability data is unchanged (no swap)")
+	check(mgr.get_compound_pair(ability).is_empty() and mgr._find_next_offer_slot(player) == 0, "compound evolve: no pair and no further offer at tier 2")
+	check(tracker.is_element_socket_allowed(Tags.Type.WIND, gate.current_state, gate.is_permanently_overclocked), "compound evolve: a third element is accepted")
+	ledger.log_slot_specific_purchase(wind, 1)
+	check(not tracker.is_element_socket_allowed(Tags.Type.LIGHTNING, gate.current_state, gate.is_permanently_overclocked), "compound evolve: a fourth element is refused")
+	player.capture_run_state()
+	ledger.restore_state({}, [])
+	player.ability_container.remove_ability_by_slot(1)
+	player._restore_run_state()
+	var restored := player.ability_container.get_ability_by_slot(1)
+	check(is_instance_valid(restored) and restored.evolution_gate_component.current_state == T2, "compound persistence: the evolution state survives capture and restore")
+	check(is_instance_valid(restored) and player.run_ledger_component.get_impact_bursts(1, restored.tag_component.get_permanent_tags()).has(shatter), "compound persistence: the shatter burst still resolves after the restore")
+
+	# g. Apply Overclock + Shatter.
+	var oc_player := _socket_pair(frost, earth, 3)
+	var oc_ability := oc_player.ability_container.get_ability_by_slot(1)
+	var oc_tags: Array[Tags.Type] = oc_ability.tag_component.get_permanent_tags()
+	var oc_offer := mgr._build_offer_choices(oc_player, 1)
+	oc_player.apply_contextual_upgrade(oc_offer[1])
+	var oc_ledger := oc_player.run_ledger_component
+	check(oc_ledger.is_overclocked(1) and oc_ability.evolution_gate_component.current_state == T1, "compound overclock: the slot is overclocked and stays in TIER_1_BASE")
+	check(oc_ledger.get_impact_bursts(1, oc_tags).has(shatter) and not oc_ledger.get_impact_bursts(2, oc_tags).has(shatter), "compound overclock: the shatter burst resolves for slot 1 only")
+	check(mgr._find_next_offer_slot(oc_player) == 0, "compound overclock: no further offer for the slot")
+
+	# g2. A compound card already bought for the slot is not offered again.
+	var bought := _socket_pair(frost, earth, 3)
+	bought.run_ledger_component.log_slot_specific_purchase(evolve_card, 1)
+	var bought_offer := mgr._build_offer_choices(bought, 1)
+	check(_offer_ids(bought_offer) == ["compound_shatter_overclock"], "compound offer: an Evolve + Shatter already bought for the slot is not offered again (got %s)" % str(_offer_ids(bought_offer)))
+
+	# h. Shatter in play with real hurtboxes.
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0})
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+	var both: Array[StatusEffect] = [burn, chill]
+	var origin := Vector2(70000.0, 130000.0)
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(30, 0), Vector2(80, 0)])
+	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, shatter, both))
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 5.0) and bats[1].status_effect_component._active_effects.has("chill"), "shatter: a chilled primary shatters; the neighbor in range loses 0.5 of the hit and is chilled")
+	check(not bats[1].status_effect_component._active_effects.has("burn"), "shatter: with Burn and Chill on the cast, the neighbor gets Chill and not Burn")
+	check(is_equal_approx(_lost(bats[2]), 0.0) and bats[2].status_effect_component._active_effects.is_empty(), "shatter: a neighbor out of range is untouched")
+	check(is_equal_approx(_lost(bats[0]), 10.0) and _recorded[0].size() == 1 and _recorded[1].size() == 1 and (_recorded[1][0] as CombatPayload).is_burst, "shatter: the primary takes only its own hit and the burst does not recurse")
+	_free_bats(bats)
+
+	# i. An un-chilled primary fires nothing; the hit's own Chill does not count on the first hit.
+	bats = await _spawn_burst_bats(origin + Vector2(0, 1000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, shatter, both))
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 0.0) and bats[0].tag_component.has_tag(Tags.Type.CHILLED), "shatter: an un-chilled primary fires nothing (the hit's own Chill does not count on the first hit)")
+	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, shatter, both))
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 5.0), "shatter: the second hit, on the now chilled primary, shatters")
+	_free_bats(bats)
+
+	# j. At most 2 per cast, through the cast's shared CastBudget.
+	bats = await _spawn_burst_bats(origin + Vector2(0, 2000.0), [Vector2(0, 0), Vector2(30, 0), Vector2(5000, 0), Vector2(5030, 0), Vector2(10000, 0), Vector2(10030, 0)])
+	var capped := _ext_payload(stats, 10.0, shatter, both)
+	capped.cast_budget = CastBudget.new()
+	capped.cast_id = 424242
+	for primary in [0, 2, 4]:
+		bats[primary].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+	for primary in [0, 2, 4]:
+		bats[primary].hurtbox_component.take_hit(capped)
+	await tree.process_frame
+	await tree.process_frame
+	var shattered := 0
+	for neighbor in [1, 3, 5]:
+		if is_equal_approx(_lost(bats[neighbor]), 5.0):
+			shattered += 1
+	check(shattered == 2 and is_equal_approx(_lost(bats[5]), 0.0), "shatter: at most 2 shatters per cast (the third chilled primary's neighbor is untouched)")
+	_free_bats(bats)
 
 
 func _clear_test_effects() -> void:

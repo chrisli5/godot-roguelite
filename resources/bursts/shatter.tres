@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ImpactBurstDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://dxeneh3s5hmbl" path="res://components/ability/bursts/impact_burst_definition.gd" id="1_burst"]
+[ext_resource type="Resource" path="res://resources/bursts/shatter_shape.tres" id="2_shape"]
+
+[resource]
+script = ExtResource("1_burst")
+burst_id = &"shatter"
+required_target_tag = 19
+shape = ExtResource("2_shape")
+damage_fraction = 0.5
+carried_status_tags = Array[int]([19])
+max_per_cast = 2

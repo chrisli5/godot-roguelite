@@ -143,6 +143,14 @@ func apply_contextual_upgrade(choice: UpgradeChoice) -> void:
 		run_ledger_component.log_slot_specific_purchase(definition, choice.target_slot_index)
 		return
 
+	# --- COMPOUND EVOLUTION: logged for the slot and advances its evolution state, with no ability swap ---
+	if definition.is_compound_card() and definition.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and choice.target_slot_index > 0:
+		run_ledger_component.log_slot_specific_purchase(definition, choice.target_slot_index)
+		var compound_ability: Ability = ability_container.get_ability_by_slot(choice.target_slot_index) if is_instance_valid(ability_container) else null
+		if is_instance_valid(compound_ability) and is_instance_valid(compound_ability.evolution_gate_component):
+			compound_ability.evolution_gate_component.advance_evolution_state()
+		return
+
 	# --- INTELLIGENT OVERLOAD ROUTING PASS ---
 	if choice.is_infusion and choice.target_slot_index > 0:
 		# Scenario A: Player-allocated elemental socket card.
