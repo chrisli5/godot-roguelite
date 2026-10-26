@@ -68,6 +68,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_geometry_standardization,
 		_section_stepped_delivery,
 		_section_indirect_scaling,
+		_section_status_sources,
 		_section_burst_stat_inheritance,
 		_section_earth_lightning_bursts,
 		_section_health_bar,
@@ -577,9 +578,9 @@ func _section_fire_ladder() -> void:
 
 	player.run_ledger_component.log_slot_specific_purchase(frost, 1)
 	p = CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
-	check(p.status_effects_to_apply.size() == 2, "fire + frost -> both statuses")
+	check(p.status_effects_to_apply.size() == 1 and p.status_effects_to_apply[0] == burn, "fire + frost, no compound card -> Burn only (Task AO: Frost carries no status)")
 	var d := p.duplicate() as CombatPayload
-	check(d.status_effects_to_apply.size() == 2, "duplicate keeps statuses")
+	check(d.status_effects_to_apply.size() == 1 and d.status_effects_to_apply[0] == burn, "duplicate keeps statuses")
 
 
 func _section_projectile_hitbox() -> void:
@@ -3881,6 +3882,7 @@ func _section_indirect_scaling() -> void:
 	values[Stat.Type.CRIT_CHANCE] = 0.0
 	var cast_lane := _indirect_lane(player, values, 2, 2)
 	player.run_ledger_component.log_slot_specific_purchase(fire, 1)
+	player.run_ledger_component.log_slot_specific_purchase(load(SHATTER_EVOLVE_CARD) as UpgradeDefinition, 1) # Chill now comes from the Shatter card (Task AO)
 	var cast := CombatCalculations.generate_hit_payload(null, cast_lane, null)
 	check(cast.status_effects_to_apply.size() == 2 and is_equal_approx(cast.damage_scale, 1.17), "burst/zone setup: the cast carries Chill, Burn and scale 1.17")
 	var burst_def := _make_burst(&"test_indirect_burst", ImpactBurstDefinition.Trigger.ON_HIT, 0.5)
@@ -3915,7 +3917,64 @@ func _section_indirect_scaling() -> void:
 	player = fx.fresh_player()
 	var direct := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 1.0}, 1, 0)
 	var level1 := CombatCalculations.generate_hit_payload(null, direct, null)
-	check(is_equal_approx(direct.get_final_stat_value(Stat.Type.COOLDOWN), 0.92) and level1.status_effects_to_apply.size() == 1 and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 still cuts the cooldown and carries Chill, with scale 1.0")
+	check(is_equal_approx(direct.get_final_stat_value(Stat.Type.COOLDOWN), 0.92) and level1.status_effects_to_apply.is_empty() and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 still cuts the cooldown, with scale 1.0, and carries no status (Task AO)")
+	player.run_ledger_component.log_slot_specific_purchase(load(SHATTER_EVOLVE_CARD) as UpgradeDefinition, 1)
+	var level1_shatter := CombatCalculations.generate_hit_payload(null, direct, null)
+	check(level1_shatter.status_effects_to_apply.size() == 1 and level1_shatter.status_effects_to_apply[0].effect_id == &"chill" and is_equal_approx(level1_shatter.damage_scale, 1.0), "direct effects: with the Shatter card, Chill applies at Frost L1, scale 1.0")
+	fx.reset_player_state()
+
+
+## Task AO: Fire is the only base infusion that applies a status; Chill comes from the two Shatter cards.
+func _section_status_sources() -> void:
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var shatter_evolve := load(SHATTER_EVOLVE_CARD) as UpgradeDefinition
+	var shatter_overclock := load(SHATTER_OVERCLOCK_CARD) as UpgradeDefinition
+	var magma_evolve := load(MAGMA_EVOLVE_CARD) as UpgradeDefinition
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+
+	# a. Frost alone applies nothing.
+	var player := _socket_pair(frost, frost, 3)
+	var tags: Array[Tags.Type] = player.ability_container.get_ability_by_slot(1).tag_component.get_permanent_tags()
+	var statuses := player.run_ledger_component.get_status_effects(1, tags)
+	check(statuses.is_empty() and frost.status_effect_payload == null, "status sources: Frost level 3 alone resolves no status (no Chill)")
+
+	# b. Fire alone is exactly Burn.
+	player = _socket_pair(fire, fire, 3)
+	tags = player.ability_container.get_ability_by_slot(1).tag_component.get_permanent_tags()
+	statuses = player.run_ledger_component.get_status_effects(1, tags)
+	check(statuses.size() == 1 and statuses[0] == burn, "status sources: Fire level 3 alone resolves exactly [Burn]")
+
+	# c. Frost 3 + Earth 3 with each Shatter card: exactly Chill, slot 1 only.
+	for card in [shatter_evolve, shatter_overclock]:
+		player = _socket_pair(frost, earth, 3)
+		tags = player.ability_container.get_ability_by_slot(1).tag_component.get_permanent_tags()
+		check(player.run_ledger_component.get_status_effects(1, tags).is_empty(), "status sources: Frost 3 + Earth 3 before the card resolves no status (%s)" % card.upgrade_id)
+		player.run_ledger_component.log_slot_specific_purchase(card, 1)
+		statuses = player.run_ledger_component.get_status_effects(1, tags)
+		check(statuses.size() == 1 and statuses[0] == chill, "status sources: Frost 3 + Earth 3 with %s resolves exactly [Chill]" % card.upgrade_id)
+		check(player.run_ledger_component.get_status_effects(2, tags).is_empty(), "status sources: the %s purchase on slot 1 puts no Chill on slot 2" % card.upgrade_id)
+
+	# d. Fire 3 + Earth 3 with Magma: Burn only; Magma carries no status.
+	player = _socket_pair(fire, earth, 3)
+	tags = player.ability_container.get_ability_by_slot(1).tag_component.get_permanent_tags()
+	player.run_ledger_component.log_slot_specific_purchase(magma_evolve, 1)
+	statuses = player.run_ledger_component.get_status_effects(1, tags)
+	check(statuses.size() == 1 and statuses[0] == burn and magma_evolve.status_effect_payload == null, "status sources: Fire 3 + Earth 3 with Magma resolves exactly [Burn]")
+
+	# e. Fire 3 + Frost 3 with no compound card: Burn only.
+	player = _socket_pair(fire, frost, 3)
+	tags = player.ability_container.get_ability_by_slot(1).tag_component.get_permanent_tags()
+	statuses = player.run_ledger_component.get_status_effects(1, tags)
+	check(statuses.size() == 1 and statuses[0] == burn, "status sources: Fire 3 + Frost 3 with no compound card resolves exactly [Burn]")
+
+	# f. The shatter burst still carries Chill.
+	var shatter := load(SHATTER_BURST) as ImpactBurstDefinition
+	var both: Array[StatusEffect] = [burn, chill]
+	var carried := ImpactBurst.carried_statuses(shatter, both)
+	check(carried.size() == 1 and carried[0] == chill, "status sources: the shatter burst carries Chill (and not Burn) from a cast status list")
 	fx.reset_player_state()
 
 

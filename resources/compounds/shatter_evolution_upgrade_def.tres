@@ -1,14 +1,16 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_def"]
 [ext_resource type="Resource" path="res://resources/bursts/shatter.tres" id="2_burst"]
+[ext_resource type="Resource" uid="uid://dmthgyikdu8dy" path="res://resources/status_effects/chill.tres" id="3_chill"]
 
 [resource]
 script = ExtResource("1_def")
 upgrade_id = "compound_shatter_evolve"
 display_name = "Evolve + Shatter"
-description = "Evolve this ability: it can take a third element and its element cap rises to 5. Hits on Chilled enemies shatter, damaging and Chilling nearby enemies."
+description = "Evolve this ability: it can take a third element and its element cap rises to 5. Your hits Chill enemies. Hits on Chilled enemies shatter, damaging and Chilling nearby enemies."
 payload_type = 1
 impact_burst_payload = ExtResource("2_burst")
+status_effect_payload = ExtResource("3_chill")
 compound_pair = Array[int]([10, 13])
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

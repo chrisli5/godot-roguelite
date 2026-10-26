@@ -745,8 +745,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 6.0,
 		"status_ids": [
-			"burn",
-			"chill"
+			"burn"
 		],
 		"status_ramp_cap_snapshot": 0.200000002980232
 	},
@@ -758,8 +757,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 6.0,
 		"status_ids": [
-			"burn",
-			"chill"
+			"burn"
 		],
 		"status_ramp_cap_snapshot": 0.200000002980232
 	},
@@ -822,9 +820,7 @@
 		"is_burst": false,
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
-		"status_ids": [
-			"chill"
-		],
+		"status_ids": [],
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/frost_2/crit_on": {
@@ -834,9 +830,7 @@
 		"is_burst": false,
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
-		"status_ids": [
-			"chill"
-		],
+		"status_ids": [],
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/none/crit_off": {
