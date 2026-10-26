@@ -87,8 +87,7 @@ func _on_hit_received(payload: CombatPayload) -> void:
 	if is_instance_valid(status_effect_component) and health_component.current_health > 0.0:
 		for effect in payload.status_effects_to_apply:
 			status_effect_component.apply_effect(
-				effect, payload.dot_damage_snapshot, payload.status_duration_snapshot, payload.status_ramp_cap_snapshot,
-					payload.status_stack_bonus_snapshot
+				effect, payload.dot_damage_snapshot, payload.status_duration_snapshot, payload.status_ramp_cap_snapshot
 			)
 
 
@@ -98,7 +97,7 @@ func _on_status_effect_applied(instance: StatusEffectInstance) -> void:
 		tag_component.add_temporary_tag(tag)
 
 
-## Re-adding with the same ids replaces the previous modifiers (their values may have changed with stacks).
+## Re-adding with the same ids replaces the previous modifiers (their values may have changed).
 func _on_status_effect_refreshed(instance: StatusEffectInstance) -> void:
 	_apply_status_modifiers(instance)
 

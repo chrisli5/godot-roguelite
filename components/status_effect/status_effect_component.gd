@@ -4,7 +4,7 @@ extends Node
 ## parent entity listens to these signals and routes modifiers, tick damage and tags.
 
 signal applied(instance: StatusEffectInstance)
-## Emitted when an already-active effect is re-applied (REFRESH or STACK).
+## Emitted when an already-active effect is re-applied .
 signal refreshed(instance: StatusEffectInstance)
 signal ticked(instance: StatusEffectInstance, damage: float)
 signal expired(instance: StatusEffectInstance)
@@ -32,10 +32,13 @@ func _exit_tree() -> void:
 
 
 ## Applies `effect` to the owner. `dot_damage` (damage per second), `duration_bonus` (seconds) and
-## `ramp_cap_bonus` and `stack_cap_bonus` are the magnitudes snapshotted from the source's DOT_DAMAGE / STATUS_DURATION /
-## STATUS_RAMP_CAP / STATUS_STACK_BONUS stats. An effect whose effective duration is 0 is not applied at all.
-## Re-applying an active effect follows its stacking policy.
-func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0, stack_cap_bonus: float = 0.0) -> void:
+## `ramp_cap_bonus` are the magnitudes snapshotted from the source's DOT_DAMAGE / STATUS_DURATION /
+## STATUS_RAMP_CAP stats. An effect whose effective duration is 0 is not applied at all.
+## One instance per effect, never stacked. Re-applying a ticking effect: the strongest application wins
+## (new dot_damage >= existing adopts the new snapshot as a unit, a weaker one keeps the existing snapshot),
+## elapsed is kept and the timer becomes the longer of what is left and the new effective duration.
+## Re-applying a non-ticking effect adopts the latest values and resets the timer.
+func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0) -> void:
 	if not is_instance_valid(effect) or effect.effect_id.is_empty():
 		push_warning("StatusEffectComponent: Invalid status effect passed.")
 		return
@@ -44,14 +47,18 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 
 	var existing: StatusEffectInstance = _active_effects.get(effect.effect_id)
 	if existing != null:
-		existing.dot_damage = dot_damage
-		existing.duration_bonus = duration_bonus
-		existing.ramp_cap_bonus = ramp_cap_bonus
-		existing.stack_cap_bonus = stack_cap_bonus
-		existing.time_remaining = existing.get_effective_duration()
-		if existing.stacks < existing.get_stack_cap():
-			existing.stacks += 1
-			existing.refresh_modifier_values()
+		if effect.tick_interval > 0.0:
+			var new_duration := effect.base_duration + duration_bonus
+			if dot_damage >= existing.dot_damage:
+				existing.dot_damage = dot_damage
+				existing.duration_bonus = duration_bonus
+				existing.ramp_cap_bonus = ramp_cap_bonus
+			existing.time_remaining = maxf(existing.time_remaining, new_duration)
+		else:
+			existing.dot_damage = dot_damage
+			existing.duration_bonus = duration_bonus
+			existing.ramp_cap_bonus = ramp_cap_bonus
+			existing.time_remaining = existing.get_effective_duration()
 		refreshed.emit(existing)
 		return
 
@@ -60,7 +67,6 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 	instance.dot_damage = dot_damage
 	instance.duration_bonus = duration_bonus
 	instance.ramp_cap_bonus = ramp_cap_bonus
-	instance.stack_cap_bonus = stack_cap_bonus
 	instance.time_remaining = instance.get_effective_duration()
 	_active_effects[effect.effect_id] = instance
 	set_process(true)

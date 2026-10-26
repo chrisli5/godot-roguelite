@@ -401,7 +401,6 @@
 		"after/stat/SPEED_BONUS": 0.0,
 		"after/stat/STATUS_DURATION": 0.0,
 		"after/stat/STATUS_RAMP_CAP": 0.0,
-		"after/stat/STATUS_STACK_BONUS": 0.0,
 		"after/tags": [
 			2,
 			7
@@ -949,8 +948,7 @@
 		"REACH_BONUS": 0.100000001490116,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/earth_2": {
 		"AOE_RADIUS": 10.0,
@@ -966,8 +964,7 @@
 		"REACH_BONUS": 0.200000002980232,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/earth_3": {
 		"AOE_RADIUS": 10.0,
@@ -983,8 +980,7 @@
 		"REACH_BONUS": 0.300000011920929,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/fire_1": {
 		"AOE_RADIUS": 10.0,
@@ -1000,8 +996,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 3.0,
-		"STATUS_RAMP_CAP": 0.100000001490116,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.100000001490116
 	},
 	"stats/arcane_bolt/fire_15_overclocked": {
 		"AOE_RADIUS": 10.0,
@@ -1017,8 +1012,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 45.0,
-		"STATUS_RAMP_CAP": 1.5,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 1.5
 	},
 	"stats/arcane_bolt/fire_2": {
 		"AOE_RADIUS": 10.0,
@@ -1034,8 +1028,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 6.0,
-		"STATUS_RAMP_CAP": 0.200000002980232,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.200000002980232
 	},
 	"stats/arcane_bolt/fire_3": {
 		"AOE_RADIUS": 10.0,
@@ -1051,8 +1044,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 9.0,
-		"STATUS_RAMP_CAP": 0.300000011920929,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.300000011920929
 	},
 	"stats/arcane_bolt/fire_3_earth_3": {
 		"AOE_RADIUS": 10.0,
@@ -1068,8 +1060,7 @@
 		"REACH_BONUS": 0.300000011920929,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 9.0,
-		"STATUS_RAMP_CAP": 0.300000011920929,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.300000011920929
 	},
 	"stats/arcane_bolt/frost_1": {
 		"AOE_RADIUS": 10.0,
@@ -1085,8 +1076,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/frost_2": {
 		"AOE_RADIUS": 10.0,
@@ -1102,8 +1092,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/frost_2_lightning_2": {
 		"AOE_RADIUS": 10.0,
@@ -1119,8 +1108,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/frost_3": {
 		"AOE_RADIUS": 10.0,
@@ -1136,8 +1124,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/lightning_1": {
 		"AOE_RADIUS": 10.0,
@@ -1153,8 +1140,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/lightning_2": {
 		"AOE_RADIUS": 10.0,
@@ -1170,8 +1156,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/lightning_3": {
 		"AOE_RADIUS": 10.0,
@@ -1187,8 +1172,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/none": {
 		"AOE_RADIUS": 10.0,
@@ -1204,8 +1188,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_1": {
 		"AOE_RADIUS": 10.0,
@@ -1221,8 +1204,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.100000001490116,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_1_earth_1": {
 		"AOE_RADIUS": 10.0,
@@ -1238,8 +1220,7 @@
 		"REACH_BONUS": 0.100000001490116,
 		"SPEED_BONUS": 0.100000001490116,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_2": {
 		"AOE_RADIUS": 10.0,
@@ -1255,8 +1236,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.200000002980232,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_3": {
 		"AOE_RADIUS": 10.0,
@@ -1272,8 +1252,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.300000011920929,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/core/move_speed_card": {
 		"MAX_HEALTH": 10.0,
@@ -1301,8 +1280,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/arcane_frost_2/flat": {
 		"AOE_RADIUS": 10.0,
@@ -1318,8 +1296,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/arcane_frost_2/multiplicative": {
 		"AOE_RADIUS": 10.0,
@@ -1335,8 +1312,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/arcane_frost_2/percent": {
 		"AOE_RADIUS": 10.0,
@@ -1352,8 +1328,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
-		"STATUS_RAMP_CAP": 0.0,
-		"STATUS_STACK_BONUS": 0.0
+		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/core_move_speed_card/burn_active": {
 		"MAX_HEALTH": 10.0,

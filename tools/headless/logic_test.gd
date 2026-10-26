@@ -53,7 +53,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_debug_infusion_grant,
 		_section_state_inspector,
 		_section_overclock_from_ledger,
-		_section_stack_cap,
+		_section_strongest_dot,
 		_section_spawn_health,
 		_section_plasma_evolution,
 		_section_lightning_crit_multiplier,
@@ -1534,7 +1534,7 @@ func _section_state_inspector() -> void:
 	description = StateInspector.describe(player, bat, {})
 	var live := component.get_active_instances()[0]
 	var enemy_status: Dictionary = description["enemy"]["statuses"][0]
-	check(enemy_status["effect_id"] == live.template.effect_id and enemy_status["time_remaining"] == live.time_remaining and enemy_status["stacks"] == live.stacks and enemy_status["dot_damage"] == live.dot_damage and enemy_status["duration_bonus"] == live.duration_bonus, "inspector: the enemy's status row matches its live instance")
+	check(enemy_status["effect_id"] == live.template.effect_id and enemy_status["time_remaining"] == live.time_remaining and enemy_status["dot_damage"] == live.dot_damage and enemy_status["duration_bonus"] == live.duration_bonus, "inspector: the enemy's status row matches its live instance")
 	check(StateInspector.to_text(description).contains("Nearest enemy: %s" % bat.name), "inspector: the text names the nearest enemy")
 
 	# 9. Hit recorder (the hub's own recorder in the world)
@@ -1689,143 +1689,108 @@ func _section_overclock_from_ledger() -> void:
 	check(ability.evolution_gate_component.current_state == EvolutionGateComponent.EvolutionState.TIER_2_EVOLVED and not ability.evolution_gate_component.is_permanently_overclocked, "overclock ledger: restore_state sets the evolution state only")
 
 
-func _stack_bat() -> Enemy:
+func _tough_bat() -> Enemy:
 	var bat := _spawn_bat()
 	bat.health_component.update_max_health(100000.0, true)
 	bat.health_component.set_to_full()
 	return bat
 
 
-## Expected Burn tick damage after `elapsed` seconds with no ramp cap bonus: dot * ramp * interval * stacks.
-func _stack_expected_tick(burn: StatusEffect, dot: float, elapsed: float, stacks: int) -> float:
-	var ramp := 1.0 + minf(elapsed * burn.ramp_bonus_per_second, burn.ramp_max_bonus)
-	return dot * ramp * burn.tick_interval * stacks
+## A StatusEffectComponent on its own (no entity), tracked so the section frees it.
+func _bare_status_component() -> StatusEffectComponent:
+	var component := StatusEffectComponent.new()
+	tree.root.add_child(component)
+	fx.track(component)
+	return component
 
 
-func _section_stack_cap() -> void:
+func _section_strongest_dot() -> void:
 	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
 	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
 
-	# a. Bonus 0: REFRESH is unchanged (one stack, tick = dot * ramp * interval).
-	var bat_a := _stack_bat()
-	var comp_a := bat_a.status_effect_component
-	var ticks_a: Array[float] = []
-	comp_a.ticked.connect(func(_i: StatusEffectInstance, dmg: float) -> void: ticks_a.append(dmg))
-	for i in range(5):
-		comp_a.apply_effect(burn, 10.0, 10.0, 0.0, 0.0)
-	var inst_a: StatusEffectInstance = comp_a._active_effects["burn"]
-	check(inst_a.stacks == 1 and inst_a.get_stack_cap() == 1, "stack cap: bonus 0, five Burn applications stay at 1 stack")
-	comp_a._process(0.5)
-	check(ticks_a.size() == 1 and is_equal_approx(ticks_a[0], _stack_expected_tick(burn, 10.0, 0.5, 1)), "stack cap: bonus 0, tick damage = dot * ramp * interval")
+	# a. A weaker but longer re-apply keeps the stronger snapshot and refreshes the timer. Elapsed (the ramp) keeps running.
+	var comp := _bare_status_component()
+	var refreshed := [0]
+	comp.refreshed.connect(func(_instance: StatusEffectInstance) -> void: refreshed[0] += 1)
+	var ticks: Array[float] = []
+	comp.ticked.connect(func(_instance: StatusEffectInstance, dmg: float) -> void: ticks.append(dmg))
+	comp.apply_effect(burn, 10.0, 10.0, 0.2)
+	var inst: StatusEffectInstance = comp._active_effects["burn"]
+	comp._process(0.25)
+	comp.apply_effect(burn, 6.0, 20.0, 0.0)
+	check(comp._active_effects["burn"] == inst and comp.get_active_instances().size() == 1, "strongest dot: a re-apply keeps the one instance")
+	check(is_equal_approx(inst.dot_damage, 10.0) and is_equal_approx(inst.duration_bonus, 10.0) and is_equal_approx(inst.ramp_cap_bonus, 0.2), "strongest dot: a weaker re-apply keeps the existing snapshot as a unit")
+	check(is_equal_approx(inst.time_remaining, 20.0) and is_equal_approx(inst.elapsed, 0.25), "strongest dot: a weaker but longer re-apply refreshes the timer and keeps elapsed")
+	comp._process(0.25)
+	check(ticks.size() == 1 and is_equal_approx(ticks[0], 10.0 * 1.05 * burn.tick_interval), "strongest dot: tick damage after a weaker re-apply is still the stronger dot * ramp * interval")
 
-	# b. Bonus 2: cap 3, tick damage scales with stacks, every application resets the timer, elapsed keeps running.
-	var bat_b := _stack_bat()
-	var comp_b := bat_b.status_effect_component
-	var ticks_b: Array[float] = []
-	comp_b.ticked.connect(func(_i: StatusEffectInstance, dmg: float) -> void: ticks_b.append(dmg))
-	for i in range(5):
-		comp_b.apply_effect(burn, 10.0, 10.0, 0.0, 2.0)
-	var inst_b: StatusEffectInstance = comp_b._active_effects["burn"]
-	check(inst_b.stacks == 3 and inst_b.get_stack_cap() == 3, "stack cap: bonus 2, five applications give 3 stacks (cap 3)")
-	comp_b._process(0.5)
-	check(ticks_b.size() == 1 and is_equal_approx(ticks_b[0], _stack_expected_tick(burn, 10.0, 0.5, 3)), "stack cap: bonus 2, tick damage = dot * ramp * interval * 3")
-	comp_b._process(1.0)
-	check(is_equal_approx(inst_b.time_remaining, 8.5), "stack cap: the timer ran down before the re-apply")
-	comp_b.apply_effect(burn, 10.0, 10.0, 0.0, 2.0)
-	check(is_equal_approx(inst_b.time_remaining, 10.0) and is_equal_approx(inst_b.elapsed, 1.5) and inst_b.stacks == 3, "stack cap: a re-apply resets the timer, elapsed keeps running, stacks stay at the cap")
+	# b. A stronger re-apply adopts the whole new snapshot, but a shorter one never shortens the timer.
+	var left := inst.time_remaining
+	comp.apply_effect(burn, 12.0, 7.0, 0.3)
+	check(is_equal_approx(inst.dot_damage, 12.0) and is_equal_approx(inst.duration_bonus, 7.0) and is_equal_approx(inst.ramp_cap_bonus, 0.3), "strongest dot: a stronger re-apply adopts the new snapshot as a unit")
+	check(is_equal_approx(inst.time_remaining, left) and is_equal_approx(inst.elapsed, 0.5), "strongest dot: a stronger but shorter re-apply does not shorten the timer, elapsed survives")
 
-	# c. The latest applier's dot_damage wins and the stacks are kept.
-	var bat_c := _stack_bat()
-	var comp_c := bat_c.status_effect_component
-	for i in range(3):
-		comp_c.apply_effect(burn, 5.0, 10.0, 0.0, 2.0)
-	var inst_c: StatusEffectInstance = comp_c._active_effects["burn"]
-	comp_c.apply_effect(burn, 8.0, 10.0, 0.0, 2.0)
-	check(is_equal_approx(inst_c.dot_damage, 8.0) and inst_c.stacks == 3, "stack cap: the latest dot_damage snapshot wins and the stacks are kept")
+	# c. A tie takes the newer application.
+	comp.apply_effect(burn, 12.0, 9.0, 0.1)
+	check(is_equal_approx(inst.dot_damage, 12.0) and is_equal_approx(inst.duration_bonus, 9.0) and is_equal_approx(inst.ramp_cap_bonus, 0.1), "strongest dot: a tie adopts the newer snapshot")
 
-	# d. Stacks never decrease on a re-apply (current behavior): a lower bonus leaves the stacks above the new cap.
-	var bat_d := _stack_bat()
-	var comp_d := bat_d.status_effect_component
-	for i in range(4):
-		comp_d.apply_effect(burn, 10.0, 10.0, 0.0, 3.0)
-	var inst_d: StatusEffectInstance = comp_d._active_effects["burn"]
-	check(inst_d.stacks == 4, "stack cap: bonus 3 builds 4 stacks")
-	comp_d.apply_effect(burn, 10.0, 10.0, 0.0, 0.0)
-	check(inst_d.stacks == 4 and is_equal_approx(inst_d.stack_cap_bonus, 0.0) and inst_d.get_stack_cap() == 1, "stack cap: an application with bonus 0 keeps 4 stacks (no decrease) and sets stack_cap_bonus to 0")
-	comp_d.apply_effect(burn, 10.0, 10.0, 0.0, 0.0)
-	check(inst_d.stacks == 4, "stack cap: no further stack is added above the cap")
+	# d. A weaker, shorter application changes nothing but still emits refreshed.
+	comp.apply_effect(burn, 1.0, 1.0, 0.0)
+	check(is_equal_approx(inst.dot_damage, 12.0) and is_equal_approx(inst.duration_bonus, 9.0) and is_equal_approx(inst.ramp_cap_bonus, 0.1) and is_equal_approx(inst.time_remaining, left) and is_equal_approx(inst.elapsed, 0.5), "strongest dot: a weaker, shorter application never shortens the timer or changes the snapshot")
+	check(refreshed[0] == 4, "strongest dot: refreshed fires on every re-apply (%d of 4)" % refreshed[0])
 
-	# e. After expiry a new application starts at 1 stack.
-	var bat_e := _stack_bat()
-	var comp_e := bat_e.status_effect_component
-	for i in range(3):
-		comp_e.apply_effect(burn, 10.0, 1.0, 0.0, 2.0)
-	check(comp_e._active_effects["burn"].stacks == 3, "stack cap: three stacks before expiry")
-	comp_e._process(0.5)
-	comp_e._process(0.5)
-	check(comp_e._active_effects.is_empty(), "stack cap: the effect expired")
-	comp_e.apply_effect(burn, 10.0, 1.0, 0.0, 2.0)
-	check(comp_e._active_effects["burn"].stacks == 1, "stack cap: after expiry a new application starts at 1 stack")
+	# e. Tick damage = dot_damage * ramp * interval (elapsed 1.0 gives ramp 1.1).
+	comp._process(0.5)
+	check(ticks.size() == 2 and is_equal_approx(ticks[1], 12.0 * 1.1 * burn.tick_interval), "strongest dot: tick damage is dot_damage * ramp * interval")
 
-	# f. A non-ticking template (Chill) ignores the bonus.
-	var bat_f := _stack_bat()
-	var comp_f := bat_f.status_effect_component
-	for i in range(3):
-		comp_f.apply_effect(chill, 0.0, 3.0, 0.0, 3.0)
-	var inst_f: StatusEffectInstance = comp_f._active_effects["chill"]
-	check(chill.tick_interval <= 0.0 and inst_f.stacks == 1 and inst_f.get_stack_cap() == 1, "stack cap: Chill (non-ticking) with bonus 3 stays at 1 stack")
+	# f. Chill (non-ticking) is still latest-wins, even when weaker and shorter.
+	var comp_f := _bare_status_component()
+	comp_f.apply_effect(chill, 4.0, 5.0)
+	var chill_inst: StatusEffectInstance = comp_f._active_effects["chill"]
+	comp_f._process(1.0)
+	comp_f.apply_effect(chill, 1.0, 2.0)
+	check(chill.tick_interval <= 0.0 and is_equal_approx(chill_inst.dot_damage, 1.0) and is_equal_approx(chill_inst.duration_bonus, 2.0), "strongest dot: Chill adopts the latest application even when weaker")
+	check(is_equal_approx(chill_inst.time_remaining, chill_inst.get_effective_duration()), "strongest dot: Chill's timer resets to the latest effective duration")
 
-	# g. The cast snapshot follows a test-only LOCAL_SLOT card; the real Fire card does not touch the stat.
-	var player := fx.fresh_player()
-	var ability := fx.mount_arcane_bolt(player)
-	var sc := ability.stats_container
-	var fire := load(FIRE_CARD) as UpgradeDefinition
-	var stack_card := _l3_card("test_stack_bonus")
-	stack_card.stat_modifiers.append(_l3_modifier(StatModifier.Type.FLAT, 1.0, Stat.Type.STATUS_STACK_BONUS))
-	var ledger := player.run_ledger_component
-	ledger.log_slot_specific_purchase(fire, 1)
-	var p0 := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
-	check(is_equal_approx(p0.status_stack_bonus_snapshot, 0.0) and p0.status_effects_to_apply.size() == 1, "stack cap: Fire alone leaves the snapshot at 0.0 (Burn is carried)")
-	for tier in range(1, 4):
-		ledger.log_slot_specific_purchase(stack_card, 1)
-		var payload := CombatCalculations.generate_hit_payload(player, sc, ability.tag_component)
-		check(is_equal_approx(payload.status_stack_bonus_snapshot, float(tier)), "stack cap: the test card at tier %d gives snapshot %d.0" % [tier, tier])
-		if tier == 3:
-			var copy := payload.duplicate() as CombatPayload
-			check(is_equal_approx(copy.status_stack_bonus_snapshot, 3.0), "stack cap: the snapshot survives payload.duplicate")
+	# g. Different effect ids are independent.
+	var comp_g := _bare_status_component()
+	var other := StatusEffect.new()
+	other.effect_id = "test_dot"
+	other.base_duration = 0.0
+	other.tick_interval = 0.5
+	comp_g.apply_effect(burn, 10.0, 10.0)
+	comp_g.apply_effect(other, 3.0, 5.0)
+	var burn_g: StatusEffectInstance = comp_g._active_effects["burn"]
+	var other_g: StatusEffectInstance = comp_g._active_effects["test_dot"]
+	comp_g.apply_effect(burn, 50.0, 10.0)
+	check(comp_g.get_active_instances().size() == 2 and is_equal_approx(burn_g.dot_damage, 50.0) and is_equal_approx(other_g.dot_damage, 3.0) and is_equal_approx(other_g.time_remaining, 5.0), "strongest dot: two different effect ids are independent")
 
-	# h. A STACK template with a tick interval adds the bonus to max_stacks.
-	var stack_effect := StatusEffect.new()
-	stack_effect.effect_id = "test_stack_effect"
-	stack_effect.stacking = StatusEffect.StackingPolicy.STACK
-	stack_effect.max_stacks = 3
-	stack_effect.tick_interval = 0.5
-	var stack_inst := StatusEffectInstance.new(stack_effect, 1)
-	check(stack_inst.get_stack_cap() == 3, "stack cap: a STACK template with max_stacks 3 has cap 3 with bonus 0")
-	stack_inst.stack_cap_bonus = 2.0
-	check(stack_inst.get_stack_cap() == 5, "stack cap: a STACK template with max_stacks 3 has cap 5 with bonus 2")
+	# h. The instance has no stack state left, and the retired stat keeps its stored integer.
+	var stack_props := false
+	for property in inst.get_property_list():
+		stack_props = stack_props or property["name"] == "stacks" or property["name"] == "stack_cap_bonus"
+	check(not stack_props and not inst.has_method("get_stack_cap") and not inst.has_method("refresh_modifier_values"), "strongest dot: StatusEffectInstance has no stacks property")
+	check(int(Stat.Type.STATUS_STACK_BONUS) == 20, "strongest dot: the deprecated STATUS_STACK_BONUS keeps integer 20")
 
-	# i. DebugActions passes the bonus through.
-	var detached: Array[Dictionary] = []
-	for node in tree.root.find_children("*", "Enemy", true, false):
-		detached.append({"enemy": node, "parent": node.get_parent()})
-		node.get_parent().remove_child(node)
-	var bat_i := _stack_bat()
-	for i in range(3):
-		DebugActions.apply_status_to_nearest(tree, burn, 5.0, 3.0, 2.0)
-	var inst_i: StatusEffectInstance = bat_i.status_effect_component._active_effects.get("burn")
-	check(inst_i != null and inst_i.stacks == 3, "stack cap: apply_status_to_nearest with bonus 2, called 3 times, gives 3 stacks")
-	for item in detached:
-		if is_instance_valid(item["enemy"]) and is_instance_valid(item["parent"]):
-			item["parent"].add_child(item["enemy"])
-
-	# j. Guards.
-	check(burn.stacking == StatusEffect.StackingPolicy.REFRESH and burn.max_stacks == 1, "stack cap: the real burn.tres is still REFRESH with max_stacks 1")
-	var fire_touches_stack := false
-	for modifier in fire.stat_modifiers:
-		fire_touches_stack = fire_touches_stack or modifier.target_stat_type == Stat.Type.STATUS_STACK_BONUS
-	check(not fire_touches_stack, "stack cap: the real Fire card has no modifier on STATUS_STACK_BONUS")
-	check(int(Stat.Type.STATUS_STACK_BONUS) == 20, "stack cap: STATUS_STACK_BONUS is appended as integer 20")
+	# i. A lingering zone with a weaker snapshot does not downgrade a stronger Burn (and does not shorten it).
+	LingeringZone.reset_registry()
+	var origin := Vector2(71000.0, 71000.0)
+	var zone_bats := await _spawn_burst_bats(origin, [Vector2(0, 0)])
+	var zone_comp := zone_bats[0].status_effect_component
+	var zone_refreshed := [0]
+	zone_comp.refreshed.connect(func(_instance: StatusEffectInstance) -> void: zone_refreshed[0] += 1)
+	zone_comp.apply_effect(burn, 20.0, 10.0, 0.0)
+	var strong: StatusEffectInstance = zone_comp._active_effects["burn"]
+	var zone_stats := _make_stats({Stat.Type.AOE_RADIUS: 10.0})
+	var burn_list: Array[StatusEffect] = [burn]
+	var zone_def := _zone_burst(&"test_zone_burst", load(TEST_LINGERING_ZONE) as PackedScene)
+	await _spawn_zone(zone_def, _zone_payload(zone_stats, zone_def, burn_list, 5.0), origin)
+	await tree.create_timer(0.5).timeout
+	check(zone_refreshed[0] >= 1, "strongest dot: the weaker zone did re-apply Burn (refreshed %d times)" % zone_refreshed[0])
+	check(zone_comp._active_effects.get("burn") == strong and is_equal_approx(strong.dot_damage, 20.0) and is_equal_approx(strong.duration_bonus, 10.0) and strong.time_remaining > 8.0, "strongest dot: a zone with a weaker snapshot does not downgrade or shorten a stronger Burn")
+	await tree.create_timer(0.6).timeout
+	_free_bats(zone_bats)
+	await tree.physics_frame # end in the physics phase, like the other await sections
 
 
 func _section_spawn_health() -> void:
@@ -1864,7 +1829,6 @@ func _plasma_cast(crit_chance: float, share: Variant) -> CombatPayload:
 		Stat.Type.DOT_DAMAGE: 4.0,
 		Stat.Type.STATUS_DURATION: 6.0,
 		Stat.Type.STATUS_RAMP_CAP: 0.3,
-		Stat.Type.STATUS_STACK_BONUS: 2.0,
 	}
 	if share != null:
 		values[Stat.Type.CRIT_DOT_SHARE] = share
@@ -1906,7 +1870,7 @@ func _section_plasma_evolution() -> void:
 	check(is_equal_approx(_plasma_cast(1.0, 0.0).dot_damage_snapshot, 4.0), "plasma cast: share 0 leaves the snapshot unchanged on a crit")
 	check(is_equal_approx(crit_absent.dot_damage_snapshot, 4.0), "plasma cast: a profile without CRIT_DOT_SHARE leaves the snapshot unchanged on a crit")
 	check(crit_full.is_critical_hit and crit_absent.is_critical_hit and is_equal_approx(crit_full.final_damage, crit_absent.final_damage) and is_equal_approx(crit_full.final_damage, 3.0), "plasma cast: final_damage is identical with and without the share")
-	check(is_equal_approx(crit_full.status_duration_snapshot, 6.0) and is_equal_approx(crit_full.status_ramp_cap_snapshot, 0.3) and is_equal_approx(crit_full.status_stack_bonus_snapshot, 2.0), "plasma cast: the other three snapshots are unchanged by the share")
+	check(is_equal_approx(crit_full.status_duration_snapshot, 6.0) and is_equal_approx(crit_full.status_ramp_cap_snapshot, 0.3), "plasma cast: the other two snapshots are unchanged by the share")
 
 	# b. The real evolution path.
 	var player := fx.fresh_player()
@@ -1984,7 +1948,7 @@ func _section_plasma_evolution() -> void:
 	fx.track(chain)
 	var bats: Array[Enemy] = []
 	for i in range(6):
-		var bat := _stack_bat()
+		var bat := _tough_bat()
 		bat.set_physics_process(false)
 		bat.global_position = origin + Vector2(100.0 * i, 0.0)
 		bats.append(bat)
@@ -2110,7 +2074,6 @@ func _ext_payload(stats: StatsContainer, damage: float, definition: ImpactBurstD
 	payload.dot_damage_snapshot = 5.0
 	payload.status_duration_snapshot = 3.0
 	payload.status_ramp_cap_snapshot = 0.1
-	payload.status_stack_bonus_snapshot = 1.0
 	return payload
 
 
@@ -2134,13 +2097,17 @@ func _section_burst_extensions() -> void:
 	# b. carried_status_tags [BURNING]: the neighbor gets Burn with the exact snapshots.
 	var carrying := _ext_burst(&"test_ext_carry", 0.5, [Tags.Type.BURNING])
 	bats = await _spawn_burst_bats(Vector2(70000.0, 71000.0), [Vector2(0, 0), Vector2(30, 0)])
+	var primary_refreshed := [0]
+	var neighbor_refreshed := [0]
+	bats[0].status_effect_component.refreshed.connect(func(_instance: StatusEffectInstance) -> void: primary_refreshed[0] += 1)
+	bats[1].status_effect_component.refreshed.connect(func(_instance: StatusEffectInstance) -> void: neighbor_refreshed[0] += 1)
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, carrying, burn_list))
 	await tree.process_frame
 	await tree.process_frame
 	var neighbor_burn: StatusEffectInstance = bats[1].status_effect_component._active_effects.get("burn")
-	check(neighbor_burn != null and is_equal_approx(neighbor_burn.dot_damage, 5.0) and is_equal_approx(neighbor_burn.duration_bonus, 3.0) and is_equal_approx(neighbor_burn.ramp_cap_bonus, 0.1) and is_equal_approx(neighbor_burn.stack_cap_bonus, 1.0), "burst ext: the neighbor Burn carries the cast dot, duration, ramp cap and stack bonus")
+	check(neighbor_burn != null and is_equal_approx(neighbor_burn.dot_damage, 5.0) and is_equal_approx(neighbor_burn.duration_bonus, 3.0) and is_equal_approx(neighbor_burn.ramp_cap_bonus, 0.1), "burst ext: the neighbor Burn carries the cast dot, duration and ramp cap")
 	var primary_burn: StatusEffectInstance = bats[0].status_effect_component._active_effects.get("burn")
-	check(primary_burn != null and primary_burn.stacks == 1 and neighbor_burn != null and neighbor_burn.stacks == 1, "burst ext: the primary got no second application (1 stack, cap 2) and the neighbor got one")
+	check(primary_burn != null and primary_refreshed[0] == 0 and neighbor_burn != null and neighbor_refreshed[0] == 0, "burst ext: the primary got no second application (no refresh) and the neighbor got its first")
 	var seen: CombatPayload = _recorded[1][0]
 	check(seen.is_burst and not seen.is_critical_hit and seen.impact_bursts.is_empty() and seen.status_effects_to_apply.size() == 1, "burst ext: the burst payload is is_burst, no crit, no bursts, and keeps the cast status")
 	check(_recorded[0].size() == 1 and _recorded[1].size() == 1, "burst ext: no recursion (primary hit once, neighbor once)")
@@ -2170,7 +2137,7 @@ func _section_burst_extensions() -> void:
 	check(is_equal_approx(_lost(bats[1]), 0.0), "burst ext: an un-chilled primary does not fire a CHILLED burst")
 	_free_bats(bats)
 	bats = await _spawn_burst_bats(Vector2(70000.0, 75000.0), [Vector2(0, 0), Vector2(30, 0)])
-	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0)
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, needs_chill))
 	await tree.process_frame
 	await tree.process_frame
@@ -2207,7 +2174,7 @@ func _section_burst_extensions() -> void:
 	var crit_payload := _burst_payload(stats, 10.0, crit_list, true)
 	var plain_payload := _burst_payload(stats, 10.0, crit_list, false)
 	check(hurtbox._get_qualifying_bursts(crit_payload).is_empty(), "burst ext: a crit on an un-chilled primary does not qualify")
-	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0)
 	check(hurtbox._get_qualifying_bursts(plain_payload).is_empty(), "burst ext: a non-crit on a chilled primary does not qualify")
 	check(hurtbox._get_qualifying_bursts(crit_payload).size() == 1, "burst ext: a crit on a chilled primary qualifies")
 	_free_bats(bats)
@@ -2216,7 +2183,7 @@ func _section_burst_extensions() -> void:
 	bats = await _spawn_burst_bats(Vector2(70000.0, 79000.0), [Vector2(0, 0), Vector2(30, 0)])
 	bats[0].health_component.update_max_health(20.0, true)
 	bats[0].health_component.set_to_full()
-	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0)
 	var neighbor := bats[1]
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 100.0, needs_chill))
 	await tree.process_frame
@@ -2237,7 +2204,7 @@ func _section_burst_extensions() -> void:
 	await tree.process_frame
 	var got: CombatPayload = TestBurstEffect.received[0] if TestBurstEffect.received.size() == 1 else null
 	check(TestBurstEffect.instances.size() == 1 and TestBurstEffect.instances[0].global_position.is_equal_approx(origin), "burst ext: an effect-only burst spawns its effect once at the primary position")
-	check(got != null and got != source and is_equal_approx(got.dot_damage_snapshot, 5.0) and is_equal_approx(got.status_duration_snapshot, 3.0) and is_equal_approx(got.status_stack_bonus_snapshot, 1.0), "burst ext: the effect got a copy of the payload with the same snapshots")
+	check(got != null and got != source and is_equal_approx(got.dot_damage_snapshot, 5.0) and is_equal_approx(got.status_duration_snapshot, 3.0), "burst ext: the effect got a copy of the payload with the same snapshots")
 	check(source.impact_bursts.size() == 1 and not source.is_burst and is_equal_approx(source.final_damage, 10.0), "burst ext: the source payload is unchanged")
 	check(is_equal_approx(_lost(bats[0]), 10.0) and _recorded[0].size() == 1, "burst ext: an effect-only burst deals no damage (the primary only took its own hit)")
 	_free_bats(bats)
@@ -2339,7 +2306,7 @@ func _section_burst_status_filter() -> void:
 			var seen: CombatPayload = _recorded[1][0]
 			for status in seen.status_effects_to_apply:
 				carried_ids.append(status.effect_id)
-			snapshots_match = is_equal_approx(seen.dot_damage_snapshot, source.dot_damage_snapshot) and is_equal_approx(seen.status_duration_snapshot, source.status_duration_snapshot) and is_equal_approx(seen.status_ramp_cap_snapshot, source.status_ramp_cap_snapshot) and is_equal_approx(seen.status_stack_bonus_snapshot, source.status_stack_bonus_snapshot)
+			snapshots_match = is_equal_approx(seen.dot_damage_snapshot, source.dot_damage_snapshot) and is_equal_approx(seen.status_duration_snapshot, source.status_duration_snapshot) and is_equal_approx(seen.status_ramp_cap_snapshot, source.status_ramp_cap_snapshot)
 		var expected_ids: Array[String] = []
 		expected_ids.assign(case["ids"])
 		var neighbor_effects: Dictionary = bats[1].status_effect_component._active_effects
@@ -2371,7 +2338,7 @@ func _section_burst_status_filter() -> void:
 	ImpactBurst.run(zone_def, zone_source, origin + Vector2(0, 9000.0), 0, tree.root.get_world_2d())
 	var zone_seen: CombatPayload = TestBurstEffect.received[0] if TestBurstEffect.received.size() == 1 else null
 	check(zone_seen != null and zone_seen.status_effects_to_apply.size() == 1 and zone_seen.status_effects_to_apply[0] == burn and zone_seen.is_burst and zone_seen.impact_bursts.is_empty() and not zone_seen.is_critical_hit, "burst filter: the effect payload carries only the listed statuses and keeps is_burst, no bursts, no crit")
-	check(is_equal_approx(zone_seen.dot_damage_snapshot, 5.0) and is_equal_approx(zone_seen.status_duration_snapshot, 3.0) and is_equal_approx(zone_seen.status_ramp_cap_snapshot, 0.1) and is_equal_approx(zone_seen.status_stack_bonus_snapshot, 1.0), "burst filter: the effect payload keeps the cast snapshots")
+	check(is_equal_approx(zone_seen.dot_damage_snapshot, 5.0) and is_equal_approx(zone_seen.status_duration_snapshot, 3.0) and is_equal_approx(zone_seen.status_ramp_cap_snapshot, 0.1), "burst filter: the effect payload keeps the cast snapshots")
 	check(zone_source.status_effects_to_apply.size() == 2, "burst filter: the effect's source payload keeps both statuses")
 	_clear_test_effects()
 
@@ -2528,7 +2495,7 @@ func _section_compound_offer() -> void:
 	var both: Array[StatusEffect] = [burn, chill]
 	var origin := Vector2(70000.0, 130000.0)
 	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(30, 0), Vector2(80, 0)])
-	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+	bats[0].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0)
 	bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, shatter, both))
 	await tree.process_frame
 	await tree.process_frame
@@ -2556,7 +2523,7 @@ func _section_compound_offer() -> void:
 	capped.cast_budget = CastBudget.new()
 	capped.cast_id = 424242
 	for primary in [0, 2, 4]:
-		bats[primary].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0, 0.0)
+		bats[primary].status_effect_component.apply_effect(chill, 0.0, 3.0, 0.0)
 	for primary in [0, 2, 4]:
 		bats[primary].hurtbox_component.take_hit(capped)
 	await tree.process_frame
@@ -2654,7 +2621,7 @@ func _section_magma() -> void:
 	check(zone != null and is_equal_approx(zone._radius, 30.0), "magma zone: the radius is AOE_RADIUS 5 * 6 = 30")
 	await tree.create_timer(0.2).timeout
 	var inside: StatusEffectInstance = bats[1].status_effect_component._active_effects.get("burn")
-	check(inside != null and is_equal_approx(inside.dot_damage, 5.0) and is_equal_approx(inside.duration_bonus, 3.0) and is_equal_approx(inside.ramp_cap_bonus, 0.1) and is_equal_approx(inside.stack_cap_bonus, 1.0), "magma zone: an enemy inside gets Burn with the exact cast snapshots")
+	check(inside != null and is_equal_approx(inside.dot_damage, 5.0) and is_equal_approx(inside.duration_bonus, 3.0) and is_equal_approx(inside.ramp_cap_bonus, 0.1), "magma zone: an enemy inside gets Burn with the exact cast snapshots")
 	check(not bats[1].status_effect_component._active_effects.has("chill"), "magma zone: with Burn and Chill on the cast, the zone applies no Chill")
 	check(bats[2].status_effect_component._active_effects.is_empty() and is_equal_approx(_lost(bats[2]), 0.0), "magma zone: an enemy outside is untouched")
 	var zone_hits_clean: bool = _recorded[1].size() >= 1
@@ -2754,11 +2721,10 @@ func _zone_burst(id: StringName, scene: PackedScene) -> ImpactBurstDefinition:
 	return definition
 
 
-## A cast payload for a zone: the given statuses, Burn dot snapshot `dot`, stack bonus 0.
+## A cast payload for a zone: the given statuses, Burn dot snapshot `dot`.
 func _zone_payload(stats: StatsContainer, definition: ImpactBurstDefinition, statuses: Array[StatusEffect], dot: float = 5.0) -> CombatPayload:
 	var payload := _ext_payload(stats, 10.0, definition, statuses)
 	payload.dot_damage_snapshot = dot
-	payload.status_stack_bonus_snapshot = 0.0
 	return payload
 
 
@@ -2793,7 +2759,7 @@ func _section_lingering_zone() -> void:
 	ImpactBurst.run(effect_def, crit_source, Vector2(70000.0, 90000.0), 0, tree.root.get_world_2d())
 	var received: CombatPayload = TestBurstEffect.received[0] if TestBurstEffect.received.size() == 1 else null
 	check(received != null and received.is_burst and received.impact_bursts.is_empty() and not received.is_critical_hit, "zone: the payload an effect receives is is_burst, has no bursts and no crit")
-	check(received != null and received.status_effects_to_apply.size() == 1 and is_equal_approx(received.dot_damage_snapshot, 5.0) and is_equal_approx(received.status_duration_snapshot, 3.0) and is_equal_approx(received.status_ramp_cap_snapshot, 0.1) and is_equal_approx(received.status_stack_bonus_snapshot, 1.0), "zone: the effect payload keeps the cast statuses and snapshots")
+	check(received != null and received.status_effects_to_apply.size() == 1 and is_equal_approx(received.dot_damage_snapshot, 5.0) and is_equal_approx(received.status_duration_snapshot, 3.0) and is_equal_approx(received.status_ramp_cap_snapshot, 0.1), "zone: the effect payload keeps the cast statuses and snapshots")
 	check(crit_source.impact_bursts.size() == 1 and not crit_source.is_burst and crit_source.is_critical_hit and is_equal_approx(crit_source.final_damage, 10.0), "zone: the source payload is unchanged by the safety fix")
 	_clear_test_effects()
 
@@ -2814,11 +2780,11 @@ func _section_lingering_zone() -> void:
 	check(LingeringZone.get_live_count(&"test_zone") == 1, "zone: the zone registered itself under its zone_id")
 	await tree.create_timer(0.15).timeout
 	var inside_burn: StatusEffectInstance = bats[1].status_effect_component._active_effects.get("burn")
-	check(inside_burn != null and is_equal_approx(inside_burn.dot_damage, 5.0) and is_equal_approx(inside_burn.duration_bonus, 3.0) and is_equal_approx(inside_burn.ramp_cap_bonus, 0.1) and is_equal_approx(inside_burn.stack_cap_bonus, 0.0), "zone: the bat inside gets the cast Burn with the exact snapshots")
+	check(inside_burn != null and is_equal_approx(inside_burn.dot_damage, 5.0) and is_equal_approx(inside_burn.duration_bonus, 3.0) and is_equal_approx(inside_burn.ramp_cap_bonus, 0.1), "zone: the bat inside gets the cast Burn with the exact snapshots")
 	check(not bats[2].status_effect_component._active_effects.has("burn"), "zone: the bat outside gets no Burn")
 	await tree.create_timer(1.0).timeout
 	check(refreshed_count[0] >= 2, "zone: the zone applies again on later intervals (refreshed fired %d times)" % refreshed_count[0])
-	check(inside_burn != null and inside_burn.stacks == 1, "zone: with stack bonus 0 the Burn stays at 1 stack")
+	check(inside_burn != null and bats[1].status_effect_component.get_active_instances().size() == 1, "zone: repeated zone applications keep one Burn instance")
 	check(not is_instance_valid(zone), "zone: the zone frees itself after its lifetime")
 	var zone_hits_clean: bool = _recorded[1].size() >= 2
 	for seen in _recorded[1]:
@@ -3704,7 +3670,7 @@ func _section_indirect_scaling() -> void:
 	# generate_hit_payload: hit scaled before the crit roll, DoT scaled before the crit share, nothing else scaled.
 	var values: Dictionary = {
 		Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0,
-		Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.STATUS_DURATION: 6.0, Stat.Type.STATUS_RAMP_CAP: 0.3, Stat.Type.STATUS_STACK_BONUS: 2.0,
+		Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.STATUS_DURATION: 6.0, Stat.Type.STATUS_RAMP_CAP: 0.3,
 		Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: -0.1, Stat.Type.CRIT_DOT_SHARE: 1.0, Stat.Type.AOE_RADIUS: 40.0,
 	}
 	var lane := _indirect_lane(player, values, 2, 2) # scale 1 + 0.12 + 0.05
@@ -3715,7 +3681,7 @@ func _section_indirect_scaling() -> void:
 	var scaled := CombatCalculations.generate_hit_payload(null, lane, null)
 	check(is_equal_approx(plain.damage_scale, 1.0) and is_equal_approx(plain.final_damage, 10.0) and is_equal_approx(plain.dot_damage_snapshot, 4.0), "payload: no indirect cards leave scale 1.0, damage 10 and DoT 4")
 	check(is_equal_approx(scaled.damage_scale, 1.17) and is_equal_approx(scaled.final_damage, 11.7) and is_equal_approx(scaled.dot_damage_snapshot, 4.68), "payload: damage 10 * 1.17 and DoT 4 * 1.17, no crit")
-	check(is_equal_approx(scaled.status_duration_snapshot, plain.status_duration_snapshot) and is_equal_approx(scaled.status_ramp_cap_snapshot, plain.status_ramp_cap_snapshot) and is_equal_approx(scaled.status_stack_bonus_snapshot, plain.status_stack_bonus_snapshot), "payload: duration, ramp cap and stack bonus snapshots are not scaled")
+	check(is_equal_approx(scaled.status_duration_snapshot, plain.status_duration_snapshot) and is_equal_approx(scaled.status_ramp_cap_snapshot, plain.status_ramp_cap_snapshot), "payload: duration and ramp cap snapshots are not scaled")
 	values[Stat.Type.CRIT_CHANCE] = 1.0
 	values[Stat.Type.CRIT_MULTIPLIER] = 1.5
 	var crit_lane := _indirect_lane(player, values, 0, 0)

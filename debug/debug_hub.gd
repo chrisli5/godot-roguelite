@@ -9,7 +9,6 @@ const CHILL: StatusEffect = preload("res://resources/status_effects/chill.tres")
 @export_group("Simulated Source Stats")
 @export var debug_dot_damage: float = 5.0
 @export var debug_duration_bonus: float = 3.0
-@export var debug_stack_bonus: float = 0.0
 
 var _watcher: DebugStatusWatcher
 var _hit_recorder: DebugHitRecorder
@@ -266,5 +265,5 @@ func _on_status_pressed(effect: StatusEffect) -> void:
 	var enemy := DebugActions.find_nearest_enemy(get_tree())
 	if enemy != null:
 		_watcher.watch_with_ticks(enemy)
-	if not DebugActions.apply_status_to_nearest(get_tree(), effect, debug_dot_damage, debug_duration_bonus, debug_stack_bonus):
+	if not DebugActions.apply_status_to_nearest(get_tree(), effect, debug_dot_damage, debug_duration_bonus):
 		push_warning("DebugHub: no enemy to apply a status to.")

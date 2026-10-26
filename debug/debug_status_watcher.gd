@@ -53,7 +53,7 @@ func watch_lifecycle(enemy: Enemy) -> void:
 	component.applied.connect(func(i: StatusEffectInstance) -> void:
 		_log("[STATUS] %s: %s applied (%.1fs)" % [enemy_name, i.template.effect_id, i.time_remaining]))
 	component.refreshed.connect(func(i: StatusEffectInstance) -> void:
-		_log("[STATUS] %s: %s refreshed (stacks %d, %.1fs, ramp x%.2f)" % [enemy_name, i.template.effect_id, i.stacks, i.time_remaining, i.get_ramp_multiplier()]))
+		_log("[STATUS] %s: %s refreshed (%.1fs, ramp x%.2f)" % [enemy_name, i.template.effect_id, i.time_remaining, i.get_ramp_multiplier()]))
 	component.expired.connect(func(i: StatusEffectInstance) -> void:
 		_log("[STATUS] %s: %s expired" % [enemy_name, i.template.effect_id]))
 

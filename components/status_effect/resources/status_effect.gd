@@ -4,17 +4,12 @@ extends Resource
 ## lives in StatusEffectInstance. Magnitudes (DoT damage, duration bonus) come from the source's
 ## stats, never from this resource.
 
-enum StackingPolicy { REFRESH, STACK }
-
 @export_group("Identification")
 @export var effect_id: String = ""
 
 @export_group("Lifetime")
 ## Base seconds. The source's STATUS_DURATION stat is added on top at application time.
 @export var base_duration: float = 3.0
-@export var stacking: StackingPolicy = StackingPolicy.REFRESH
-## Only used by STACK.
-@export var max_stacks: int = 1
 
 @export_group("Ticking")
 ## Seconds between ticks. 0 = this effect does not tick.

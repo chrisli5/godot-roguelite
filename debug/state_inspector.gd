@@ -184,7 +184,6 @@ static func _status_lines(component: StatusEffectComponent) -> Array:
 		lines.append({
 			"effect_id": instance.template.effect_id,
 			"time_remaining": instance.time_remaining,
-			"stacks": instance.stacks,
 			"ramp": instance.get_ramp_multiplier(),
 			"dot_damage": instance.dot_damage,
 			"duration_bonus": instance.duration_bonus,
@@ -232,8 +231,8 @@ static func _append_statuses(lines: Array[String], title: String, statuses: Arra
 		return
 	lines.append("%s:" % title)
 	for status in statuses:
-		lines.append("  %s: %.2f s left, stacks %d, ramp x%.2f, dot %.2f, duration bonus %.2f, ramp cap bonus %.2f" % [
-			status["effect_id"], status["time_remaining"], status["stacks"], status["ramp"], status["dot_damage"],
+		lines.append("  %s: %.2f s left, ramp x%.2f, dot %.2f, duration bonus %.2f, ramp cap bonus %.2f" % [
+			status["effect_id"], status["time_remaining"], status["ramp"], status["dot_damage"],
 			status["duration_bonus"], status["ramp_cap_bonus"],
 		])
 

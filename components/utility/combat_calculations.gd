@@ -46,7 +46,6 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE) * damage_scale
 		payload.status_duration_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_DURATION)
 		payload.status_ramp_cap_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_RAMP_CAP)
-		payload.status_stack_bonus_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_STACK_BONUS)
 
 		# Plasma: a crit cast scales the DoT snapshot by the share of the crit bonus. Ticks never crit.
 		if is_critical_hit:
