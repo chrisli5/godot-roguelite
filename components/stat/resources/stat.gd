@@ -31,7 +31,7 @@ enum Type {
 	STATUS_DURATION,
 	STATUS_RAMP_CAP, ## Flat bonus to a ramping status's ramp cap (raises Burn's ramp_max_bonus per application).
 	STATUS_STACK_BONUS, ## Deprecated (Task AK): unused, kept so stored integers stay valid.
-	CRIT_DOT_SHARE, ## Fraction of the crit multiplier's bonus applied to a ticking status's DoT snapshot on a crit cast. 0 = off. Set only by an evolved profile.
+	CRIT_DOT_SHARE, ## Fraction of the crit multiplier's bonus applied to a ticking status's DoT snapshot on a critting hit. 0 = off. Set only by an evolved profile.
 	SPEED_BONUS, ## Flat bonus every speed stat of a geometry is multiplied by (1 + bonus). Raised by Wind. 0 = none.
 	REACH_BONUS, ## Flat bonus every reach stat of a geometry is multiplied by (1 + bonus). Raised by Earth. 0 = none.
 }

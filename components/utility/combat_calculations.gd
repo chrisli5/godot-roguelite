@@ -26,32 +26,19 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		
 	if is_instance_valid(stats):
 		var base_damage: float = stats.get_final_stat_value(Stat.Type.BASE_DAMAGE)
-		var crit_chance: float = stats.get_final_stat_value(Stat.Type.CRIT_CHANCE) # 5% baseline
-		var crit_mult: float = stats.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER)  # 150% baseline
-		var is_critical_hit: bool = randf() < crit_chance
-		# Indirect scale (Frost, Wind): applied once per cast, to the hit before the crit roll and to the DoT snapshot.
+		# The crit is not rolled here: each hit rolls its own in resolve_hit_crit, from these snapshots.
+		payload.crit_chance_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_CHANCE) # 5% baseline
+		payload.crit_multiplier_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER)  # 150% baseline
+		payload.crit_dot_share_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE)
+		# Indirect scale (Frost, Wind): applied once per cast, to the pre-crit hit and to the DoT snapshot.
 		var damage_scale: float = stats.get_indirect_damage_scale()
 		payload.damage_scale = damage_scale
-		var calculated_damage: float = base_damage * damage_scale
-
-		if is_critical_hit:
-			calculated_damage *= crit_mult
-			# Append a temporary indicator tag so receivers know to play unique visual feedback (e.g. crit text bounce)
-			#payload.damage_tags.append(Tags.Type.CROWD_CONTROL) 
-			
-		payload.final_damage = calculated_damage
-		payload.is_critical_hit = is_critical_hit
+		payload.final_damage = base_damage * damage_scale
 
 		# DoT magnitudes are snapshotted here, independent of BASE_DAMAGE and crit.
 		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE) * damage_scale
 		payload.status_duration_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_DURATION)
 		payload.status_ramp_cap_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_RAMP_CAP)
-
-		# Plasma: a crit cast scales the DoT snapshot by the share of the crit bonus. Ticks never crit.
-		if is_critical_hit:
-			var crit_dot_share: float = stats.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE)
-			if crit_dot_share > 0.0:
-				payload.dot_damage_snapshot *= 1.0 + (crit_mult - 1.0) * crit_dot_share
 
 		# Statuses from the upgrade cards that apply to this ability. Application is guaranteed.
 		for effect in stats.get_status_effects():
@@ -68,6 +55,23 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.final_damage = 10.0
 
 	return payload
+
+
+## Rolls the crit for ONE hit from the payload's cast-time snapshots. Returns the same payload when the hit does
+## not crit (also when the chance is 0 or less, or the payload is a burst's), otherwise a duplicate with this hit's
+## damage multiplied, is_critical_hit true and, with CRIT_DOT_SHARE above 0, its DoT snapshot scaled by
+## 1 + (multiplier - 1) * share (Plasma). The shared cast payload is never mutated. Ticks never roll a crit.
+static func resolve_hit_crit(payload: CombatPayload) -> CombatPayload:
+	if payload.is_burst or payload.crit_chance_snapshot <= 0.0:
+		return payload
+	if payload.crit_chance_snapshot < 1.0 and randf() >= payload.crit_chance_snapshot:
+		return payload
+	var resolved := payload.duplicate() as CombatPayload
+	resolved.final_damage *= payload.crit_multiplier_snapshot
+	resolved.is_critical_hit = true
+	if payload.crit_dot_share_snapshot > 0.0:
+		resolved.dot_damage_snapshot *= 1.0 + (payload.crit_multiplier_snapshot - 1.0) * payload.crit_dot_share_snapshot
+	return resolved
 
 
 static func _warn_missing_dot_damage(effect_id: String) -> void:

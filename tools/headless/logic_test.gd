@@ -54,6 +54,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_state_inspector,
 		_section_overclock_from_ledger,
 		_section_strongest_dot,
+		_section_per_hit_crit,
 		_section_spawn_health,
 		_section_plasma_evolution,
 		_section_lightning_crit_multiplier,
@@ -222,8 +223,9 @@ func _section_impact_bursts() -> void:
 	var plain_stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0})
 	var crit_payload := CombatCalculations.generate_hit_payload(world as Node2D, crit_stats, null)
 	var plain_payload := CombatCalculations.generate_hit_payload(world as Node2D, plain_stats, null)
-	check(crit_payload.is_critical_hit and is_equal_approx(crit_payload.final_damage, 20.0), "cast time: a crit is recorded on the payload (is_critical_hit, damage 20)")
-	check(not plain_payload.is_critical_hit and is_equal_approx(plain_payload.final_damage, 10.0), "cast time: a non-crit is recorded (is_critical_hit false, damage 10)")
+	var crit_hit := CombatCalculations.resolve_hit_crit(crit_payload)
+	check(crit_hit != crit_payload and crit_hit.is_critical_hit and is_equal_approx(crit_hit.final_damage, 20.0) and not crit_payload.is_critical_hit and is_equal_approx(crit_payload.final_damage, 10.0), "hit time: a forced crit resolves to a copy with is_critical_hit and damage 20, the cast payload stays 10")
+	check(CombatCalculations.resolve_hit_crit(plain_payload) == plain_payload and not plain_payload.is_critical_hit and is_equal_approx(plain_payload.final_damage, 10.0), "hit time: a forced non-crit resolves to the same payload (is_critical_hit false, damage 10)")
 	var crit_bursts: Array[ImpactBurstDefinition] = [on_crit]
 	crit_payload.impact_bursts = crit_bursts
 	plain_payload.impact_bursts = crit_bursts
@@ -1696,6 +1698,189 @@ func _tough_bat() -> Enemy:
 	return bat
 
 
+## A cast payload with the crit snapshots set the way generate_hit_payload would, for the per-hit roll.
+func _crit_payload(stats: StatsContainer, damage: float, chance: float, multiplier: float, definitions: Array[ImpactBurstDefinition] = [], share: float = 0.0) -> CombatPayload:
+	var payload := _burst_payload(stats, damage, definitions)
+	payload.crit_chance_snapshot = chance
+	payload.crit_multiplier_snapshot = multiplier
+	payload.crit_dot_share_snapshot = share
+	payload.cast_budget = CastBudget.new()
+	return payload
+
+
+## Task AL: every hit rolls its own crit in HurtboxComponent.take_hit, from the cast's snapshots.
+func _section_per_hit_crit() -> void:
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var burn_list: Array[StatusEffect] = [burn]
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var none: Array[ImpactBurstDefinition] = []
+
+	# a. generate_hit_payload never rolls: damage is base * scale, the DoT snapshot is unscaled by the share.
+	var player := fx.fresh_player()
+	var values: Dictionary = {
+		Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 1.0, Stat.Type.CRIT_MULTIPLIER: 2.0,
+		Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.STATUS_DURATION: 6.0, Stat.Type.STATUS_RAMP_CAP: 0.3,
+		Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: -0.1, Stat.Type.CRIT_DOT_SHARE: 1.0, Stat.Type.AOE_RADIUS: 40.0,
+	}
+	var lane := _indirect_lane(player, values, 2, 2)
+	var never_rolls := true
+	for i in range(20):
+		var cast := CombatCalculations.generate_hit_payload(null, lane, null)
+		never_rolls = never_rolls and not cast.is_critical_hit and is_equal_approx(cast.final_damage, 11.7) and is_equal_approx(cast.dot_damage_snapshot, 4.68)
+	check(never_rolls, "per-hit crit: generate_hit_payload never rolls (20 casts at chance 1.0: not critical, damage base * scale 11.7, DoT 4.68 unscaled by the share)")
+	var snap := CombatCalculations.generate_hit_payload(null, lane, null)
+	check(is_equal_approx(snap.crit_chance_snapshot, 1.0) and is_equal_approx(snap.crit_multiplier_snapshot, 2.0) and is_equal_approx(snap.crit_dot_share_snapshot, 1.0), "per-hit crit: the cast stores the chance, multiplier and share snapshots")
+	fx.reset_player_state()
+
+	# b. Chance 1.0 crits every hit, 0.0 none, 0.5 some. Four tough bats take the hits.
+	var rates := {}
+	for chance in [1.0, 0.0, 0.5]:
+		var counts := [0, 0]
+		var shared := _crit_payload(stats, 1.0, chance, 2.0)
+		var hits_per_bat := 5 if chance != 0.5 else 50
+		for b in range(4):
+			var bat := _tough_bat()
+			bat.hurtbox_component.hit_received.connect(func(p: CombatPayload) -> void:
+				counts[0] += 1
+				if p.is_critical_hit:
+					counts[1] += 1)
+			for h in range(hits_per_bat):
+				bat.hurtbox_component.take_hit(shared)
+		rates[chance] = counts
+	check(rates[1.0][0] == 20 and rates[1.0][1] == 20, "per-hit crit: chance 1.0 crits every hit (20 of 20)")
+	check(rates[0.0][0] == 20 and rates[0.0][1] == 0, "per-hit crit: chance 0.0 crits no hit (0 of 20)")
+	check(rates[0.5][0] == 200 and rates[0.5][1] > 0 and rates[0.5][1] < 200, "per-hit crit: chance 0.5 over 200 hits gives a mix (%d crits)" % rates[0.5][1])
+
+	# c. A crit hit deals base * multiplier; the shared cast payload is untouched.
+	var bats := await _spawn_burst_bats(Vector2(72000.0, 72000.0), [Vector2(0, 0)])
+	var cast_c := _crit_payload(stats, 10.0, 1.0, 2.0)
+	bats[0].hurtbox_component.take_hit(cast_c)
+	check(is_equal_approx(_lost(bats[0]), 20.0) and _recorded[0].size() == 1 and _recorded[0][0].is_critical_hit and is_equal_approx(_recorded[0][0].final_damage, 20.0), "per-hit crit: a crit hit deals base * multiplier (20) and hit_received sees the flag")
+	check(not cast_c.is_critical_hit and is_equal_approx(cast_c.final_damage, 10.0) and _recorded[0][0] != cast_c, "per-hit crit: the shared cast payload is untouched after take_hit")
+	_free_bats(bats)
+
+	# d. ON_CRIT bursts fire only for critting hits, capped by max_per_cast; the burst includes the hit's crit.
+	var on_crit := _make_burst(&"pc_on_crit", ImpactBurstDefinition.Trigger.ON_CRIT, 0.5)
+	var crit_list: Array[ImpactBurstDefinition] = [on_crit]
+	check(await _burst_hits_on_neighbor(_crit_payload(stats, 1.0, 0.0, 2.0, crit_list), 136000.0, 3) == 0, "per-hit crit: an ON_CRIT burst never fires when no hit crits")
+	var capped := _make_burst(&"pc_on_crit_cap", ImpactBurstDefinition.Trigger.ON_CRIT, 0.5)
+	capped.max_per_cast = 2
+	var capped_list: Array[ImpactBurstDefinition] = [capped]
+	check(await _burst_hits_on_neighbor(_crit_payload(stats, 1.0, 1.0, 2.0, capped_list), 137000.0, 4) == 2, "per-hit crit: four critting hits spend an ON_CRIT burst capped at 2 per cast")
+	bats = await _spawn_burst_bats(Vector2(138000.0, 72000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_crit_payload(stats, 10.0, 1.0, 2.0, crit_list))
+	await tree.process_frame
+	await tree.process_frame
+	check(is_equal_approx(_lost(bats[1]), 10.0), "per-hit crit: a burst's damage includes the hit's crit (0.5 of 20 = 10)")
+	_free_bats(bats)
+	bats = await _spawn_burst_bats(Vector2(139000.0, 72000.0), [Vector2(0, 0), Vector2(30, 0)])
+	var mixed := _crit_payload(stats, 1.0, 0.5, 2.0, crit_list)
+	for h in range(60):
+		bats[0].hurtbox_component.take_hit(mixed)
+	await tree.process_frame
+	await tree.process_frame
+	var crit_hits := 0
+	for seen in _recorded[0]:
+		if seen.is_critical_hit:
+			crit_hits += 1
+	check(crit_hits > 0 and crit_hits < 60 and _recorded[1].size() == crit_hits, "per-hit crit: at chance 0.5 the ON_CRIT burst fires once per critting hit (%d crits, %d bursts)" % [crit_hits, _recorded[1].size()])
+	_free_bats(bats)
+
+	# e. A burst payload and a zone payload never roll, even with a crit snapshot of 1.0.
+	var burst_flag := _crit_payload(stats, 10.0, 1.0, 2.0)
+	burst_flag.is_burst = true
+	check(CombatCalculations.resolve_hit_crit(burst_flag) == burst_flag, "per-hit crit: resolve_hit_crit returns an is_burst payload unchanged")
+	var on_hit := _make_burst(&"pc_on_hit", ImpactBurstDefinition.Trigger.ON_HIT, 0.5)
+	var hit_list: Array[ImpactBurstDefinition] = [on_hit]
+	bats = await _spawn_burst_bats(Vector2(140000.0, 72000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_crit_payload(stats, 10.0, 1.0, 2.0, hit_list))
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[1].size() == 1 and _recorded[1][0].is_burst and not _recorded[1][0].is_critical_hit and is_equal_approx(_lost(bats[1]), 10.0), "per-hit crit: a burst hit does not roll its own crit (0.5 of the crit's 20 = 10, not 20)")
+	_free_bats(bats)
+	LingeringZone.reset_registry()
+	var origin := Vector2(141000.0, 72000.0)
+	var zone_bats := await _spawn_burst_bats(origin, [Vector2(0, 0)])
+	var zone_def := _zone_burst(&"pc_zone", load(TEST_LINGERING_ZONE) as PackedScene)
+	var zone_payload := _zone_payload(stats, zone_def, burn_list, 5.0)
+	zone_payload.crit_chance_snapshot = 1.0
+	zone_payload.crit_multiplier_snapshot = 2.0
+	await _spawn_zone(zone_def, zone_payload, origin)
+	await tree.create_timer(0.5).timeout
+	var zone_clean: bool = _recorded[0].size() >= 1
+	for seen in _recorded[0]:
+		zone_clean = zone_clean and seen.is_burst and not seen.is_critical_hit
+	check(zone_clean, "per-hit crit: every hit a lingering zone delivers is a burst payload that never crits")
+	await tree.create_timer(0.6).timeout
+	_free_bats(zone_bats)
+
+	# f. Plasma: CRIT_DOT_SHARE scales only the critting hit's Burn, and a later plain refresh does not downgrade it.
+	var burn_cast := func(chance: float) -> CombatPayload:
+		var payload := _crit_payload(stats, 1.0, chance, 2.0, none, 1.0)
+		payload.dot_damage_snapshot = 4.0
+		payload.status_duration_snapshot = 6.0
+		payload.status_effects_to_apply = burn_list
+		return payload
+	bats = await _spawn_burst_bats(Vector2(142000.0, 72000.0), [Vector2(0, 0), Vector2(200, 0)])
+	bats[0].hurtbox_component.take_hit(burn_cast.call(1.0))
+	bats[1].hurtbox_component.take_hit(burn_cast.call(0.0))
+	var crit_burn: StatusEffectInstance = bats[0].status_effect_component._active_effects.get("burn")
+	var plain_burn: StatusEffectInstance = bats[1].status_effect_component._active_effects.get("burn")
+	check(crit_burn != null and plain_burn != null and is_equal_approx(crit_burn.dot_damage, 8.0) and is_equal_approx(plain_burn.dot_damage, 4.0), "per-hit crit: the critting hit's Burn is 4 * (1 + 1 * 1) = 8, a plain hit's stays 4")
+	bats[0].hurtbox_component.take_hit(burn_cast.call(0.0))
+	check(bats[0].status_effect_component._active_effects.get("burn") == crit_burn and is_equal_approx(crit_burn.dot_damage, 8.0), "per-hit crit: a later non-crit refresh does not downgrade the stronger Burn")
+	_free_bats(bats)
+
+	# g. One chain cast at chance 0.5 gives a mix of crits, and each target's Burn follows its own flag.
+	var chain := ChainLinkGeometry.new()
+	chain.max_bounces = 40
+	world.add_child(chain)
+	fx.track(chain)
+	var chain_bats: Array[Enemy] = []
+	var flags := {}
+	for i in range(41):
+		var bat := _tough_bat()
+		bat.set_physics_process(false)
+		bat.global_position = Vector2(143000.0 + 100.0 * i, 72000.0)
+		bat.hurtbox_component.hit_received.connect((func(p: CombatPayload, index: int) -> void: flags[index] = p.is_critical_hit).bind(i))
+		chain_bats.append(bat)
+	await tree.physics_frame
+	await tree.physics_frame
+	var chain_payload: CombatPayload = burn_cast.call(0.5)
+	chain_payload.stats_container_id = _make_stats({Stat.Type.CHAIN_RADIUS: 150.0}).get_instance_id()
+	chain.execute_geometry({"hit_nodes": [chain_bats[0].hurtbox_component]}, chain_payload)
+	var crits := 0
+	var burns_follow := true
+	for i in range(chain_bats.size()):
+		var live: StatusEffectInstance = chain_bats[i].status_effect_component._active_effects.get("burn")
+		var crit_flag: bool = flags.get(i, false)
+		if crit_flag:
+			crits += 1
+		burns_follow = burns_follow and live != null and is_equal_approx(live.dot_damage, 8.0 if crit_flag else 4.0)
+	check(flags.size() == 41 and crits > 0 and crits < 41, "per-hit crit: one chain cast of 41 hits at chance 0.5 mixes crits and plain hits (%d crits)" % crits)
+	check(burns_follow, "per-hit crit: along the chain each target's Burn is 8 when its hit crit and 4 when it did not")
+	check(is_equal_approx(chain_payload.dot_damage_snapshot, 4.0) and not chain_payload.is_critical_hit, "per-hit crit: the chain's shared payload keeps the unscaled DoT and no crit")
+
+	# h. The debug hit recorder shows the per-hit flag.
+	var hub := world.get_node_or_null("DebugHub") as DebugHub
+	if hub != null and is_instance_valid(hub._hit_recorder):
+		var recorder := hub._hit_recorder
+		recorder.clear()
+		var ability := fx.mount_arcane_bolt(fx.fresh_player())
+		var rec_bat := _tough_bat()
+		await tree.process_frame
+		await tree.process_frame
+		var rec_payload := CombatCalculations.generate_hit_payload(null, ability.stats_container, null)
+		rec_payload.crit_chance_snapshot = 1.0
+		rec_payload.crit_multiplier_snapshot = 2.0
+		rec_bat.hurtbox_component.take_hit(rec_payload)
+		var recorded_hits := recorder.get_hits()
+		check(recorded_hits.has(1) and recorded_hits[1]["is_critical_hit"] and is_equal_approx(recorded_hits[1]["final_damage"], rec_payload.final_damage * 2.0) and not rec_payload.is_critical_hit, "per-hit crit: the hit recorder shows the per-hit flag and the resolved damage")
+	else:
+		check(false, "per-hit crit: the hub's hit recorder is available")
+	await tree.physics_frame
+
+
 ## A StatusEffectComponent on its own (no entity), tracked so the section frees it.
 func _bare_status_component() -> StatusEffectComponent:
 	var component := StatusEffectComponent.new()
@@ -1820,7 +2005,7 @@ const ARC_BOLT_CARD := "res://resources/abilities/arc_bolt/arc_bolt_evolution_up
 const ARCANE_BOLT_STATS := "res://resources/abilities/arcane_bolt/arcane_bolt_stats.tres"
 
 
-## One test cast with a crit that is forced on or off. `share` null leaves CRIT_DOT_SHARE out of the profile.
+## One test hit (cast, then the per-hit roll) with a crit that is forced on or off. `share` null leaves CRIT_DOT_SHARE out of the profile.
 func _plasma_cast(crit_chance: float, share: Variant) -> CombatPayload:
 	var values: Dictionary = {
 		Stat.Type.BASE_DAMAGE: 2.0,
@@ -1832,7 +2017,7 @@ func _plasma_cast(crit_chance: float, share: Variant) -> CombatPayload:
 	}
 	if share != null:
 		values[Stat.Type.CRIT_DOT_SHARE] = share
-	return CombatCalculations.generate_hit_payload(null, _make_stats(values), null)
+	return CombatCalculations.resolve_hit_crit(CombatCalculations.generate_hit_payload(null, _make_stats(values), null))
 
 
 ## Buys `count` Fire and `count` of `other_card` for slot 1 through the ledger.
@@ -2029,7 +2214,7 @@ func _section_lightning_crit_multiplier() -> void:
 		Stat.Type.DOT_DAMAGE: 4.0,
 		Stat.Type.CRIT_DOT_SHARE: 1.0,
 	}, 1, cast_ledger)
-	var payload := CombatCalculations.generate_hit_payload(null, cast_stats, null)
+	var payload := CombatCalculations.resolve_hit_crit(CombatCalculations.generate_hit_payload(null, cast_stats, null))
 	var multiplier := 1.5 + mult_step * 3.0
 	check(payload.is_critical_hit and is_equal_approx(payload.final_damage, 2.0 * multiplier), "lightning crit mult: a forced crit with Lightning 3 deals BASE_DAMAGE * 1.95")
 	check(is_equal_approx(payload.dot_damage_snapshot, 4.0 * (1.0 + (multiplier - 1.0) * 1.0)), "lightning crit mult: the Burn snapshot follows the ledger-driven multiplier (share 1.0)")
@@ -3685,7 +3870,7 @@ func _section_indirect_scaling() -> void:
 	values[Stat.Type.CRIT_CHANCE] = 1.0
 	values[Stat.Type.CRIT_MULTIPLIER] = 1.5
 	var crit_lane := _indirect_lane(player, values, 0, 0)
-	var crit := CombatCalculations.generate_hit_payload(null, crit_lane, null)
+	var crit := CombatCalculations.resolve_hit_crit(CombatCalculations.generate_hit_payload(null, crit_lane, null))
 	check(crit.is_critical_hit and is_equal_approx(crit.final_damage, 10.0 * 1.17 * 1.5), "payload crit: hit = base * scale * crit multiplier (17.55)")
 	check(is_equal_approx(crit.dot_damage_snapshot, 4.0 * 1.17 * (1.0 + 0.5 * 1.0)), "payload crit: DoT = base * scale, then the crit share (7.02)")
 	fx.reset_player_state()
@@ -3798,17 +3983,18 @@ func _section_earth_lightning_bursts() -> void:
 
 	# Overload: crit only, once per cast, 0.6 of the crit's final damage (the multiplier is included).
 	var expected := 10.0 * light_lane.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER)
-	check(crit_cast.is_critical_hit and is_equal_approx(crit_cast.final_damage, expected) and expected > 10.0, "bursts AE: the crit cast's final damage includes the multiplier")
+	var crit_resolved := CombatCalculations.resolve_hit_crit(crit_cast)
+	check(crit_resolved.is_critical_hit and is_equal_approx(crit_resolved.final_damage, expected) and expected > 10.0 and not crit_cast.is_critical_hit, "bursts AE: the crit hit's final damage includes the multiplier")
 	check(await _burst_hits_on_neighbor(crit_cast, 132000.0, 4) == 1, "bursts AE: four crit hits from one cast spawn one overload")
 	bats = await _spawn_burst_bats(Vector2(130000.0, 133000.0), [Vector2(0, 0), Vector2(30, 0)])
 	var crit_fresh := CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)
 	bats[0].hurtbox_component.take_hit(crit_fresh)
 	await tree.process_frame
 	await tree.process_frame
-	check(is_equal_approx(_lost(bats[1]), 0.6 * crit_fresh.final_damage), "bursts AE: the overload deals 0.6 of the crit's final damage")
+	check(is_equal_approx(_lost(bats[1]), 0.6 * expected), "bursts AE: the overload deals 0.6 of the crit's final damage")
 	_free_bats(bats)
 	var plain_cast := CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)
-	plain_cast.is_critical_hit = false
+	plain_cast.crit_chance_snapshot = 0.0
 	check(await _burst_hits_on_neighbor(plain_cast, 134000.0, 3) == 0, "bursts AE: a non-crit hit never fires the overload")
 	fx.reset_player_state()
 

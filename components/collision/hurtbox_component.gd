@@ -14,6 +14,9 @@ func take_hit(payload: CombatPayload) -> void:
 	if not is_instance_valid(payload):
 		return
 
+	# Each hit rolls its own crit before bursts qualify and before hit_received, so both see the per-hit flag.
+	payload = CombatCalculations.resolve_hit_crit(payload)
+
 	# A burst's own payload (is_burst) never starts another burst. Which bursts qualify is decided
 	# before hit_received, so this hit's own statuses cannot satisfy a required target tag.
 	if payload.impact_bursts.is_empty() or payload.is_burst:

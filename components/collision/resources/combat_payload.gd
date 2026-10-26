@@ -6,8 +6,13 @@ extends Resource
 ## Active elemental/lifecycle tags bundled with this specific strike (e.g., FIRE, DOT)
 @export var final_damage: float = 0.0
 @export var damage_tags: Array[Tags.Type] = []
-## True when the cast's crit roll succeeded. Rolled once per cast, so a whole volley shares it.
+## True when THIS hit's crit roll succeeded. The roll happens per hit in HurtboxComponent.take_hit, so the
+## shared cast payload always has false and only the resolved copy a critting hit uses has true.
 @export var is_critical_hit: bool = false
+## Cast-time snapshots of CRIT_CHANCE, CRIT_MULTIPLIER and CRIT_DOT_SHARE, read when each hit rolls its crit.
+@export var crit_chance_snapshot: float = 0.0
+@export var crit_multiplier_snapshot: float = 0.0
+@export var crit_dot_share_snapshot: float = 0.0
 ## Indirect damage scale applied once to this cast's hit damage and DoT snapshot (1.0 = none). Copies keep it
 ## and never apply it again.
 @export var damage_scale: float = 1.0

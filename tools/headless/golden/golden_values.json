@@ -424,8 +424,8 @@
 	"damage/on_crit_burst_crit_hit": {
 		"neighbor_health_lost": 0.75,
 		"neighbor_hits": 1,
-		"payload_final_damage": 1.5,
-		"payload_is_critical_hit": true,
+		"payload_final_damage": 1.0,
+		"payload_is_critical_hit": false,
 		"primary_health_lost": 1.5,
 		"primary_hits": 1
 	},
@@ -440,8 +440,8 @@
 	"damage/on_hit_burst_crit_hit": {
 		"neighbor_health_lost": 0.75,
 		"neighbor_hits": 1,
-		"payload_final_damage": 1.5,
-		"payload_is_critical_hit": true,
+		"payload_final_damage": 1.0,
+		"payload_is_critical_hit": false,
 		"primary_health_lost": 1.5,
 		"primary_hits": 1
 	},
@@ -682,9 +682,9 @@
 			"golden_burst"
 		],
 		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"final_damage": 1.0,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
 		"status_ramp_cap_snapshot": 0.0
@@ -704,9 +704,9 @@
 	"payload/fire_1/crit_on": {
 		"burst_ids": [],
 		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"final_damage": 1.0,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 3.0,
 		"status_ids": [
 			"burn"
@@ -728,9 +728,9 @@
 	"payload/fire_15_overclocked/crit_on": {
 		"burst_ids": [],
 		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"final_damage": 1.0,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 45.0,
 		"status_ids": [
 			"burn"
@@ -753,9 +753,9 @@
 	"payload/fire_2_frost_2/crit_on": {
 		"burst_ids": [],
 		"dot_damage_snapshot": 0.159599999785423,
-		"final_damage": 1.59599999785423,
+		"final_damage": 1.06399999856949,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 6.0,
 		"status_ids": [
 			"burn",
@@ -778,9 +778,9 @@
 	"payload/fire_3/crit_on": {
 		"burst_ids": [],
 		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"final_damage": 1.0,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 9.0,
 		"status_ids": [
 			"burn"
@@ -806,9 +806,9 @@
 			"golden_burst"
 		],
 		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"final_damage": 1.0,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 9.0,
 		"status_ids": [
 			"burn"
@@ -830,9 +830,9 @@
 	"payload/frost_2/crit_on": {
 		"burst_ids": [],
 		"dot_damage_snapshot": 0.159599999785423,
-		"final_damage": 1.59599999785423,
+		"final_damage": 1.06399999856949,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [
 			"chill"
@@ -852,9 +852,9 @@
 	"payload/none/crit_on": {
 		"burst_ids": [],
 		"dot_damage_snapshot": 0.15,
-		"final_damage": 1.5,
+		"final_damage": 1.0,
 		"is_burst": false,
-		"is_critical_hit": true,
+		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
 		"status_ramp_cap_snapshot": 0.0
