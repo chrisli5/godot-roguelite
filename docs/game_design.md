@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `20d1336`. Update this line whenever this file changes.
+Last synced with code commit: `a7ec989`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -11,6 +11,8 @@ This revision aligns the design with the code as of the commit named above. Sinc
 Oct 25 and 26 (Tasks AH to AL). Compounds became cards: at the tier 1 milestone a pair with a compound gets "Evolve + compound" and "Overclock + compound" in its forced offer, and Shatter (Frost + Earth) and Magma (Fire + Earth) are built (§4). Bursts filter the statuses they carry by tag (`carried\_status\_tags`), replacing the all-or-nothing switch. DoTs no longer stack and the strongest application wins (§6). Crit is rolled per hit, not per cast (§1, §4). Open items 21, 24, 25, 29, 31, 32, 35, 38, 41, 44 to 46, 48 and 52 to 56 were updated, and item 57 was added.
 
 Oct 26 (Task AP, docs only). The status design system: Fire is the only base infusion with a status, every other status comes from a compound card, a Fire compound carries none, and Chill moved from the Frost card to the Shatter cards (Task AO, §4, §6). Open items 54 and 57 were updated, and items 58 to 60 were added.
+
+Oct 27 (Task AR, docs only entry). Status strength: `STATUS\_MAGNITUDE\_BONUS` scales non-ticking statuses (Chill), `STATUS\_DURATION` stays as is, global tag cards now need ALL their target tags (§6, items 20, 58, 61).
 
 Every section carries one status tag:
 
@@ -266,6 +268,8 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 * **Chosen at cast time.** The payload's `status\_effects\_to\_apply` is filled once per cast, then applied on every hit. Application is guaranteed: there is no chance stat.
 * **No DOT\_DAMAGE, no ticking status.** A status that ticks (`tick\_interval > 0`) is skipped when the ability's `dot\_damage\_snapshot` is 0, with a one-time warning per `effect\_id`. A status that does not tick (Chill) always applies.
 * **STATUS\_DURATION is ability-wide.** The single snapshot lengthens every status the ability applies.
+* **Magnitude (Decided Oct 27, Task AR).** `STATUS\_MAGNITUDE\_BONUS` is a second ability-wide status stat (default 0.0, effective magnitude = template magnitude times one plus the bonus, snapshotted at cast time, capped per status, placeholder +50%). Non-ticking statuses opt in (Chill does); Burn does not read it, so Burn's strength stays `DOT\_DAMAGE` and the ramp cap. A status with no scalable magnitude reads duration only.
+* **Raising duration and magnitude.** Ordinary stat cards: a level-up card with `GLOBAL\_TAG\_MATCH` scope whose modifier targets `STATUS\_DURATION` or `STATUS\_MAGNITUDE\_BONUS`. A global card applies only to abilities that have ALL of its `target\_tags` (Task AR). Compound cards may also carry stat modifiers. No special draft, and no tag marks "applies a status" (item 61).
 * **Duration decides (Implemented).** There is no cast-time gate. A ticking Burn gets its whole duration from `STATUS\_DURATION` (template `base\_duration` 0). `apply\_effect` returns early when the effective duration is 0 or less: no instance, no `BURNING` tag, no ticks, no warning, and an already-active Burn is left alone.
 * **No status variants.** Templates stay fixed. Chill's slow scaling is undefined. Burn's ramp cap grows with Fire levels through a per-application bonus, not a template change (Implemented).
 
@@ -274,7 +278,7 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 |Effect|Source|Behavior|Status|
 |-|-|-|-|
 |Burn|Fire|DoT, never stacks (the strongest application wins), sets BURNING. Tick 0.5 s, ramp +10% per second capped at +50% plus 0.1 per Fire level. Template `base\_duration` 0, so duration comes from Fire (+3.0 s per level)|Implemented|
-|Chill|Shatter cards (Frost + Earth compound)|Slows the target by 30% movement speed, sets CHILLED. Base 3 s, no tick. Moved from the Frost card in Task AO|Implemented|
+|Chill|Shatter cards (Frost + Earth compound)|Slows the target by 30% movement speed, sets CHILLED. Base 3 s, no tick. Moved from the Frost card in Task AO. Slow scales with `STATUS\_MAGNITUDE\_BONUS`|Implemented|
 |Shock|Undecided (a Lightning compound without Fire)|Idea: raises crit chance against a Shocked target. How the bonus is expressed under per hit crit is open (item 59)|Idea|
 |Stun|Undecided (an Earth compound without Fire)|Idea: brief stop, with an immunity window so it cannot be chained (item 60)|Idea|
 |Blind|Undecided (Sandstorm)|Idea: lowers enemy accuracy; enemies do not attack yet|Idea, blocked|
@@ -356,7 +360,7 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |15|Trigger tags and a passive ability type are missing|Gap|
 |18|Stats profiles of other abilities and evolutions need `DOT\_DAMAGE`, `STATUS\_DURATION`, `STATUS\_RAMP\_CAP` and every stat their drivers read, such as `PROJECTILE\_AMOUNT`, `DURATION` or `CHAIN\_RADIUS` (a missing stat reads 0.0, and `mutate\_base\_profile` replaces the whole profile)|Gap|
 |19|Status proc chance is not built (application is guaranteed)|Deferred|
-|20|Chill's slow scaling is undefined (Burn's ramp cap now scales with Fire levels)|Design decision|
+|20|Chill's slow is 30% at base and scales with `STATUS\_MAGNITUDE\_BONUS` (item 58). Burn's ramp cap scales with Fire levels|Design decision|
 |21|Closed (Task AK): statuses never stack, so there is no stack cap to tune (items 44 to 46 are closed with it)|Closed|
 |22|Every `AbilityData` needs `structural\_tags`. Arcane Bolt now has `METAMAGIC` and `PROJECTILE`. Future abilities and evolutions still need them|Gap|
 |23|When infusion drafts occur in a normal run (separate draft decided; debug panel only today)|Design decision|
@@ -392,9 +396,10 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |55|Closed: the enemy that triggers a burst does not take the burst's damage. It is excluded by its hurtbox id (`SpatialQuery.filter\_enemy\_hurtboxes`), and a logic check covers it|Closed|
 |56|Closed (Task AI): a CHILLED tag exists. Compound cards are offered through `compound\_pair` and `UpgradeManager.get\_compound\_pair` (tier 1, exactly two elements, both at level 3), not through `evolves\_from` and recipes, so a recipe never has to express a level|Built|
 |57|Plasma is an evolution form, not a compound card: its effect (`CRIT\_DOT\_SHARE` 1.0) lives on Arc Bolt's evolved profile. A Fire + Lightning slot that takes the generic Overclock, or an ability with no Plasma form, gets no Plasma effect. Decide whether Plasma moves onto cards like Shatter and Magma (the stat would then need to be a card modifier or sit in every ability profile). Plasma's status is Burn from the Fire card (decided Oct 26), so only where `CRIT\_DOT\_SHARE` lives remains open.|Design decision|
-|58|Where a status's strength comes from: Chill's 30% slow is fixed (item 20), and Shock's bonus needs a source (a stat, the compound level, or fixed)|Design decision|
+|58|Closed (Decided Oct 27, Task AR): status strength comes from two ability-wide stats, `STATUS\_DURATION` and `STATUS\_MAGNITUDE\_BONUS` (non-ticking statuses only; Burn keeps `DOT\_DAMAGE`), raised by ordinary global stat cards and optionally by compound cards|Closed|
 |59|How Shock expresses a crit bonus now that crit is rolled per hit: a SHOCKED tag read in `resolve\_hit\_crit` from the target's tag component, or a template stat modifier. Not built|Design decision|
 |60|Per-status re-apply and anti-lock rules (for example a Stun immunity window), and whether statuses may consume or amplify each other (today they only grant tags that conditions read)|Design decision|
+|61|No tag says an ability applies a status. Magnitude and duration cards target by element tags (all must match), so a pick can be dead on an ability whose only status is Burn. Revisit if it hurts in play; a permanent tag granted by compound cards would fix it but reopens "a compound has no tag"|Design decision|
 
 
 
