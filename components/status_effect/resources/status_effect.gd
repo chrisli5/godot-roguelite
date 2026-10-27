@@ -19,6 +19,12 @@ extends Resource
 ## ...up to this total bonus (0.5 = at most +50% tick damage).
 @export var ramp_max_bonus: float = 0.0
 
+@export_group("Magnitude")
+## True = this status's stat_modifiers values are scaled by the source's STATUS_MAGNITUDE_BONUS (value * (1 + bonus)).
+@export var magnitude_scales: bool = false
+## Cap on the magnitude bonus applied to this status (0.5 = at most +50%). Placeholder.
+@export var max_magnitude_bonus: float = 0.5
+
 @export_group("While Active")
 ## Applied to the afflicted entity's own stats while the effect lasts.
 @export var stat_modifiers: Array[StatModifier] = []

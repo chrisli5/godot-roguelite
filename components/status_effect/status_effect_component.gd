@@ -38,7 +38,9 @@ func _exit_tree() -> void:
 ## (new dot_damage >= existing adopts the new snapshot as a unit, a weaker one keeps the existing snapshot),
 ## elapsed is kept and the timer becomes the longer of what is left and the new effective duration.
 ## Re-applying a non-ticking effect adopts the latest values and resets the timer.
-func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0) -> void:
+## `magnitude_bonus` is the snapshotted STATUS_MAGNITUDE_BONUS; it only matters to a magnitude-scaling effect and
+## is used by a new instance and by the non-ticking re-apply (latest wins). A ticking re-apply ignores it.
+func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0, magnitude_bonus: float = 0.0) -> void:
 	if not is_instance_valid(effect) or effect.effect_id.is_empty():
 		push_warning("StatusEffectComponent: Invalid status effect passed.")
 		return
@@ -58,6 +60,7 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 			existing.dot_damage = dot_damage
 			existing.duration_bonus = duration_bonus
 			existing.ramp_cap_bonus = ramp_cap_bonus
+			existing.set_magnitude_bonus(magnitude_bonus)
 			existing.time_remaining = existing.get_effective_duration()
 		refreshed.emit(existing)
 		return
@@ -67,6 +70,7 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 	instance.dot_damage = dot_damage
 	instance.duration_bonus = duration_bonus
 	instance.ramp_cap_bonus = ramp_cap_bonus
+	instance.set_magnitude_bonus(magnitude_bonus)
 	instance.time_remaining = instance.get_effective_duration()
 	_active_effects[effect.effect_id] = instance
 	set_process(true)

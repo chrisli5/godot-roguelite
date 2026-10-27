@@ -368,16 +368,15 @@ func generate_selection_pool(target_player: Player, processing_level: int) -> Ar
 						full_pool.append(choice)
 						
 				UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
-					# Broad Passive: Loops through active weapons to see if ANY match the requested taxonomy tags
+					# Broad Passive: offered when ANY active weapon's permanent tags contain ALL the card's target tags
 					var match_found := false
 					for slot_idx in range(AbilityContainer.MIN_SLOT, AbilityContainer.MAX_SLOT + 1):
 						var ability = container.get_ability_by_slot(slot_idx)
 						if is_instance_valid(ability) and is_instance_valid(ability.tag_component):
-							for req_tag in definition.target_tags:
-								if ability.tag_component.has_permanent_tag(req_tag):
-									match_found = true
-									break
-									
+							if definition.matches_permanent_tags(ability.tag_component.get_permanent_tags()):
+								match_found = true
+								break
+
 					if match_found:
 						var choice = UpgradeChoice.new()
 						choice.source_tracker = tracker

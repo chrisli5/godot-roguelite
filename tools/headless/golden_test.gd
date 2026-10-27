@@ -346,6 +346,7 @@ func _payload_values(payload: CombatPayload) -> Dictionary:
 		"dot_damage_snapshot": payload.dot_damage_snapshot,
 		"status_duration_snapshot": payload.status_duration_snapshot,
 		"status_ramp_cap_snapshot": payload.status_ramp_cap_snapshot,
+		"status_magnitude_snapshot": payload.status_magnitude_snapshot,
 		"status_ids": status_ids,
 		"burst_ids": burst_ids,
 		"is_critical_hit": payload.is_critical_hit,

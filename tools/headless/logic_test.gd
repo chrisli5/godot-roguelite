@@ -69,6 +69,8 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_stepped_delivery,
 		_section_indirect_scaling,
 		_section_status_sources,
+		_section_status_magnitude,
+		_section_all_match_tags,
 		_section_burst_stat_inheritance,
 		_section_earth_lightning_bursts,
 		_section_health_bar,
@@ -3168,6 +3170,8 @@ func _section_geometry_contract() -> void:
 		declared.append_array(geometry.get_speed_stats())
 		for stat in declared:
 			check(data.stats_profile.base_stats.has(stat), "geometry contract: %s profile has %s" % [ability_name, Stat.Type.keys()[stat]])
+		# Task AR: every ability profile carries STATUS_MAGNITUDE_BONUS at 0.0, or magnitude-scaling statuses ignore the ability.
+		check(data.stats_profile.base_stats.has(Stat.Type.STATUS_MAGNITUDE_BONUS) and is_zero_approx(data.stats_profile.base_stats[Stat.Type.STATUS_MAGNITUDE_BONUS]), "geometry contract: %s profile has STATUS_MAGNITUDE_BONUS at 0.0" % ability_name)
 		# Task X: a declared reach or speed stat needs its bonus key, or Earth and Wind do nothing for the ability.
 		if not geometry.get_reach_stats().is_empty():
 			check(data.stats_profile.base_stats.has(Stat.Type.REACH_BONUS), "geometry contract: %s profile has REACH_BONUS" % ability_name)
@@ -4276,3 +4280,150 @@ func _section_error_guard() -> void:
 	var after_uninstall := temporary.drain()
 	capture.drain()
 	check(while_installed.size() == 1 and after_uninstall.is_empty(), "error guard: uninstall() stops the logger from recording")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task AR: STATUS_MAGNITUDE_BONUS scales magnitude-scaling (non-ticking) statuses
+# ---------------------------------------------------------------------------------------------
+
+func _chill_speed_ratio(bat: Enemy, base_speed: float) -> float:
+	return bat.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED) / base_speed
+
+
+func _section_status_magnitude() -> void:
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+
+	check(chill.magnitude_scales and is_equal_approx(chill.max_magnitude_bonus, 0.5) and not burn.magnitude_scales, "magnitude: Chill scales its magnitude (cap 0.5), Burn does not")
+
+	# a. Bonus values on a fresh bat: 0 -> -0.3, 0.2 -> -0.36, above the cap -> cap (-0.45), negative -> 0 (-0.3).
+	var expectations := [[0.0, 0.7], [0.2, 0.64], [5.0, 0.55], [-1.0, 0.7]]
+	for pair in expectations:
+		var bat := _spawn_bat()
+		var base_speed := bat.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
+		bat.status_effect_component.apply_effect(chill, 0.0, 0.0, 0.0, pair[0])
+		check(is_equal_approx(_chill_speed_ratio(bat, base_speed), pair[1]), "magnitude: Chill with bonus %s slows to %s of speed" % [pair[0], pair[1]])
+
+	# b. The template is never mutated.
+	check(is_equal_approx(chill.stat_modifiers[0].value, -0.3), "magnitude: the Chill template modifier is still -0.3 after scaled applications")
+
+	# c. Re-apply: a higher bonus raises the live slow on the entity's stat, a lower one replaces it (latest wins).
+	var bat_r := _spawn_bat()
+	var speed_r := bat_r.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
+	bat_r.status_effect_component.apply_effect(chill, 0.0, 0.0, 0.0, 0.1)
+	check(is_equal_approx(_chill_speed_ratio(bat_r, speed_r), 0.67), "magnitude re-apply: first application at 0.1 gives x0.67")
+	bat_r.status_effect_component.apply_effect(chill, 0.0, 0.0, 0.0, 0.4)
+	check(is_equal_approx(_chill_speed_ratio(bat_r, speed_r), 0.58), "magnitude re-apply: a higher bonus 0.4 raises the live slow to x0.58")
+	bat_r.status_effect_component.apply_effect(chill, 0.0, 0.0, 0.0, 0.0)
+	check(is_equal_approx(_chill_speed_ratio(bat_r, speed_r), 0.7), "magnitude re-apply: a lower bonus later replaces it (latest wins, x0.7)")
+	check(bat_r.status_effect_component.get_active_instances().size() == 1, "magnitude re-apply: still one instance")
+
+	# d. Burn ignores the bonus: damage, ramp and cap are unchanged.
+	var comp_plain := _bare_status_component()
+	var comp_bonus := _bare_status_component()
+	comp_plain.apply_effect(burn, 10.0, 5.0, 0.2, 0.0)
+	comp_bonus.apply_effect(burn, 10.0, 5.0, 0.2, 0.4)
+	var plain: StatusEffectInstance = comp_plain._active_effects["burn"]
+	var boosted: StatusEffectInstance = comp_bonus._active_effects["burn"]
+	comp_plain._process(1.0)
+	comp_bonus._process(1.0)
+	check(is_zero_approx(boosted.magnitude_bonus) and boosted.runtime_modifiers.size() == plain.runtime_modifiers.size(), "magnitude: Burn keeps magnitude_bonus 0 and its modifiers")
+	check(is_equal_approx(boosted.get_tick_damage(), plain.get_tick_damage()) and is_equal_approx(boosted.get_ramp_multiplier(), plain.get_ramp_multiplier()), "magnitude: Burn tick damage and ramp are unchanged by the bonus")
+	comp_bonus.apply_effect(burn, 20.0, 5.0, 0.2, 0.4)
+	check(is_zero_approx(boosted.magnitude_bonus) and is_equal_approx(boosted.dot_damage, 20.0), "magnitude: a ticking re-apply (strongest wins) ignores magnitude")
+
+	# e. The payload snapshot comes from the stat; a profile without the key reads 0.0 and does nothing.
+	var with_key := _make_stats({Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.STATUS_MAGNITUDE_BONUS: 0.25, Stat.Type.CRIT_CHANCE: 1.0, Stat.Type.CRIT_MULTIPLIER: 2.0})
+	var payload_a := CombatCalculations.generate_hit_payload(world as Node2D, with_key, null)
+	check(is_equal_approx(payload_a.status_magnitude_snapshot, 0.25), "magnitude: the payload snapshot is the STATUS_MAGNITUDE_BONUS stat (not crit or damage scaled)")
+	var without_key := _make_stats({Stat.Type.BASE_DAMAGE: 10.0})
+	var payload_b := CombatCalculations.generate_hit_payload(world as Node2D, without_key, null)
+	check(is_zero_approx(payload_b.status_magnitude_snapshot), "magnitude: a profile missing the key reads 0.0")
+	var bat_p := _tough_bat()
+	var speed_p := bat_p.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
+	payload_b.status_effects_to_apply.append(chill)
+	bat_p.hurtbox_component.take_hit(payload_b)
+	check(is_instance_valid(bat_p) and is_equal_approx(_chill_speed_ratio(bat_p, speed_p), 0.7), "magnitude: a hit from a profile without the key leaves Chill at x0.7")
+	var bat_q := _tough_bat()
+	var speed_q := bat_q.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
+	payload_a.status_effects_to_apply.append(chill)
+	payload_a.crit_chance_snapshot = 0.0
+	bat_q.hurtbox_component.take_hit(payload_a)
+	check(is_instance_valid(bat_q) and is_equal_approx(_chill_speed_ratio(bat_q, speed_q), 0.625), "magnitude: a hit carrying snapshot 0.25 applies Chill at x0.625 through the entity")
+
+
+# ---------------------------------------------------------------------------------------------
+# Task AR: a GLOBAL_TAG_MATCH card needs ALL its target tags on an ability's permanent tags
+# ---------------------------------------------------------------------------------------------
+
+func _ar_card(id: String, tags: Array[Tags.Type]) -> UpgradeDefinition:
+	var card := _l3_card(id)
+	card.scope = UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH
+	card.target_tags = tags
+	card.stat_modifiers = [_l3_modifier(StatModifier.Type.PERCENT, 0.5, Stat.Type.BASE_DAMAGE)]
+	return card
+
+
+func _ar_pool_has(manager: UpgradeManager, player: Player, id: String) -> bool:
+	for choice in manager.generate_selection_pool(player, 99):
+		if choice.source_tracker.definition.upgrade_id == id:
+			return true
+	return false
+
+
+func _section_all_match_tags() -> void:
+	var manager := fx.get_upgrade_manager()
+	var saved_pool := manager.master_upgrade_pool.duplicate()
+	var two_tags: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.FIRE]
+	var no_tags: Array[Tags.Type] = []
+	var two_card := _ar_card("test_ar_two_tags", two_tags)
+	var empty_card := _ar_card("test_ar_empty", no_tags)
+	var definitions: Array[UpgradeDefinition] = [two_card, empty_card]
+	var profile := UpgradeBlueprintProfile.new()
+	profile.definition_bundle = definitions
+	manager.master_upgrade_pool.append(profile)
+
+	var both: Array[Tags.Type] = [Tags.Type.PROJECTILE, Tags.Type.FIRE]
+	var one: Array[Tags.Type] = [Tags.Type.METAMAGIC, Tags.Type.FIRE]
+
+	check(two_card.matches_permanent_tags(both) and not two_card.matches_permanent_tags(one), "all-match: the helper needs every target tag")
+	check(not empty_card.matches_permanent_tags(both) and not empty_card.matches_permanent_tags(no_tags), "all-match: a card with no target tags matches nothing, not even an empty tag list")
+
+	# a. An ability with both tags: the ledger and the pool both reach it.
+	var player := fx.fresh_player()
+	var ability_both := _l6_mount(player, 1, both)
+	var ledger := player.run_ledger_component
+	ledger.log_purchase(two_card)
+	ledger.log_purchase(empty_card)
+	var perm_both := ability_both.tag_component.get_permanent_tags()
+	check(ledger.get_card_tier(two_card, 1, perm_both) == 1, "all-match: the two-tag card reaches an ability with both tags (ledger)")
+	check(_ar_pool_has(manager, player, "test_ar_two_tags"), "all-match: the two-tag card is drafted for an ability with both tags (pool)")
+	check(ledger.get_card_tier(empty_card, 1, perm_both) == 0 and not _ar_pool_has(manager, player, "test_ar_empty"), "all-match: the empty-tag card reaches nothing (ledger and pool agree)")
+
+	# b. An ability with only one of the tags: neither the ledger nor the pool reaches it.
+	player = fx.fresh_player()
+	var ability_one := _l6_mount(player, 1, one)
+	ledger = player.run_ledger_component
+	ledger.log_purchase(two_card)
+	var perm_one := ability_one.tag_component.get_permanent_tags()
+	check(ledger.get_card_tier(two_card, 1, perm_one) == 0, "all-match: the two-tag card does not reach an ability with only one tag (ledger)")
+	check(not _ar_pool_has(manager, player, "test_ar_two_tags"), "all-match: the two-tag card is not drafted for an ability with only one tag (pool)")
+
+	# c. A temporary tag never completes the pair.
+	player = fx.fresh_player()
+	var ability_temp := _l6_mount(player, 1, one)
+	ability_temp.tag_component.add_temporary_tag(Tags.Type.PROJECTILE)
+	check(not _ar_pool_has(manager, player, "test_ar_two_tags"), "all-match: a temporary tag does not complete the pair (pool)")
+	ability_temp.tag_component.remove_temporary_tag(Tags.Type.PROJECTILE)
+
+	# d. Tags spread over different abilities do not combine.
+	player = fx.fresh_player()
+	_l6_mount(player, 1, one)
+	_l6_mount(player, 2, one)
+	var only_projectile: Array[Tags.Type] = [Tags.Type.PROJECTILE]
+	_l6_mount(player, 3, only_projectile)
+	check(not _ar_pool_has(manager, player, "test_ar_two_tags"), "all-match: tags spread over different abilities do not combine (pool)")
+	_l6_mount(player, 4, both)
+	check(_ar_pool_has(manager, player, "test_ar_two_tags"), "all-match: slot 4 with both tags makes the card eligible (pool)")
+
+	manager.master_upgrade_pool = saved_pool

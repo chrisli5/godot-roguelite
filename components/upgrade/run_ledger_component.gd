@@ -200,9 +200,7 @@ func get_card_tier(def: UpgradeDefinition, slot_index: int, weapon_tags: Array[T
 		UpgradeDefinition.ScopeType.LOCAL_SLOT:
 			return tier if def.restrict_to_slot == slot_index else 0
 		UpgradeDefinition.ScopeType.GLOBAL_TAG_MATCH:
-			for required_tag in def.target_tags:
-				if weapon_tags.has(required_tag):
-					return tier
+			return tier if def.matches_permanent_tags(weapon_tags) else 0
 	return 0
 
 

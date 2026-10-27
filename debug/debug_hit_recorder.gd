@@ -71,6 +71,7 @@ func _on_hit(enemy_name: String, payload: CombatPayload) -> void:
 		"dot_damage_snapshot": payload.dot_damage_snapshot,
 		"status_duration_snapshot": payload.status_duration_snapshot,
 		"status_ramp_cap_snapshot": payload.status_ramp_cap_snapshot,
+		"status_magnitude_snapshot": payload.status_magnitude_snapshot,
 		"burst_ids": burst_ids,
 	}
 

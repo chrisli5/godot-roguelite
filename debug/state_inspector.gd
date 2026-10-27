@@ -188,6 +188,7 @@ static func _status_lines(component: StatusEffectComponent) -> Array:
 			"dot_damage": instance.dot_damage,
 			"duration_bonus": instance.duration_bonus,
 			"ramp_cap_bonus": instance.ramp_cap_bonus,
+			"magnitude_bonus": instance.magnitude_bonus,
 		})
 	return lines
 
@@ -231,9 +232,9 @@ static func _append_statuses(lines: Array[String], title: String, statuses: Arra
 		return
 	lines.append("%s:" % title)
 	for status in statuses:
-		lines.append("  %s: %.2f s left, ramp x%.2f, dot %.2f, duration bonus %.2f, ramp cap bonus %.2f" % [
+		lines.append("  %s: %.2f s left, ramp x%.2f, dot %.2f, duration bonus %.2f, ramp cap bonus %.2f, magnitude bonus %.2f" % [
 			status["effect_id"], status["time_remaining"], status["ramp"], status["dot_damage"],
-			status["duration_bonus"], status["ramp_cap_bonus"],
+			status["duration_bonus"], status["ramp_cap_bonus"], status["magnitude_bonus"],
 		])
 
 
@@ -249,12 +250,13 @@ static func _join_or_none(items: Array) -> String:
 static func _hit_text(hit: Dictionary) -> String:
 	if hit.is_empty():
 		return "no hit recorded"
-	var text := "%s damage %.2f%s%s, tags [%s], statuses [%s], bursts [%s], dot %.2f, duration %.2f, ramp cap %.2f" % [
+	var text := "%s damage %.2f%s%s, tags [%s], statuses [%s], bursts [%s], dot %.2f, duration %.2f, ramp cap %.2f, magnitude %.2f" % [
 		hit["enemy_name"], hit["final_damage"],
 		" (crit)" if hit["is_critical_hit"] else "",
 		" (burst)" if hit["is_burst"] else "",
 		", ".join(hit["damage_tags"]), ", ".join(hit["status_ids"]), ", ".join(hit["burst_ids"]),
 		hit["dot_damage_snapshot"], hit["status_duration_snapshot"], hit["status_ramp_cap_snapshot"],
+		hit["status_magnitude_snapshot"],
 	]
 	if hit.has("age_s"):
 		text += " (%.1f s ago)" % hit["age_s"]

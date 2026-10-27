@@ -400,6 +400,7 @@
 		"after/stat/REACH_BONUS": 0.0,
 		"after/stat/SPEED_BONUS": 0.0,
 		"after/stat/STATUS_DURATION": 0.0,
+		"after/stat/STATUS_MAGNITUDE_BONUS": 0.0,
 		"after/stat/STATUS_RAMP_CAP": 0.0,
 		"after/tags": [
 			2,
@@ -675,6 +676,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/burst_card_only/crit_on": {
@@ -687,6 +689,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/fire_1/crit_off": {
@@ -699,6 +702,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.100000001490116
 	},
 	"payload/fire_1/crit_on": {
@@ -711,6 +715,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.100000001490116
 	},
 	"payload/fire_15_overclocked/crit_off": {
@@ -723,6 +728,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 1.5
 	},
 	"payload/fire_15_overclocked/crit_on": {
@@ -735,6 +741,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 1.5
 	},
 	"payload/fire_2_frost_2/crit_off": {
@@ -747,6 +754,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.200000002980232
 	},
 	"payload/fire_2_frost_2/crit_on": {
@@ -759,6 +767,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.200000002980232
 	},
 	"payload/fire_3/crit_off": {
@@ -771,6 +780,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.300000011920929
 	},
 	"payload/fire_3/crit_on": {
@@ -783,6 +793,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.300000011920929
 	},
 	"payload/fire_3_burst_card/crit_off": {
@@ -797,6 +808,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.300000011920929
 	},
 	"payload/fire_3_burst_card/crit_on": {
@@ -811,6 +823,7 @@
 		"status_ids": [
 			"burn"
 		],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.300000011920929
 	},
 	"payload/frost_2/crit_off": {
@@ -821,6 +834,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/frost_2/crit_on": {
@@ -831,6 +845,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/none/crit_off": {
@@ -841,6 +856,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"payload/none/crit_on": {
@@ -851,6 +867,7 @@
 		"is_critical_hit": false,
 		"status_duration_snapshot": 0.0,
 		"status_ids": [],
+		"status_magnitude_snapshot": 0.0,
 		"status_ramp_cap_snapshot": 0.0
 	},
 	"pool/after_overclock": {
@@ -942,6 +959,7 @@
 		"REACH_BONUS": 0.100000001490116,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/earth_2": {
@@ -958,6 +976,7 @@
 		"REACH_BONUS": 0.200000002980232,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/earth_3": {
@@ -974,6 +993,7 @@
 		"REACH_BONUS": 0.300000011920929,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/fire_1": {
@@ -990,6 +1010,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 3.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.100000001490116
 	},
 	"stats/arcane_bolt/fire_15_overclocked": {
@@ -1006,6 +1027,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 45.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 1.5
 	},
 	"stats/arcane_bolt/fire_2": {
@@ -1022,6 +1044,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 6.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.200000002980232
 	},
 	"stats/arcane_bolt/fire_3": {
@@ -1038,6 +1061,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 9.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.300000011920929
 	},
 	"stats/arcane_bolt/fire_3_earth_3": {
@@ -1054,6 +1078,7 @@
 		"REACH_BONUS": 0.300000011920929,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 9.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.300000011920929
 	},
 	"stats/arcane_bolt/frost_1": {
@@ -1070,6 +1095,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/frost_2": {
@@ -1086,6 +1112,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/frost_2_lightning_2": {
@@ -1102,6 +1129,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/frost_3": {
@@ -1118,6 +1146,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/lightning_1": {
@@ -1134,6 +1163,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/lightning_2": {
@@ -1150,6 +1180,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/lightning_3": {
@@ -1166,6 +1197,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/none": {
@@ -1182,6 +1214,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_1": {
@@ -1198,6 +1231,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.100000001490116,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_1_earth_1": {
@@ -1214,6 +1248,7 @@
 		"REACH_BONUS": 0.100000001490116,
 		"SPEED_BONUS": 0.100000001490116,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_2": {
@@ -1230,6 +1265,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.200000002980232,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/arcane_bolt/wind_3": {
@@ -1246,6 +1282,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.300000011920929,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"stats/core/move_speed_card": {
@@ -1274,6 +1311,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/arcane_frost_2/flat": {
@@ -1290,6 +1328,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/arcane_frost_2/multiplicative": {
@@ -1306,6 +1345,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/arcane_frost_2/percent": {
@@ -1322,6 +1362,7 @@
 		"REACH_BONUS": 0.0,
 		"SPEED_BONUS": 0.0,
 		"STATUS_DURATION": 0.0,
+		"STATUS_MAGNITUDE_BONUS": 0.0,
 		"STATUS_RAMP_CAP": 0.0
 	},
 	"transient/core_move_speed_card/burn_active": {

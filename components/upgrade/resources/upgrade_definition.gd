@@ -55,6 +55,17 @@ enum Category { GENERAL, INFUSION }
 @export var compound_pair: Array[Tags.Type] = []
 
 
+## True when `tags` (an ability's PERMANENT tags) contain ALL of this card's target_tags. A card with no
+## target_tags never matches (it must not match everything vacuously). Used by GLOBAL_TAG_MATCH scope.
+func matches_permanent_tags(tags: Array[Tags.Type]) -> bool:
+	if target_tags.is_empty():
+		return false
+	for required_tag in target_tags:
+		if not tags.has(required_tag):
+			return false
+	return true
+
+
 ## True if this card is a compound card (it names an element pair).
 func is_compound_card() -> bool:
 	return compound_pair.size() == 2
