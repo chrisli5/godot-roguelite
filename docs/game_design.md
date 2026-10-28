@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `3d98a0e`. Update this line whenever this file changes.
+Last synced with code commit: `a419d8c`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -15,6 +15,8 @@ Oct 26 (Task AP, docs only). The status design system: Fire is the only base inf
 Oct 27 (Task AR, docs only entry). Status strength: `STATUS\_MAGNITUDE\_BONUS` scales non-ticking statuses (Chill), `STATUS\_DURATION` stays as is, global tag cards now need ALL their target tags (§6, items 20, 58, 61).
 
 Oct 27 (Task AU, docs in Task AV). The Earth explosion and Lightning overload bursts were removed; at level 3 Lightning (`CRIT\_CHANCE`) and Earth (`REACH\_BONUS`) add to the shared indirect damage scale, and bursts now belong to compounds (§4, §5, items 29, 33, 39, 40, 42, 48, 51, 57; item 62 added).
+
+Oct 28 (Tasks AW and AX, docs in Task AY). Storm (Lightning + Wind) is built: a critting hit calls down one extra strike on the enemy it hit, and its cards carry Shock, which raises the crit chance of every hit the enemy receives (§4, §6, items 55, 59, 63).
 
 Every section carries one status tag:
 
@@ -97,13 +99,13 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 * **Layers.** A `TagComponent` compiles three layers: base tags, infusion tags and temporary tags. Permanent tags are base plus infusion tags. Stat cards, statuses, bursts and draft eligibility read permanent tags only. Active tags add the temporary ones and are used for damage payload tags.
 * **Base tags (Implemented).** Base tags come from `AbilityData.structural\_tags`, and they replace the ability's previous base tags whenever it is mounted or evolves. An empty list logs a warning and leaves the tags unchanged. Arcane Bolt has `METAMAGIC` and `PROJECTILE`. They are provisional until the tag system is fully designed, because tags will eventually decide which global upgrades apply to an ability (open item 22). An evolution that changes family replaces the tag set, so a chain form drops `PROJECTILE` and projectile-scoped global cards stop applying to it.
 * **Infusion tags.** Rebuilt from the run ledger on every recompile, so evolving never removes them.
-* **Status tags (Implemented).** `BURNING`, `CHILLED` and `FROZEN` are appended to the enum. `TagComponent` grants them as temporary tags with reference counts, so a tag only clears when the last status that granted it ends. `FROZEN` has no source yet.
+* **Status tags (Implemented).** `BURNING`, `CHILLED`, `FROZEN` and `SHOCKED` are appended to the enum. `TagComponent` grants them as temporary tags with reference counts, so a tag only clears when the last status that granted it ends. `FROZEN` has no source yet.
 * **Compound tags (Deferred).** A compound tag would be granted by an evolution through its `structural\_tags`, but none exists. Plasma (an evolution form) and the compound cards Shatter and Magma have no tag: Plasma's effect is a stat on the evolved profile and the cards' effects are bursts (§4). A tag is added only when a card needs to target compound abilities.
 * **Trigger tags (Deferred).** On Hit, On Dash, On Crit, On Crowd Control and On Health Loss do not exist yet. They need to be added before any card that depends on them.
 
 ## 4\. Elemental infusions, compounds and evolutions
 
-**Status:** Implemented for the stat contributions, the statuses, the indirect scalings, impact bursts and three compounds (Plasma, Shatter, Magma). Decided, not built, for how infusions are drafted in a normal run. All numbers are placeholders. Seven compounds are sketches.
+**Status:** Implemented for the stat contributions, the statuses, the indirect scalings, impact bursts and four compounds (Plasma, Shatter, Magma, Storm). Decided, not built, for how infusions are drafted in a normal run. All numbers are placeholders. Six compounds are sketches.
 
 Infusions are socketed into ability slots. They contribute through stat modifiers (`UpgradeDefinition.stat\_modifiers`), plus an optional status carried by the card (`status\_effect\_payload`, §6). Effect templates define shape, never absolute damage. The ledger stores slot-specific purchases under `<upgrade\_id>::slot\_<n>`, and that key wins over the plain key.
 
@@ -141,7 +143,7 @@ A burst is not an ability. It has no slot, cooldown, anchor, stats profile or ta
 * **Defined as data.** A burst definition holds a trigger (on hit, or on crit), an optional required tag on the primary target, a shape (none means an effect-only burst), a damage fraction, an optional bonus per enemy caught with a cap, an optional list of status tags it carries (`carried\_status\_tags`), and an optional visual. A card carries one, chosen at cast time like a status.
 * **Shapes only find targets.** The shape decides where the burst reaches. A circle burst, as Shatter uses, is sized from the ability's `AOE\_RADIUS`. Damage and every rule below are applied by one runner, so a new shape cannot skip them. A burst's size is the originating slot's AOE\_RADIUS and REACH\_BONUS, read from the caster's stats when the burst fires, times the shape's radius\_multiplier. Statuses and damage (including the triggering hit's crit) carry over from the hit's payload; crit rolls, speed and cooldown do not.
 * **Damage.** A fraction of the hit's final damage (a crit's extra damage is included). With a per-enemy bonus, the fraction grows with the number of enemies caught, up to a cap. The crit is the triggering hit's own (per hit, Task AL), and ON\_CRIT bursts fire only for a critting hit.
-* **Limits.** A burst never crits and never triggers another burst. It carries only the cast statuses its definition lists by tag (`carried\_status\_tags`, Task AH): a status is carried, with the cast's snapshots, only if at least one of its granted tags is listed; an empty list carries none. The enemy that triggers a burst never takes that burst's damage (it is excluded by its hurtbox id; checked headless). A required tag is checked on the primary target before the hit's own statuses apply.
+* **Limits.** A burst never crits and never triggers another burst. It carries only the cast statuses its definition lists by tag (`carried\_status\_tags`, Task AH): a status is carried, with the cast's snapshots, only if at least one of its granted tags is listed; an empty list carries none. The enemy that triggers a burst never takes that burst's damage (it is excluded by its hurtbox id; checked headless), with one exception: a strike-mode burst (`hits\_primary`, Task AW, Storm) hits only that enemy and does nothing if it is already dead. A required tag is checked on the primary target before the hit's own statuses apply.
 * **Per-cast cap (Implemented, Task AB).** Each burst definition has `max_per_cast` (0 = unlimited, the default, so a fan, a chain or an area hit with many targets produces a burst per qualifying hit). The limit is enforced through a per-cast budget shared by every copy of the cast's payload. Only a qualifying burst spends it. The shipped bursts set caps (Shatter 2, Magma's lava zone 1; item 39). Open item 40 still revisits the rest.
 * **Timing.** The burst runs one frame after the hit, because a hit can land inside a physics callback.
 * **Lingering zones (Implemented as a component, Task V).** An effect-only burst can spawn a zone that lingers (4 s by default), re-applies the cast statuses its burst lets through (`carried\_status\_tags`), with their snapshots, to enemies inside it every 0.5 s, and deals no damage of its own. A new zone near a live one of the same kind refreshes it instead of stacking, and at most 8 live zones per kind exist. Magma's lava zone is the first card to use it (Task AJ).
@@ -150,7 +152,7 @@ A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.st
 
 ### Compound infusions
 
-**Status:** Decided. Built for Shatter and Magma (Tasks AI and AJ, placeholders); Plasma is built as an evolution form (§4, "Compounds and evolutions"). Seven compounds are sketches.
+**Status:** Decided. Built for Shatter, Magma and Storm (Tasks AI, AJ, AW, AX, placeholders); Plasma is built as an evolution form (§4, "Compounds and evolutions"). Six compounds are sketches.
 
 Rules (Decided Oct 25):
 
@@ -167,7 +169,7 @@ Rules (Decided Oct 25):
 |Fire + Lightning|Plasma|Evolution form (Arc Bolt), not a card: the evolved profile has `CRIT\_DOT\_SHARE` 1.0, so a critting hit's own Burn snapshot is scaled by the crit bonus (per hit since Task AL)|Built (evolution), untuned|
 |Fire + Earth|Magma|ON\_HIT effect-only burst that spawns a lingering lava zone (radius `AOE\_RADIUS` times 6, 4 s, applies every 0.5 s, 1 per cast, at most 8 live zones). It re-applies only Burn (`carried\_status\_tags` BURNING) and deals no direct damage|Built (Task AJ), placeholders|
 |Frost + Earth|Shatter|ON\_HIT burst on a CHILLED primary: radius `AOE\_RADIUS` times 8, 0.5 of the hit's final damage, 2 per cast, its two cards carry Chill (`status\_effect\_payload`), and the burst carries only Chill (`carried\_status\_tags` CHILLED). No Chill consumption in v1. The hit's own Chill does not count on its first hit|Built (Task AI), placeholders|
-|Lightning + Wind|Storm|Mechanic not yet designed|Sketched|
+|Lightning + Wind|Storm|On every critting hit, one extra strike hits the triggering enemy (ON\_CRIT burst with `hits\_primary`, no area, no zone): 0.5 of the crit hit's final damage, up to 4 per cast, carries no status. The ability's own hits apply Shock (§6), which raises the crit chance of every source against that enemy. Wind has no role beyond the pair; a Wind-scaled flurry would need timed bursts (item 63)|Built (Tasks AW, AX), placeholders|
 |Frost + Wind|Blizzard|Mechanic not yet designed|Sketched|
 |Fire + Frost|Steam cloud|Idea (unapproved): a lingering zone; carries no status of its own (Fire pair), so it needs a verb other than a new status and must differ from Magma|Sketched|
 |Frost + Lightning|Superconduct|Mechanic not yet designed|Sketched|
@@ -281,7 +283,7 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 |-|-|-|-|
 |Burn|Fire|DoT, never stacks (the strongest application wins), sets BURNING. Tick 0.5 s, ramp +10% per second capped at +50% plus 0.1 per Fire level. Template `base\_duration` 0, so duration comes from Fire (+3.0 s per level)|Implemented|
 |Chill|Shatter cards (Frost + Earth compound)|Slows the target by 30% movement speed, sets CHILLED. Base 3 s, no tick. Moved from the Frost card in Task AO. Slow scales with `STATUS\_MAGNITUDE\_BONUS`|Implemented|
-|Shock|Undecided (a Lightning compound without Fire)|Idea: raises crit chance against a Shocked target. How the bonus is expressed under per hit crit is open (item 59)|Idea|
+|Shock|Storm cards (Lightning + Wind compound)|Non-ticking, base 3 s, sets SHOCKED. Adds a flat 0.15 to the crit chance of every hit the enemy receives, from any source, through the enemy stat `INCOMING\_CRIT\_BONUS`; scales with `STATUS\_MAGNITUDE\_BONUS`. A hit never benefits from its own Shock|Implemented (Task AX), placeholders|
 |Stun|Undecided (an Earth compound without Fire)|Idea: brief stop, with an immunity window so it cannot be chained (item 60)|Idea|
 |Blind|Undecided (Sandstorm)|Idea: lowers enemy accuracy; enemies do not attack yet|Idea, blocked|
 |Plasma Bleed|Plasma (compound)|Burst reaction|Deferred|
@@ -395,14 +397,15 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |52|Decided (Oct 25, Tasks AI and AJ): compounds are cards, offered at the tier 1 milestone as "Evolve + compound" and "Overclock + compound" with an identical effect, generic across abilities. Plasma stays an evolution form (item 57)|Built|
 |53|Closed (Task AH): `ImpactBurstDefinition.carried\_status\_tags` replaces the `applies\_statuses` switch. A burst carries a cast status only if one of its granted tags is listed; an empty list carries none|Built|
 |54|Compound stacking. A tier 1 ability has exactly two elements, so it gets exactly one compound. Tier 2 allows three elements (up to three pairs); how compounds work at tier 2 is not designed or built. The status cap per ability at tier 2 is part of this decision.|Open|
-|55|Closed: the enemy that triggers a burst does not take the burst's damage. It is excluded by its hurtbox id (`SpatialQuery.filter\_enemy\_hurtboxes`), and a logic check covers it|Closed|
+|55|Closed: the enemy that triggers a burst does not take the burst's damage. It is excluded by its hurtbox id (`SpatialQuery.filter\_enemy\_hurtboxes`), and a logic check covers it. Exception (Task AW): a burst definition with `hits\_primary` hits only the triggering enemy (Storm's strike)|Closed|
 |56|Closed (Task AI): a CHILLED tag exists. Compound cards are offered through `compound\_pair` and `UpgradeManager.get\_compound\_pair` (tier 1, exactly two elements, both at level 3), not through `evolves\_from` and recipes, so a recipe never has to express a level|Built|
 |57|Plasma is an evolution form, not a compound card: its effect (`CRIT\_DOT\_SHARE` 1.0) lives on Arc Bolt's evolved profile. A Fire + Lightning slot that takes the generic Overclock, or an ability with no Plasma form, gets no Plasma effect. Decide whether Plasma moves onto cards like Shatter and Magma (the stat would then need to be a card modifier or sit in every ability profile). Plasma's status is Burn from the Fire card (decided Oct 26), so only where `CRIT\_DOT\_SHARE` lives remains open. A Fire + Lightning slot on the generic Overclock now still gets Lightning's scale (not `CRIT\_DOT\_SHARE`).|Design decision|
 |58|Closed (Decided Oct 27, Task AR): status strength comes from two ability-wide stats, `STATUS\_DURATION` and `STATUS\_MAGNITUDE\_BONUS` (non-ticking statuses only; Burn keeps `DOT\_DAMAGE`), raised by ordinary global stat cards and optionally by compound cards|Closed|
-|59|How Shock expresses a crit bonus now that crit is rolled per hit: a SHOCKED tag read in `resolve\_hit\_crit` from the target's tag component, or a template stat modifier. Not built|Design decision|
+|59|Closed (Decided Oct 27, Task AX): Shock carries a flat modifier on the enemy-side stat `INCOMING\_CRIT\_BONUS`, which `resolve\_hit\_crit` adds to the crit chance of every hit the enemy receives; it scales with `STATUS\_MAGNITUDE\_BONUS` and applies to every source|Closed|
 |60|Per-status re-apply and anti-lock rules (for example a Stun immunity window), and whether statuses may consume or amplify each other (today they only grant tags that conditions read)|Design decision|
 |61|No tag says an ability applies a status. Magnitude and duration cards target by element tags (all must match), so a pick can be dead on an ability whose only status is Burn. Revisit if it hurts in play; a permanent tag granted by compound cards would fix it but reopens "a compound has no tag"|Design decision|
 |62|The +50% cap on summed indirect bonuses is now shared by four elements. It does not bind at tier 1 (two elements, about +30%) but will at three elements or with Overclock; retune when tier 2 is designed|Design decision|
+|63|Storm placeholders and open edges: strike 0.5 of the crit hit, 4 per cast; Shock +0.15 for 3 s. The strike is a burst payload and never crits, so a future damage-number UI would show it as a plain hit. Wind has no role in Storm beyond the pair (a flurry scaled by `SPEED\_BONUS` would need timed bursts). Shock raising every source's crit chance makes it a party-wide debuff; revisit if it overshadows other builds|Design decision|
 
 
 
