@@ -68,11 +68,12 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_geometry_standardization,
 		_section_stepped_delivery,
 		_section_indirect_scaling,
+		_section_lightning_earth_indirect,
 		_section_status_sources,
 		_section_status_magnitude,
 		_section_all_match_tags,
 		_section_burst_stat_inheritance,
-		_section_earth_lightning_bursts,
+		_section_burst_gating_synthetic,
 		_section_health_bar,
 		_section_error_guard,
 	]
@@ -2219,8 +2220,10 @@ func _section_lightning_crit_multiplier() -> void:
 	}, 1, cast_ledger)
 	var payload := CombatCalculations.resolve_hit_crit(CombatCalculations.generate_hit_payload(null, cast_stats, null))
 	var multiplier := 1.5 + mult_step * 3.0
-	check(payload.is_critical_hit and is_equal_approx(payload.final_damage, 2.0 * multiplier), "lightning crit mult: a forced crit with Lightning 3 deals BASE_DAMAGE * 1.95")
-	check(is_equal_approx(payload.dot_damage_snapshot, 4.0 * (1.0 + (multiplier - 1.0) * 1.0)), "lightning crit mult: the Burn snapshot follows the ledger-driven multiplier (share 1.0)")
+	# Task AU: Lightning 3 also adds its indirect damage scale (CRIT_CHANCE 1.09 * 1.0, clamped to +50%), applied before the crit multiplier.
+	check(is_equal_approx(payload.damage_scale, 1.5), "lightning crit mult: Lightning 3 with CRIT_CHANCE 1.09 gives damage_scale 1.5 (clamped)")
+	check(payload.is_critical_hit and is_equal_approx(payload.final_damage, 2.0 * payload.damage_scale * multiplier), "lightning crit mult: a forced crit with Lightning 3 deals BASE_DAMAGE * damage_scale * 1.95")
+	check(is_equal_approx(payload.dot_damage_snapshot, 4.0 * payload.damage_scale * (1.0 + (multiplier - 1.0) * 1.0)), "lightning crit mult: the Burn snapshot (scaled) follows the ledger-driven multiplier (share 1.0)")
 
 	# e. The evolved Arc Bolt at Lightning 5.
 	var evolved := _plasma_evolved_player()
@@ -2448,8 +2451,8 @@ func _section_burst_extensions() -> void:
 				uses_extension += 1
 	users.sort()
 	burst_ids.sort()
-	check(users == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "inf_earth", "inf_lightning"], "burst ext guards: only the Earth and Lightning cards and the four compound cards (Shatter, Magma) carry an impact_burst_payload (found %s)" % str(users))
-	check(burst_ids == ["earth_explosion", "lightning_overload", "magma_lava", "shatter"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are earth_explosion, lightning_overload, magma_lava and shatter, and only shatter and magma_lava use the extension fields (found %s)" % str(burst_ids))
+	check(users == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock"], "burst ext guards: only the four compound cards (Shatter, Magma) carry an impact_burst_payload (found %s)" % str(users))
+	check(burst_ids == ["magma_lava", "shatter"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are magma_lava and shatter, and only they use the extension fields (found %s)" % str(burst_ids))
 
 
 func _section_burst_status_filter() -> void:
@@ -3928,6 +3931,110 @@ func _section_indirect_scaling() -> void:
 	fx.reset_player_state()
 
 
+## Task AU: Lightning (CRIT_CHANCE) and Earth (REACH_BONUS) are stat-conversion indirect effects at level 3.
+func _section_lightning_earth_indirect() -> void:
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var lightning_effect := lightning.indirect_effect
+	var earth_effect := earth.indirect_effect
+
+	# a. The shipped definitions.
+	check(lightning_effect != null and lightning_effect.kind == IndirectEffectDefinition.Kind.CRIT_DAMAGE and lightning_effect.unlock_level == 3 and is_equal_approx(lightning_effect.crit_ratio, 1.0), "lightning/earth indirect: Lightning carries CRIT_DAMAGE, unlock 3, crit_ratio 1.0")
+	check(earth_effect != null and earth_effect.kind == IndirectEffectDefinition.Kind.REACH_DAMAGE and earth_effect.unlock_level == 3 and is_equal_approx(earth_effect.reach_ratio, 0.5), "lightning/earth indirect: Earth carries REACH_DAMAGE, unlock 3, reach_ratio 0.5")
+	check(int(IndirectEffectDefinition.Kind.CRIT_DAMAGE) == 3 and int(IndirectEffectDefinition.Kind.REACH_DAMAGE) == 4 and int(IndirectEffectDefinition.Kind.SPEED_DAMAGE) == 2, "lightning/earth indirect: Kind is append-only (SPEED_DAMAGE 2, CRIT_DAMAGE 3, REACH_DAMAGE 4)")
+
+	# b. Lightning: nothing at level 2, crit_ratio * CRIT_CHANCE at level 3 (CRIT_CHANCE 0.2 + 0.03 per level).
+	var player := fx.fresh_player()
+	var values := {Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.CRIT_CHANCE: 0.2, Stat.Type.CRIT_MULTIPLIER: 2.0, Stat.Type.REACH_BONUS: 0.0}
+	var lane := _make_stats(values, 1, player.run_ledger_component)
+	_grant(player, LIGHTNING_CARD, 1, 2)
+	check(is_equal_approx(lane.get_final_stat_value(Stat.Type.CRIT_CHANCE), 0.26) and is_equal_approx(lane.get_indirect_damage_scale(), 1.0), "lightning/earth indirect: Lightning 2 raises CRIT_CHANCE but adds no scale")
+	_grant(player, LIGHTNING_CARD, 1, 1)
+	check(is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.29), "lightning/earth indirect: Lightning 3 adds crit_ratio * CRIT_CHANCE (0.29)")
+	fx.reset_player_state()
+
+	# c. Earth: nothing at level 2, reach_ratio * REACH_BONUS at level 3 (REACH_BONUS 0.1 per level).
+	player = fx.fresh_player()
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	_grant(player, EARTH_CARD, 1, 2)
+	check(is_equal_approx(lane.get_final_stat_value(Stat.Type.REACH_BONUS), 0.2) and is_equal_approx(lane.get_indirect_damage_scale(), 1.0), "lightning/earth indirect: Earth 2 raises REACH_BONUS but adds no scale")
+	_grant(player, EARTH_CARD, 1, 1)
+	check(is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.5 * 0.3), "lightning/earth indirect: Earth 3 adds reach_ratio * REACH_BONUS (0.15)")
+	fx.reset_player_state()
+
+	# d. Both on one slot sum: CRIT_CHANCE 0.05 + 0.09 = 0.14, REACH_BONUS 0.3 * 0.5 = 0.15.
+	player = fx.fresh_player()
+	values[Stat.Type.CRIT_CHANCE] = 0.05
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	_grant(player, LIGHTNING_CARD, 1, 3)
+	_grant(player, EARTH_CARD, 1, 3)
+	check(is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.14 + 0.15), "lightning/earth indirect: Lightning 3 + Earth 3 on one slot sum (0.14 + 0.15)")
+
+	# e. The scale multiplies the pre-crit hit and the DoT snapshot, and nothing else.
+	var cast := CombatCalculations.generate_hit_payload(null, lane, null)
+	check(is_equal_approx(cast.damage_scale, 1.29) and is_equal_approx(cast.final_damage, 12.9) and is_equal_approx(cast.dot_damage_snapshot, 4.0 * 1.29), "lightning/earth indirect: the cast scales BOTH final_damage (pre-crit, 12.9) and dot_damage_snapshot (5.16)")
+	fx.reset_player_state()
+
+	# f. The sum clamps at +50%: a synthetic effect with a huge ratio proves it.
+	player = fx.fresh_player()
+	var huge := IndirectEffectDefinition.new()
+	huge.kind = IndirectEffectDefinition.Kind.CRIT_DAMAGE
+	huge.unlock_level = 1
+	huge.crit_ratio = 100.0
+	var huge_card := UpgradeDefinition.new()
+	huge_card.upgrade_id = "test_huge_crit_ratio"
+	huge_card.indirect_effect = huge
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	_grant_card(player, huge_card, 1, 1)
+	check(IndirectScaling.bonus_of(huge, lane) > IndirectScaling.TOTAL_BONUS_CAP and is_equal_approx(lane.get_indirect_damage_scale(), 1.5), "lightning/earth indirect: a raw bonus of 5.0 clamps to scale 1.5")
+	fx.reset_player_state()
+
+	# g. A Lightning-only slot gets no status (so no DoT); the DoT snapshot is inert until a ticking status is carried.
+	player = fx.fresh_player()
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	_grant(player, LIGHTNING_CARD, 1, 3)
+	var lightning_cast := CombatCalculations.generate_hit_payload(null, lane, null)
+	check(lightning_cast.status_effects_to_apply.is_empty() and lightning_cast.dot_damage_snapshot > 0.0, "lightning/earth indirect: a Lightning-only slot carries no status, its scaled DoT snapshot is inert")
+	_grant(player, FIRE_CARD, 1, 1)
+	var fire_cast := CombatCalculations.generate_hit_payload(null, lane, null)
+	check(fire_cast.status_effects_to_apply.size() == 1 and fire_cast.status_effects_to_apply[0].effect_id == &"burn" and is_equal_approx(fire_cast.dot_damage_snapshot, 4.0 * fire_cast.damage_scale), "lightning/earth indirect: with Fire the scaled DoT snapshot feeds Burn")
+	fx.reset_player_state()
+
+	# h. A crit multiplies after the scale, per hit: CRIT_CHANCE 1.0, Earth 3 (scale 1.15), multiplier 2.
+	player = fx.fresh_player()
+	values[Stat.Type.CRIT_CHANCE] = 1.0
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	_grant(player, EARTH_CARD, 1, 3)
+	var crit_cast := CombatCalculations.generate_hit_payload(null, lane, null)
+	var crit_hit := CombatCalculations.resolve_hit_crit(crit_cast)
+	check(not crit_cast.is_critical_hit and is_equal_approx(crit_cast.final_damage, 11.5) and crit_hit.is_critical_hit and is_equal_approx(crit_hit.final_damage, 11.5 * 2.0), "lightning/earth indirect: the crit multiplies the scaled hit (10 * 1.15 * 2 = 23), the shared cast payload stays pre-crit")
+	fx.reset_player_state()
+
+	# i. Higher levels and Overclock keep the effect.
+	player = fx.fresh_player()
+	values[Stat.Type.CRIT_CHANCE] = 0.05
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	_grant(player, LIGHTNING_CARD, 1, 4)
+	_grant(player, EARTH_CARD, 1, 4)
+	player.run_ledger_component.log_slot_specific_purchase(load(DBG_OVERCLOCK_CARD) as UpgradeDefinition, 1)
+	check(player.run_ledger_component.is_overclocked(1) and is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.17 + 0.5 * 0.4), "lightning/earth indirect: Overclocked at level 4 the effect stays active (0.17 + 0.20)")
+	fx.reset_player_state()
+
+	# j. Neither card produces impact bursts on any slot at any level.
+	player = fx.fresh_player()
+	lane = _make_stats(values, 1, player.run_ledger_component)
+	var other := _make_stats(values, 2, player.run_ledger_component)
+	var no_bursts := true
+	for level in range(5):
+		_grant(player, LIGHTNING_CARD, 1, 1)
+		_grant(player, EARTH_CARD, 1, 1)
+		_grant(player, LIGHTNING_CARD, 2, 1)
+		no_bursts = no_bursts and lane.get_impact_bursts().is_empty() and other.get_impact_bursts().is_empty() and CombatCalculations.generate_hit_payload(null, lane, null).impact_bursts.is_empty()
+	check(no_bursts and lightning.impact_burst_payload == null and earth.impact_burst_payload == null, "lightning/earth indirect: the Lightning and Earth cards produce no impact bursts at levels 1 to 5")
+	fx.reset_player_state()
+
+
 ## Task AO: Fire is the only base infusion that applies a status; Chill comes from the two Shatter cards.
 func _section_status_sources() -> void:
 	var fire := load(FIRE_CARD) as UpgradeDefinition
@@ -3982,7 +4089,7 @@ func _section_status_sources() -> void:
 	fx.reset_player_state()
 
 
-# Task AE: the Earth explosion and Lightning overload cards, and burst level gating.
+# Task AE: burst level gating helpers.
 func _burst_lane(player: Player, slot: int, extra: Dictionary = {}) -> StatsContainer:
 	var values := {Stat.Type.AOE_RADIUS: 10.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0, Stat.Type.REACH_BONUS: 0.0, Stat.Type.DOT_DAMAGE: 1.0}
 	values.merge(extra, true)
@@ -4001,33 +4108,60 @@ func _burst_ids_of(payload: CombatPayload) -> Array[String]:
 	return ids
 
 
-func _section_earth_lightning_bursts() -> void:
+## Task AU: the shipped Earth explosion and Lightning overload were removed, so the burst mechanism is exercised with
+## bursts built in code (same numbers as the old ones) and granted through test cards. The real Earth and Lightning
+## cards are checked to keep their direct stats and to carry no burst.
+func _burst_test_card(id: String, burst: ImpactBurstDefinition) -> UpgradeDefinition:
+	var card := UpgradeDefinition.new()
+	card.upgrade_id = id
+	card.scope = UpgradeDefinition.ScopeType.LOCAL_SLOT
+	card.impact_burst_payload = burst
+	return card
+
+
+func _grant_card(player: Player, card: UpgradeDefinition, slot: int, levels: int) -> void:
+	for i in range(levels):
+		player.run_ledger_component.log_slot_specific_purchase(card, slot)
+
+
+func _section_burst_gating_synthetic() -> void:
 	var player := fx.fresh_player()
-	var explosion := load("res://resources/bursts/earth_explosion.tres") as ImpactBurstDefinition
-	var overload := load("res://resources/bursts/lightning_overload.tres") as ImpactBurstDefinition
-	check(explosion.burst_id == &"earth_explosion" and explosion.trigger == ImpactBurstDefinition.Trigger.ON_HIT and is_equal_approx(explosion.damage_fraction, 0.4) and explosion.max_per_cast == 3 and explosion.unlock_level == 3 and explosion.carried_status_tags.is_empty() and explosion.required_target_tag == Tags.Type.NONE and is_equal_approx(explosion.per_enemy_bonus, 0.0), "bursts AE: the Earth explosion definition (ON_HIT, 0.4, cap 3, level 3, no statuses, no tag, no bonus)")
-	check(overload.burst_id == &"lightning_overload" and overload.trigger == ImpactBurstDefinition.Trigger.ON_CRIT and is_equal_approx(overload.damage_fraction, 0.6) and overload.max_per_cast == 1 and overload.unlock_level == 3 and overload.carried_status_tags.is_empty() and overload.required_target_tag == Tags.Type.NONE and is_equal_approx(overload.per_enemy_bonus, 0.0), "bursts AE: the Lightning overload definition (ON_CRIT, 0.6, cap 1, level 3, no statuses, no tag, no bonus)")
-	check(is_equal_approx((explosion.shape as CircleBurstShape).radius_multiplier, 6.0) and is_equal_approx((overload.shape as CircleBurstShape).radius_multiplier, 8.0), "bursts AE: radius multipliers 6.0 and 8.0")
-	check((load(EARTH_CARD) as UpgradeDefinition).impact_burst_payload == explosion and (load(LIGHTNING_CARD) as UpgradeDefinition).impact_burst_payload == overload, "bursts AE: the Earth and Lightning cards carry their burst")
+	var explosion := _make_burst(&"test_explosion", ImpactBurstDefinition.Trigger.ON_HIT, 0.4, 0.0, 0.0, 6.0)
+	explosion.max_per_cast = 3
+	explosion.unlock_level = 3
+	var overload := _make_burst(&"test_overload", ImpactBurstDefinition.Trigger.ON_CRIT, 0.6, 0.0, 0.0, 8.0)
+	overload.max_per_cast = 1
+	overload.unlock_level = 3
+	var explosion_card := _burst_test_card("test_explosion_card", explosion)
+	var overload_card := _burst_test_card("test_overload_card", overload)
 	check(ImpactBurstDefinition.new().unlock_level == 1 and IndirectScaling.is_unlocked(3, 3) and not IndirectScaling.is_unlocked(2, 3), "bursts AE: unlock_level defaults to 1; the shared gate is level >= unlock")
 
-	# Gating by level, per slot.
-	var earth_lane := _burst_lane(player, 1)
-	var other_lane := _burst_lane(player, 2)
-	_grant(player, EARTH_CARD, 1, 2)
-	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)).is_empty(), "bursts AE: Earth 2 gives no explosion")
-	check(is_equal_approx(earth_lane.get_final_stat_value(Stat.Type.REACH_BONUS), 0.2), "bursts AE: Earth 2 still gives its direct REACH_BONUS 0.2")
-	_grant(player, EARTH_CARD, 1, 1)
-	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)) == ["earth_explosion"], "bursts AE: Earth 3 gives the explosion")
-	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, other_lane, null)).is_empty(), "bursts AE: Earth 3 in slot 1 gives slot 2 no burst")
+	# Real cards: direct stats stay, no burst on any level.
+	var real_earth := load(EARTH_CARD) as UpgradeDefinition
+	var real_lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	check(real_earth.impact_burst_payload == null and real_lightning.impact_burst_payload == null, "bursts AE: the real Earth and Lightning cards carry no burst (Task AU)")
+	var real_lane := _burst_lane(player, 4, {Stat.Type.CRIT_CHANCE: 1.0})
+	_grant(player, EARTH_CARD, 4, 2)
+	check(is_equal_approx(real_lane.get_final_stat_value(Stat.Type.REACH_BONUS), 0.2), "bursts AE: Earth 2 still gives its direct REACH_BONUS 0.2")
+	_grant(player, LIGHTNING_CARD, 4, 3)
+	check(is_equal_approx(real_lane.get_final_stat_value(Stat.Type.CRIT_CHANCE), 1.09) and CombatCalculations.generate_hit_payload(world as Node2D, real_lane, null).impact_bursts.is_empty(), "bursts AE: Lightning 3 gives its direct crit chance and no overload")
+
+	# Gating by level, per slot. REACH_BONUS 0.3 stands in for Earth 3's direct bonus.
+	var earth_lane := _burst_lane(player, 1, {Stat.Type.REACH_BONUS: 0.3})
+	var other_lane := _burst_lane(player, 2, {Stat.Type.REACH_BONUS: 0.3})
+	_grant_card(player, explosion_card, 1, 2)
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)).is_empty(), "bursts AE: an unlock_level 3 ON_HIT burst card at level 2 gives no explosion")
+	_grant_card(player, explosion_card, 1, 1)
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, earth_lane, null)) == ["test_explosion"], "bursts AE: at level 3 the burst card gives the explosion")
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, other_lane, null)).is_empty(), "bursts AE: level 3 in slot 1 gives slot 2 no burst")
 	var light_lane := _burst_lane(player, 3, {Stat.Type.CRIT_CHANCE: 1.0})
-	_grant(player, LIGHTNING_CARD, 3, 1)
-	check(is_equal_approx(light_lane.get_final_stat_value(Stat.Type.CRIT_CHANCE), 1.03) and CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null).impact_bursts.is_empty(), "bursts AE: Lightning 1 gives its direct crit chance and no overload")
-	_grant(player, LIGHTNING_CARD, 3, 1)
-	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)).is_empty(), "bursts AE: Lightning 2 gives no overload")
-	_grant(player, LIGHTNING_CARD, 3, 1)
+	_grant_card(player, overload_card, 3, 1)
+	check(CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null).impact_bursts.is_empty(), "bursts AE: an unlock_level 3 ON_CRIT burst card at level 1 gives no overload")
+	_grant_card(player, overload_card, 3, 1)
+	check(_burst_ids_of(CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)).is_empty(), "bursts AE: at level 2 it gives no overload")
+	_grant_card(player, overload_card, 3, 1)
 	var crit_cast := CombatCalculations.generate_hit_payload(world as Node2D, light_lane, null)
-	check(_burst_ids_of(crit_cast) == ["lightning_overload"], "bursts AE: Lightning 3 gives the overload")
+	check(_burst_ids_of(crit_cast) == ["test_overload"], "bursts AE: at level 3 it gives the overload")
 
 	# Explosion: fires on a hit, scaled radius 10 * 1.3 * 6 = 78 (reach 88 with the hurtbox), damage 0.4 of the hit, cap 3 per cast.
 	var origin := Vector2(130000.0, 130000.0)
@@ -4064,7 +4198,7 @@ func _section_earth_lightning_bursts() -> void:
 	# Overload radius at reach 0: 10 * 8 = 80 (reach 90): a bat at 85 is caught, one at 100 is not.
 	var wide_player := fx.fresh_player()
 	var wide_lane := _burst_lane(wide_player, 1, {Stat.Type.CRIT_CHANCE: 1.0})
-	_grant(wide_player, LIGHTNING_CARD, 1, 3)
+	_grant_card(wide_player, overload_card, 1, 3)
 	var wide_cast := CombatCalculations.generate_hit_payload(world as Node2D, wide_lane, null)
 	bats = await _spawn_burst_bats(Vector2(130000.0, 135000.0), [Vector2(0, 0), Vector2(85, 0), Vector2(100, 0)])
 	bats[0].hurtbox_component.take_hit(wide_cast)

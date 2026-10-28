@@ -5,7 +5,7 @@ extends Resource
 ## Kinds that convert a direct stat into a cast-time damage scale are computed by IndirectScaling.
 
 ## Append-only: stored as integers in .tres files.
-enum Kind { NONE, COOLDOWN_DAMAGE, SPEED_DAMAGE }
+enum Kind { NONE, COOLDOWN_DAMAGE, SPEED_DAMAGE, CRIT_DAMAGE, REACH_DAMAGE }
 
 @export var kind: Kind = Kind.NONE
 ## Card level (in the slot) from which this effect is active.
@@ -22,3 +22,11 @@ enum Kind { NONE, COOLDOWN_DAMAGE, SPEED_DAMAGE }
 @export_group("Speed damage (Wind)")
 ## Damage bonus per point of SPEED_BONUS.
 @export var speed_ratio: float = 0.5
+
+@export_group("Crit damage (Lightning)")
+## Damage bonus per point of CRIT_CHANCE.
+@export var crit_ratio: float = 1.0
+
+@export_group("Reach damage (Earth)")
+## Damage bonus per point of REACH_BONUS.
+@export var reach_ratio: float = 0.5

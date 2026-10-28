@@ -1,7 +1,8 @@
 class_name IndirectScaling
 extends RefCounted
-## Cast-time damage scale from the active indirect effects of a slot (Frost, Wind). The scale multiplies a cast's hit
-## damage and DoT snapshot once, in CombatCalculations.generate_hit_payload.
+## Cast-time damage scale from the active indirect effects of a slot. Each effect converts one of the slot's own direct
+## stats into a damage bonus: Frost (cooldown shaved), Wind (SPEED_BONUS), Lightning (CRIT_CHANCE), Earth (REACH_BONUS).
+## The scale multiplies a cast's hit damage and DoT snapshot once, in CombatCalculations.generate_hit_payload.
 
 ## The most the summed indirect bonuses can add (damage_scale is at most 1.0 + this).
 const TOTAL_BONUS_CAP: float = 0.5
@@ -39,4 +40,8 @@ static func bonus_of(effect: IndirectEffectDefinition, stats: StatsContainer) ->
 			return shaved / effect.step_seconds * effect.per_step
 		IndirectEffectDefinition.Kind.SPEED_DAMAGE:
 			return effect.speed_ratio * maxf(stats.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.0)
+		IndirectEffectDefinition.Kind.CRIT_DAMAGE:
+			return effect.crit_ratio * maxf(stats.get_final_stat_value(Stat.Type.CRIT_CHANCE), 0.0)
+		IndirectEffectDefinition.Kind.REACH_DAMAGE:
+			return effect.reach_ratio * maxf(stats.get_final_stat_value(Stat.Type.REACH_BONUS), 0.0)
 	return 0.0
