@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ImpactBurstDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://dxeneh3s5hmbl" path="res://components/ability/bursts/impact_burst_definition.gd" id="1_burst"]
+
+[resource]
+script = ExtResource("1_burst")
+burst_id = &"storm_strike"
+trigger = 1
+hits_primary = true
+damage_fraction = 0.5
+max_per_cast = 4

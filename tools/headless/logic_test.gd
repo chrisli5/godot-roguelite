@@ -62,6 +62,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_burst_status_filter,
 		_section_compound_offer,
 		_section_magma,
+		_section_storm_strike,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -2451,8 +2452,8 @@ func _section_burst_extensions() -> void:
 				uses_extension += 1
 	users.sort()
 	burst_ids.sort()
-	check(users == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock"], "burst ext guards: only the four compound cards (Shatter, Magma) carry an impact_burst_payload (found %s)" % str(users))
-	check(burst_ids == ["magma_lava", "shatter"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are magma_lava and shatter, and only they use the extension fields (found %s)" % str(burst_ids))
+	check(users == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "compound_storm_evolve", "compound_storm_overclock"], "burst ext guards: only the six compound cards (Shatter, Magma, Storm) carry an impact_burst_payload (found %s)" % str(users))
+	check(burst_ids == ["magma_lava", "shatter", "storm_strike"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are magma_lava, shatter and storm_strike, and only the first two use the extension fields (found %s)" % str(burst_ids))
 
 
 func _section_burst_status_filter() -> void:
@@ -2930,6 +2931,161 @@ func _spawn_zone(definition: ImpactBurstDefinition, payload: CombatPayload, orig
 	await tree.process_frame
 	await tree.process_frame
 	return zone
+
+
+const STORM_EVOLVE_CARD := "res://resources/compounds/storm_evolution_upgrade_def.tres"
+const STORM_OVERCLOCK_CARD := "res://resources/compounds/storm_overclock_upgrade_def.tres"
+const STORM_BURST := "res://resources/bursts/storm_strike.tres"
+
+
+## A payload whose every hit crits (chance 1.0, multiplier 2.0), carrying `definitions`.
+func _storm_crit_payload(stats: StatsContainer, damage: float, definitions: Array[ImpactBurstDefinition], effects: Array[StatusEffect] = []) -> CombatPayload:
+	var payload := _burst_payload(stats, damage, definitions)
+	payload.crit_chance_snapshot = 1.0
+	payload.crit_multiplier_snapshot = 2.0
+	payload.status_effects_to_apply = effects
+	payload.dot_damage_snapshot = 5.0
+	payload.status_duration_snapshot = 3.0
+	payload.status_ramp_cap_snapshot = 0.1
+	return payload
+
+
+func _section_storm_strike() -> void:
+	var mgr := fx.get_upgrade_manager()
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var wind := load(WIND_CARD) as UpgradeDefinition
+	var evolve_card := load(STORM_EVOLVE_CARD) as UpgradeDefinition
+	var overclock_card := load(STORM_OVERCLOCK_CARD) as UpgradeDefinition
+	var strike := load(STORM_BURST) as ImpactBurstDefinition
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var chill := load("res://resources/status_effects/chill.tres") as StatusEffect
+	var statuses: Array[StatusEffect] = [burn, chill]
+	var strike_only: Array[ImpactBurstDefinition] = [strike]
+	var origin := Vector2(90000.0, 90000.0)
+
+	# Data.
+	check(strike.burst_id == &"storm_strike" and strike.trigger == ImpactBurstDefinition.Trigger.ON_CRIT and strike.hits_primary and strike.shape == null and is_equal_approx(strike.damage_fraction, 0.5) and strike.unlock_level == 1 and strike.max_per_cast == 4 and strike.carried_status_tags.is_empty(), "storm data: the strike is ON_CRIT, hits_primary, no shape, 0.5, level 1, cap 4, carries no status")
+	check(evolve_card.is_compound_card() and overclock_card.is_compound_card() and evolve_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and overclock_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "storm data: both Storm cards are compound cards (ABILITY_UNLOCK and ABILITY_OVERCLOCK)")
+	check(evolve_card.compound_pair.has(Tags.Type.LIGHTNING) and evolve_card.compound_pair.has(Tags.Type.WIND) and evolve_card.compound_pair.size() == 2 and overclock_card.compound_pair == evolve_card.compound_pair and evolve_card.impact_burst_payload == strike and overclock_card.impact_burst_payload == strike, "storm data: both cards name Lightning + Wind and carry the strike")
+	check(evolve_card.status_effect_payload == null and overclock_card.status_effect_payload == null and evolve_card.evolves_from == null and evolve_card.ability_data_payload == null, "storm data: no status, no evolves_from, no ability data")
+	check(ImpactBurstDefinition.new().hits_primary == false, "storm data: hits_primary defaults to false")
+
+	# a. A crit queues exactly one extra hit on the primary and none on a neighbor in range.
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_storm_crit_payload(stats, 10.0, strike_only))
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[0].size() == 2 and _recorded[1].size() == 0, "storm strike: a crit gives the primary exactly one extra hit and the neighbor none (got %d, %d)" % [_recorded[0].size(), _recorded[1].size()])
+	# c. Strike damage = the crit hit's final damage * damage_fraction.
+	check(is_equal_approx(_lost(bats[0]), 30.0) and is_equal_approx((_recorded[0][1] as CombatPayload).final_damage, 10.0) and is_equal_approx((_recorded[0][0] as CombatPayload).final_damage, 20.0), "storm strike: the crit deals 20 and the strike 10 (crit multiplier included in the fraction)")
+	var strike_payload := _recorded[0][1] as CombatPayload
+	check(strike_payload.is_burst and not strike_payload.is_critical_hit and strike_payload.impact_bursts.is_empty(), "storm strike: the strike payload is a burst, not a crit, with no bursts")
+	_free_bats(bats)
+
+	# b. A non-crit hit queues none.
+	bats = await _spawn_burst_bats(origin + Vector2(0, 1000.0), [Vector2(0, 0)])
+	var plain := _storm_crit_payload(stats, 10.0, strike_only)
+	plain.crit_chance_snapshot = 0.0
+	bats[0].hurtbox_component.take_hit(plain)
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[0].size() == 1 and is_equal_approx(_lost(bats[0]), 10.0), "storm strike: a non-crit hit queues no strike")
+	_free_bats(bats)
+
+	# d. The strike never crits and never starts another burst: an ON_HIT area burst on the same payload fires once.
+	var area := _make_burst(&"test_storm_area", ImpactBurstDefinition.Trigger.ON_HIT, 0.5)
+	var both_bursts: Array[ImpactBurstDefinition] = [strike, area]
+	bats = await _spawn_burst_bats(origin + Vector2(0, 2000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_storm_crit_payload(stats, 10.0, both_bursts))
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[1].size() == 1 and is_equal_approx(_lost(bats[1]), 10.0), "storm strike: the area burst fires once, from the crit hit only (the strike hit starts no burst)")
+	check(_recorded[0].size() == 2 and not (_recorded[0][1] as CombatPayload).is_critical_hit, "storm strike: the strike hit is not a crit even with chance 1.0")
+	_free_bats(bats)
+
+	# e. max_per_cast 4 caps a fan of crits on one cast, per cast.
+	var offsets: Array[Vector2] = []
+	for i in range(6):
+		offsets.append(Vector2(float(i) * 5000.0, 0))
+	bats = await _spawn_burst_bats(origin + Vector2(0, 3000.0), offsets)
+	var fan := _storm_crit_payload(stats, 10.0, strike_only)
+	fan.cast_budget = CastBudget.new()
+	fan.cast_id = 515151
+	for bat in bats:
+		bat.hurtbox_component.take_hit(fan)
+	await tree.process_frame
+	await tree.process_frame
+	var struck := 0
+	for i in range(6):
+		if _recorded[i].size() == 2:
+			struck += 1
+	check(struck == 4, "storm strike: six crits on one cast give four strikes (got %d)" % struck)
+	var second_cast := _storm_crit_payload(stats, 10.0, strike_only)
+	second_cast.cast_budget = CastBudget.new()
+	second_cast.cast_id = 515152
+	_recorded[5].clear()
+	bats[5].hurtbox_component.take_hit(second_cast)
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[5].size() == 2, "storm strike: the cap is per cast (a new cast strikes again)")
+	_free_bats(bats)
+
+	# f. The strike applies no status; the crit hit's own statuses still apply.
+	bats = await _spawn_burst_bats(origin + Vector2(0, 4000.0), [Vector2(0, 0)])
+	bats[0].hurtbox_component.take_hit(_storm_crit_payload(stats, 10.0, strike_only, statuses))
+	await tree.process_frame
+	await tree.process_frame
+	check((_recorded[0][1] as CombatPayload).status_effects_to_apply.is_empty(), "storm strike: the strike payload carries no status")
+	check((_recorded[0][0] as CombatPayload).status_effects_to_apply.size() == 2, "storm strike: the crit hit itself still carries the cast statuses")
+	_free_bats(bats)
+
+	# g. A primary freed or dying before the deferred run: nothing happens, no engine error.
+	bats = await _spawn_burst_bats(origin + Vector2(0, 5000.0), [Vector2(0, 0), Vector2(5000, 0)])
+	bats[0].hurtbox_component.take_hit(_storm_crit_payload(stats, 10.0, strike_only))
+	bats[0].free()
+	bats[1].hurtbox_component.take_hit(_storm_crit_payload(stats, 10.0, strike_only))
+	bats[1].queue_free()
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[0].size() == 1 and _recorded[1].size() == 1, "storm strike: a freed or queued-for-deletion primary receives no strike")
+
+	# h. hits_primary false still excludes the primary.
+	var area_crit := _make_burst(&"test_storm_area_crit", ImpactBurstDefinition.Trigger.ON_CRIT, 0.5)
+	var area_list: Array[ImpactBurstDefinition] = [area_crit]
+	bats = await _spawn_burst_bats(origin + Vector2(0, 6000.0), [Vector2(0, 0), Vector2(30, 0)])
+	bats[0].hurtbox_component.take_hit(_storm_crit_payload(stats, 10.0, area_list))
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[0].size() == 1 and _recorded[1].size() == 1, "storm strike: an area burst without hits_primary still skips the primary")
+	_free_bats(bats)
+
+	# i. Offers and purchases.
+	var player := _socket_pair(lightning, wind, 3)
+	check(mgr._find_next_offer_slot(player) == 1, "storm offer: Lightning 3 + Wind 3 makes slot 1 offer-eligible")
+	var offer := mgr._build_offer_choices(player, 1)
+	check(_offer_ids(offer) == ["compound_storm_evolve", "compound_storm_overclock"], "storm offer: exactly Evolve + Storm and Overclock + Storm, no generic Overclock (got %s)" % str(_offer_ids(offer)))
+	var ability := player.ability_container.get_ability_by_slot(1)
+	var tags: Array[Tags.Type] = ability.tag_component.get_permanent_tags()
+	var ledger := player.run_ledger_component
+	player.apply_contextual_upgrade(offer[0])
+	check(ledger.purchase_registry.has(PurchaseKey.make("compound_storm_evolve", 1)) and not ledger.purchase_registry.has("compound_storm_evolve"), "storm evolve: logged as a slot-specific purchase")
+	check(ledger.get_impact_bursts(1, tags).has(strike) and not ledger.get_impact_bursts(2, tags).has(strike) and not ledger.is_overclocked(1), "storm evolve: the strike resolves for slot 1 only")
+	player = _socket_pair(lightning, wind, 3)
+	ability = player.ability_container.get_ability_by_slot(1)
+	tags = ability.tag_component.get_permanent_tags()
+	ledger = player.run_ledger_component
+	player.apply_contextual_upgrade(offer[1])
+	check(ledger.purchase_registry.has(PurchaseKey.make("compound_storm_overclock", 1)) and ledger.is_overclocked(1) and ledger.get_impact_bursts(1, tags).has(strike) and not ledger.get_impact_bursts(2, tags).has(strike), "storm overclock: slot-specific, overclocked, strike resolves for slot 1 only")
+	player = _socket_pair(fire, lightning, 3)
+	check(_offer_ids(mgr._build_offer_choices(player, 1)) == ["evolve_arc_bolt", "overclock"], "storm offer: Fire 3 + Lightning 3 is unaffected")
+	var leaked := false
+	for choice in mgr.generate_selection_pool(player, 99):
+		leaked = leaked or choice.definition.is_compound_card()
+	for entry in DebugActions.grantable_cards(mgr):
+		leaked = leaked or (entry["definition"] as UpgradeDefinition).is_compound_card()
+	check(not leaked, "storm pool: no compound card appears in level-up drafts or the debug grant list")
 
 
 func _section_lingering_zone() -> void:

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_def"]
+[ext_resource type="Resource" path="res://resources/bursts/storm_strike.tres" id="2_burst"]
+
+[resource]
+script = ExtResource("1_def")
+upgrade_id = "compound_storm_evolve"
+display_name = "Evolve + Storm"
+description = "Evolve this ability: it can take a third element and its element cap rises to 5. Your critical hits call down an extra lightning strike on the enemy hit."
+payload_type = 1
+impact_burst_payload = ExtResource("2_burst")
+compound_pair = Array[int]([11, 12])
+metadata/_custom_type_script = "uid://dw807gwf2omsp"

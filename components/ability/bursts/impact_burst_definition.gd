@@ -15,6 +15,8 @@ enum Trigger { ON_HIT, ON_CRIT }
 @export var required_target_tag: Tags.Type = Tags.Type.NONE
 ## Null makes an effect-only burst: it spawns its effect scene at the hit origin and does nothing else.
 @export var shape: BurstShape
+## Strike mode: the burst hits only the triggering enemy and ignores `shape`. Default false, which keeps the rule that a burst never hits the enemy that triggered it.
+@export var hits_primary: bool = false
 ## Share of the hit's final damage dealt to each enemy the burst catches.
 @export var damage_fraction: float = 0.5
 ## Extra damage multiplier per enemy caught, capped by per_enemy_bonus_cap.

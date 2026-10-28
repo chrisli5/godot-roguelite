@@ -2,11 +2,13 @@ class_name ImpactBurst
 extends RefCounted
 ## Runs impact bursts. Every burst rule lives here, not in the shapes: a burst never crits and never
 ## triggers another burst, and carries only the cast statuses its definition lists in carried_status_tags.
+## A burst never hits the enemy that triggered it, except a strike (hits_primary), whose only target is that enemy.
 
 
 ## Runs `definition` as a one-shot burst at `origin`. Called deferred from HurtboxComponent.take_hit,
 ## because take_hit can run inside a physics callback where spatial queries may not be allowed.
-## `exclude_instance_id` is the primary target's hurtbox, which a burst never hits.
+## `exclude_instance_id` is the primary target's hurtbox, which an area burst never hits and a strike
+## (hits_primary) hits alone.
 static func run(
 	definition: ImpactBurstDefinition,
 	source_payload: CombatPayload,
@@ -17,14 +19,24 @@ static func run(
 	if definition == null or source_payload == null or world == null:
 		return
 
-	# No shape: an effect-only burst, which only spawns its effect.
-	if definition.shape == null:
+	var targets: Array[HurtboxComponent] = []
+	if definition.hits_primary:
+		# Strike: the only target is the triggering enemy, unless it is gone or already dying.
+		var primary := instance_from_id(exclude_instance_id) as HurtboxComponent
+		if not is_instance_valid(primary):
+			return
+		var owner_entity := primary.owner_entity
+		if not is_instance_valid(owner_entity) or owner_entity.is_queued_for_deletion():
+			return
+		targets.append(primary)
+	elif definition.shape == null:
+		# No shape: an effect-only burst, which only spawns its effect.
 		_spawn_effect(definition, origin, source_payload)
 		return
-
-	# The ability's stats container is the burst's caster context (credit and AOE_RADIUS).
-	var stats := instance_from_id(source_payload.stats_container_id) as StatsContainer
-	var targets := definition.shape.find_targets(origin, stats, world.direct_space_state, exclude_instance_id)
+	else:
+		# The ability's stats container is the burst's caster context (credit and AOE_RADIUS).
+		var stats := instance_from_id(source_payload.stats_container_id) as StatsContainer
+		targets = definition.shape.find_targets(origin, stats, world.direct_space_state, exclude_instance_id)
 	if targets.is_empty():
 		return
 

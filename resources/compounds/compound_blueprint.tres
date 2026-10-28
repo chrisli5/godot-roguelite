@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="UpgradeBlueprintProfile" load_steps=9 format=3]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_def"]
 [ext_resource type="Script" uid="uid://vhx7ws3s2gjc" path="res://components/upgrade/resources/upgrade_blueprint_profile.gd" id="2_profile"]
@@ -6,9 +6,11 @@
 [ext_resource type="Resource" path="res://resources/compounds/shatter_overclock_upgrade_def.tres" id="4_overclock"]
 [ext_resource type="Resource" path="res://resources/compounds/magma_evolution_upgrade_def.tres" id="5_magma_evolve"]
 [ext_resource type="Resource" path="res://resources/compounds/magma_overclock_upgrade_def.tres" id="6_magma_overclock"]
+[ext_resource type="Resource" path="res://resources/compounds/storm_evolution_upgrade_def.tres" id="7_storm_evolve"]
+[ext_resource type="Resource" path="res://resources/compounds/storm_overclock_upgrade_def.tres" id="8_storm_overclock"]
 
 [resource]
 script = ExtResource("2_profile")
-definition_bundle = Array[ExtResource("1_def")]([ExtResource("3_evolve"), ExtResource("4_overclock"), ExtResource("5_magma_evolve"), ExtResource("6_magma_overclock")])
+definition_bundle = Array[ExtResource("1_def")]([ExtResource("3_evolve"), ExtResource("4_overclock"), ExtResource("5_magma_evolve"), ExtResource("6_magma_overclock"), ExtResource("7_storm_evolve"), ExtResource("8_storm_overclock")])
 total_tiers = 1
 metadata/_custom_type_script = "uid://vhx7ws3s2gjc"
