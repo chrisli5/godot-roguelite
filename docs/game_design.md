@@ -271,7 +271,7 @@ Compound effects should be conditional or capped. A pair bonus or an evolution m
 * **Magnitude (Decided Oct 27, Task AR).** `STATUS\_MAGNITUDE\_BONUS` is a second ability-wide status stat (default 0.0, effective magnitude = template magnitude times one plus the bonus, snapshotted at cast time, capped per status, placeholder +50%). Non-ticking statuses opt in (Chill does); Burn does not read it, so Burn's strength stays `DOT\_DAMAGE` and the ramp cap. A status with no scalable magnitude reads duration only.
 * **Raising duration and magnitude.** Ordinary stat cards: a level-up card with `GLOBAL\_TAG\_MATCH` scope whose modifier targets `STATUS\_DURATION` or `STATUS\_MAGNITUDE\_BONUS`. A global card applies only to abilities that have ALL of its `target\_tags` (Task AR). Compound cards may also carry stat modifiers. No special draft, and no tag marks "applies a status" (item 61).
 * **Duration decides (Implemented).** There is no cast-time gate. A ticking Burn gets its whole duration from `STATUS\_DURATION` (template `base\_duration` 0). `apply\_effect` returns early when the effective duration is 0 or less: no instance, no `BURNING` tag, no ticks, no warning, and an already-active Burn is left alone.
-* **No status variants.** Templates stay fixed. Chill's slow scaling is undefined. Burn's ramp cap grows with Fire levels through a per-application bonus, not a template change (Implemented).
+* **No status variants.** Templates stay fixed. Chill's slow scales with `STATUS\_MAGNITUDE\_BONUS`, not through a template variant. Burn's ramp cap grows with Fire levels through a per-application bonus, not a template change (Implemented).
 
 ### Effects
 
