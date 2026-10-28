@@ -62,10 +62,18 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 ## not crit (also when the chance is 0 or less, or the payload is a burst's), otherwise a duplicate with this hit's
 ## damage multiplied, is_critical_hit true and, with CRIT_DOT_SHARE above 0, its DoT snapshot scaled by
 ## 1 + (multiplier - 1) * share (Plasma). The shared cast payload is never mutated. Ticks never roll a crit.
-static func resolve_hit_crit(payload: CombatPayload) -> CombatPayload:
-	if payload.is_burst or payload.crit_chance_snapshot <= 0.0:
+## `target_stats` is the receiving entity's stats container (null = none): its INCOMING_CRIT_BONUS (never below 0) is
+## added to the hit's crit chance, and the sum is clamped to 0..1. A burst's payload never crits.
+static func resolve_hit_crit(payload: CombatPayload, target_stats: StatsContainer = null) -> CombatPayload:
+	if payload.is_burst:
 		return payload
-	if payload.crit_chance_snapshot < 1.0 and randf() >= payload.crit_chance_snapshot:
+	var chance := payload.crit_chance_snapshot
+	if is_instance_valid(target_stats):
+		chance += maxf(target_stats.get_final_stat_value(Stat.Type.INCOMING_CRIT_BONUS), 0.0)
+	chance = clampf(chance, 0.0, 1.0)
+	if chance <= 0.0:
+		return payload
+	if chance < 1.0 and randf() >= chance:
 		return payload
 	var resolved := payload.duplicate() as CombatPayload
 	resolved.final_damage *= payload.crit_multiplier_snapshot

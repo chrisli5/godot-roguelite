@@ -15,7 +15,9 @@ func take_hit(payload: CombatPayload) -> void:
 		return
 
 	# Each hit rolls its own crit before bursts qualify and before hit_received, so both see the per-hit flag.
-	payload = CombatCalculations.resolve_hit_crit(payload)
+	# The receiving entity's INCOMING_CRIT_BONUS (for example from Shock) raises the chance; a null owner passes null.
+	var target_stats: StatsContainer = owner_entity.stats_container if is_instance_valid(owner_entity) else null
+	payload = CombatCalculations.resolve_hit_crit(payload, target_stats)
 
 	# A burst's own payload (is_burst) never starts another burst. Which bursts qualify is decided
 	# before hit_received, so this hit's own statuses cannot satisfy a required target tag.

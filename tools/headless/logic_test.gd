@@ -63,6 +63,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_compound_offer,
 		_section_magma,
 		_section_storm_strike,
+		_section_shock,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -2174,7 +2175,7 @@ func _section_plasma_evolution() -> void:
 		for modifier in (load(path) as StatusEffect).stat_modifiers:
 			targets_share = targets_share or modifier.target_stat_type == Stat.Type.CRIT_DOT_SHARE
 	check(not targets_share, "plasma guards: no real card, Burn or Chill modifier targets CRIT_DOT_SHARE")
-	check(not Tags.Type.keys().has("PLASMA") and Tags.Type.size() == 21, "plasma guards: Tags.Type has no PLASMA entry and still has 21 entries")
+	check(not Tags.Type.keys().has("PLASMA") and Tags.Type.size() == 22, "plasma guards: Tags.Type has no PLASMA entry and has 22 entries (SHOCKED added in Task AX)")
 	check(int(Stat.Type.CRIT_DOT_SHARE) == 21, "plasma guards: CRIT_DOT_SHARE is appended as integer 21")
 
 
@@ -2969,7 +2970,7 @@ func _section_storm_strike() -> void:
 	check(strike.burst_id == &"storm_strike" and strike.trigger == ImpactBurstDefinition.Trigger.ON_CRIT and strike.hits_primary and strike.shape == null and is_equal_approx(strike.damage_fraction, 0.5) and strike.unlock_level == 1 and strike.max_per_cast == 4 and strike.carried_status_tags.is_empty(), "storm data: the strike is ON_CRIT, hits_primary, no shape, 0.5, level 1, cap 4, carries no status")
 	check(evolve_card.is_compound_card() and overclock_card.is_compound_card() and evolve_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and overclock_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "storm data: both Storm cards are compound cards (ABILITY_UNLOCK and ABILITY_OVERCLOCK)")
 	check(evolve_card.compound_pair.has(Tags.Type.LIGHTNING) and evolve_card.compound_pair.has(Tags.Type.WIND) and evolve_card.compound_pair.size() == 2 and overclock_card.compound_pair == evolve_card.compound_pair and evolve_card.impact_burst_payload == strike and overclock_card.impact_burst_payload == strike, "storm data: both cards name Lightning + Wind and carry the strike")
-	check(evolve_card.status_effect_payload == null and overclock_card.status_effect_payload == null and evolve_card.evolves_from == null and evolve_card.ability_data_payload == null, "storm data: no status, no evolves_from, no ability data")
+	check(evolve_card.evolves_from == null and evolve_card.ability_data_payload == null, "storm data: no evolves_from, no ability data")
 	check(ImpactBurstDefinition.new().hits_primary == false, "storm data: hits_primary defaults to false")
 
 	# a. A crit queues exactly one extra hit on the primary and none on a neighbor in range.
@@ -3086,6 +3087,126 @@ func _section_storm_strike() -> void:
 	for entry in DebugActions.grantable_cards(mgr):
 		leaked = leaked or (entry["definition"] as UpgradeDefinition).is_compound_card()
 	check(not leaked, "storm pool: no compound card appears in level-up drafts or the debug grant list")
+
+
+const SHOCK_EFFECT := "res://resources/status_effects/shock.tres"
+
+
+## How many of `trials` hits with crit chance `chance` crit against `bat`, rolled through the real resolve_hit_crit.
+func _crit_count(bat: Enemy, chance: float, trials: int = 200) -> int:
+	var payload := _storm_crit_payload(_make_stats({}), 10.0, [])
+	payload.crit_chance_snapshot = chance
+	var crits := 0
+	for i in range(trials):
+		if CombatCalculations.resolve_hit_crit(payload, bat.stats_container).is_critical_hit:
+			crits += 1
+	return crits
+
+
+## The cast statuses of a payload, as effect ids.
+func _status_ids(payload: CombatPayload) -> Array[String]:
+	var ids: Array[String] = []
+	for status in payload.status_effects_to_apply:
+		ids.append(status.effect_id)
+	return ids
+
+
+func _section_shock() -> void:
+	var shock := load(SHOCK_EFFECT) as StatusEffect
+	var storm_evolve := load(STORM_EVOLVE_CARD) as UpgradeDefinition
+	var storm_overclock := load(STORM_OVERCLOCK_CARD) as UpgradeDefinition
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var origin := Vector2(100000.0, 100000.0)
+	seed(12345)
+
+	# Data and enum values.
+	check(int(Stat.Type.INCOMING_CRIT_BONUS) == 25 and int(Tags.Type.SHOCKED) == 21, "shock data: INCOMING_CRIT_BONUS is 25 and SHOCKED is 21 (appended)")
+	var modifier := shock.stat_modifiers[0]
+	check(shock.effect_id == "shock" and is_equal_approx(shock.base_duration, 3.0) and is_equal_approx(shock.tick_interval, 0.0) and shock.magnitude_scales and is_equal_approx(shock.max_magnitude_bonus, 0.5) and shock.granted_tags == [Tags.Type.SHOCKED], "shock data: non-ticking, 3 s, scales with magnitude, grants SHOCKED")
+	check(shock.stat_modifiers.size() == 1 and modifier.type == StatModifier.Type.FLAT and is_equal_approx(modifier.value, 0.15) and modifier.target_stat_type == Stat.Type.INCOMING_CRIT_BONUS, "shock data: one FLAT 0.15 modifier on INCOMING_CRIT_BONUS")
+	check(storm_evolve.status_effect_payload == shock and storm_overclock.status_effect_payload == shock, "shock data: both Storm cards carry Shock")
+	check((load(STORM_BURST) as ImpactBurstDefinition).carried_status_tags.is_empty(), "shock data: the strike still carries no status tag")
+
+	# Every shipped enemy profile carries the stat, or Shock would do nothing.
+	var enemy_count := 0
+	var missing: Array[String] = []
+	for path in _list_tres("res://resources"):
+		var resource := load(path)
+		if resource is EnemyData:
+			enemy_count += 1
+			var profile := (resource as EnemyData).stats_profile
+			if profile == null or not profile.base_stats.has(Stat.Type.INCOMING_CRIT_BONUS):
+				missing.append(path)
+	check(enemy_count >= 1 and missing.is_empty(), "shock profiles: every shipped enemy profile carries INCOMING_CRIT_BONUS (%d enemies, missing %s)" % [enemy_count, str(missing)])
+
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0)])
+	var bat := bats[0]
+	var comp := bat.status_effect_component
+	check(is_equal_approx(bat.stats_container.get_final_stat_value(Stat.Type.INCOMING_CRIT_BONUS), 0.0) and not bat.tag_component.has_tag(Tags.Type.SHOCKED), "shock: a fresh enemy has no bonus and no SHOCKED tag")
+
+	# The enemy's own stats container receives the status modifiers and the tag (Entity does this for every entity).
+	var plain_crits := _crit_count(bat, 0.85)
+	comp.apply_effect(shock)
+	check(is_equal_approx(bat.stats_container.get_final_stat_value(Stat.Type.INCOMING_CRIT_BONUS), 0.15) and bat.tag_component.has_tag(Tags.Type.SHOCKED), "shock: applying Shock gives the enemy INCOMING_CRIT_BONUS 0.15 and the SHOCKED tag")
+	var shocked_crits := _crit_count(bat, 0.85)
+	check(plain_crits < 200 and plain_crits > 0 and shocked_crits == 200, "shock: chance 0.85 plus 0.15 always crits; without Shock it does not (%d, %d of 200)" % [plain_crits, shocked_crits])
+
+	# The bonus belongs to the target: a payload from another slot also benefits, and the sum clamps to 1.
+	var other := _storm_crit_payload(_make_stats({}, 2), 10.0, [])
+	other.crit_chance_snapshot = 0.85
+	check(CombatCalculations.resolve_hit_crit(other, bat.stats_container).is_critical_hit, "shock: a payload from another slot's ability also benefits")
+	check(_crit_count(bat, 0.99) == 200 and _crit_count(bat, 5.0) == 200, "shock: a chance above the cap clamps and still crits")
+	other.crit_chance_snapshot = 0.0
+	check(not CombatCalculations.resolve_hit_crit(other, null).is_critical_hit, "shock: a null target stats container adds nothing")
+
+	# Re-applying refreshes the timer, the latest magnitude wins.
+	comp._process(2.0)
+	var instance: StatusEffectInstance = comp._active_effects.get("shock")
+	check(instance != null and is_equal_approx(instance.time_remaining, 1.0), "shock: 2 s in, 1 s remains")
+	comp.apply_effect(shock, 0.0, 0.0, 0.0, 0.2)
+	check(is_equal_approx(instance.time_remaining, 3.0) and is_equal_approx(bat.stats_container.get_final_stat_value(Stat.Type.INCOMING_CRIT_BONUS), 0.18), "shock: re-applying refreshes the timer, and a magnitude bonus of 0.2 gives 0.18")
+	comp.apply_effect(shock, 0.0, 0.0, 0.0, 0.9)
+	check(is_equal_approx(bat.stats_container.get_final_stat_value(Stat.Type.INCOMING_CRIT_BONUS), 0.225), "shock: a magnitude bonus above the template cap 0.5 clamps (0.15 * 1.5)")
+
+	# Expiry removes the bonus and the tag.
+	comp._process(3.1)
+	check(not comp._active_effects.has("shock") and is_equal_approx(bat.stats_container.get_final_stat_value(Stat.Type.INCOMING_CRIT_BONUS), 0.0) and not bat.tag_component.has_tag(Tags.Type.SHOCKED), "shock: on expiry the bonus and SHOCKED are gone")
+	_free_bats(bats)
+
+	# A hit does not benefit from the Shock it applies, and a burst payload never crits on a Shocked enemy.
+	var shock_list: Array[StatusEffect] = [shock]
+	bats = await _spawn_burst_bats(origin + Vector2(0, 1000.0), [Vector2(0, 0)])
+	var first := _storm_crit_payload(stats, 10.0, [], shock_list)
+	first.crit_chance_snapshot = 0.0
+	bats[0].hurtbox_component.take_hit(first)
+	check(not (_recorded[0][0] as CombatPayload).is_critical_hit and bats[0].tag_component.has_tag(Tags.Type.SHOCKED), "shock: the hit that applies Shock does not benefit from it (the crit rolls before statuses apply)")
+	var burst_payload := _storm_crit_payload(stats, 10.0, [])
+	burst_payload.is_burst = true
+	bats[0].hurtbox_component.take_hit(burst_payload)
+	check(not (_recorded[0][1] as CombatPayload).is_critical_hit and is_equal_approx(_lost(bats[0]), 20.0), "shock: a burst payload never crits, even on a Shocked enemy")
+	_free_bats(bats)
+
+	# A Storm slot's regular hits carry Shock (no Fire needed); the strike carries nothing.
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var wind := load(WIND_CARD) as UpgradeDefinition
+	var player := _socket_pair(lightning, wind, 3)
+	var ability := player.ability_container.get_ability_by_slot(1)
+	player.apply_contextual_upgrade(fx.get_upgrade_manager()._build_offer_choices(player, 1)[0])
+	var cast := CombatCalculations.generate_hit_payload(null, ability.stats_container, null)
+	check(_status_ids(cast) == ["shock"], "shock: a Lightning + Wind slot with a Storm card casts exactly [shock], no Fire needed (got %s)" % str(_status_ids(cast)))
+	check(cast.impact_bursts.size() == 1 and ImpactBurst.carried_statuses(cast.impact_bursts[0], cast.status_effects_to_apply).is_empty(), "shock: the strike carries none of the cast statuses")
+	var other_slot := CombatCalculations.generate_hit_payload(null, _make_stats({Stat.Type.BASE_DAMAGE: 1.0, Stat.Type.DOT_DAMAGE: 1.0}, 2, player.run_ledger_component), null)
+	check(other_slot.status_effects_to_apply.is_empty(), "shock: another slot of the same player casts no Shock")
+
+	# Magma is unchanged: a Fire + Earth slot with the Magma card still casts exactly Burn.
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var magma_player := _socket_pair(fire, earth, 3)
+	magma_player.run_ledger_component.log_slot_specific_purchase(load(MAGMA_EVOLVE_CARD) as UpgradeDefinition, 1)
+	var magma_cast := CombatCalculations.generate_hit_payload(null, magma_player.ability_container.get_ability_by_slot(1).stats_container, null)
+	check(_status_ids(magma_cast) == ["burn"], "shock: a Magma slot still casts exactly [burn] (got %s)" % str(_status_ids(magma_cast)))
+	check(burn.tick_interval > 0.0 and burn.stat_modifiers.is_empty() and not burn.magnitude_scales, "shock: Burn's template is untouched")
 
 
 func _section_lingering_zone() -> void:

@@ -6,6 +6,7 @@
 script = ExtResource("1_b1117")
 base_stats = Dictionary[int, float]({
 0: 10.0,
-1: 50.0
+1: 50.0,
+25: 0.0
 })
 metadata/_custom_type_script = "uid://dmq5w3j3r2g5r"
