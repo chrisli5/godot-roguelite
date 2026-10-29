@@ -36,6 +36,8 @@ enum Type {
 	REACH_BONUS, ## Flat bonus every reach stat of a geometry is multiplied by (1 + bonus). Raised by Earth. 0 = none.
 	STATUS_MAGNITUDE_BONUS, ## Flat bonus the magnitude of a magnitude-scaling (non-ticking) status is multiplied by (1 + bonus), capped per status. Chill first. Burn ignores it. 0 = none.
 	INCOMING_CRIT_BONUS, ## Added to the crit chance of every hit this entity receives. Raised by a status such as Shock. 0 = none.
+	CRIT_COOLDOWN_REFUND, ## Seconds a critting hit shaves off its ability's running cooldown (Superconduct). 0 = off.
+	CRIT_REFUND_CAP, ## Most seconds one cast can refund in total through CRIT_COOLDOWN_REFUND. 0 = none.
 }
 
 @export var type: Type = Type.MAX_HEALTH

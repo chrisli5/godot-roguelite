@@ -14,6 +14,7 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 	_last_cast_id += 1
 	payload.cast_id = _last_cast_id
 	payload.cast_budget = CastBudget.new()
+	payload.cast_events = CastEvents.new()
 	if is_instance_valid(caster):
 		payload.caster_instance_id = caster.get_instance_id()
 	
@@ -30,6 +31,8 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.crit_chance_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_CHANCE) # 5% baseline
 		payload.crit_multiplier_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_MULTIPLIER)  # 150% baseline
 		payload.crit_dot_share_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE)
+		payload.crit_refund_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_COOLDOWN_REFUND)
+		payload.crit_refund_cap_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_REFUND_CAP)
 		# Indirect scale (Frost, Wind): applied once per cast, to the pre-crit hit and to the DoT snapshot.
 		var damage_scale: float = stats.get_indirect_damage_scale()
 		payload.damage_scale = damage_scale
@@ -81,6 +84,17 @@ static func resolve_hit_crit(payload: CombatPayload, target_stats: StatsContaine
 	if payload.crit_dot_share_snapshot > 0.0:
 		resolved.dot_damage_snapshot *= 1.0 + (payload.crit_multiplier_snapshot - 1.0) * payload.crit_dot_share_snapshot
 	return resolved
+
+
+## Claims the cooldown refund of ONE resolved hit (Superconduct) from the cast's shared CastEvents and returns the
+## seconds granted: 0.0 unless the hit is a critting, non-burst hit of a cast with a refund snapshot above 0.
+## The grant is the snapshot, cut down so the cast's total never passes the cap snapshot.
+static func claim_crit_refund(payload: CombatPayload) -> float:
+	if payload.cast_events == null or not payload.is_critical_hit or payload.is_burst or payload.crit_refund_snapshot <= 0.0:
+		return 0.0
+	var granted := minf(payload.crit_refund_snapshot, maxf(payload.crit_refund_cap_snapshot - payload.cast_events.refunded, 0.0))
+	payload.cast_events.refunded += granted
+	return granted
 
 
 static func _warn_missing_dot_damage(effect_id: String) -> void:

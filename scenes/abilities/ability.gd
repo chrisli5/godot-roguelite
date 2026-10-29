@@ -19,6 +19,11 @@ var payload_driver: PayloadDriver = null
 var character_caster: Node2D = null
 var is_eligible_for_overclock: bool = false
 var _cooldown_timer: Timer
+## Seconds refunded while the cooldown timer was stopped (delivery in progress); taken off the next cooldown.
+var _pending_refund: float = 0.0
+
+## A refund never leaves less than this on the timer. Timer.start(0) would keep the previous wait_time instead.
+const MIN_REMAINING: float = 0.05
 
 var display_name: String:
 	get:
@@ -56,6 +61,8 @@ func _trigger_ability_delivery() -> void:
 	var running_payload := CombatCalculations.generate_hit_payload(character_caster, stats_container, tag_component)
 	if is_instance_valid(data) and data.texture_prefab is Texture2D:
 		running_payload.base_texture = data.texture_prefab
+	# The connection ends with this node: Godot disconnects a signal from a freed Callable target.
+	running_payload.cast_events.cooldown_refunded.connect(_on_cooldown_refunded)
 
 	if is_instance_valid(payload_driver):
 		payload_driver.intercept_payload(running_payload)
@@ -163,7 +170,25 @@ func _start_cooldown_phase() -> void:
 	var downtime: float = 4.0
 	if is_instance_valid(stats_container):
 		downtime = stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	if _pending_refund > 0.0:
+		downtime = minf(downtime, maxf(downtime - _pending_refund, MIN_REMAINING))
+		_pending_refund = 0.0
 	_cooldown_timer.start(downtime)
+
+
+## Shortens the running cooldown by `seconds` (never below MIN_REMAINING). With the timer stopped (delivery still in
+## progress) the refund is held and taken off the next cooldown instead.
+func _on_cooldown_refunded(seconds: float) -> void:
+	if seconds <= 0.0 or not is_instance_valid(_cooldown_timer):
+		return
+	if _cooldown_timer.is_stopped() or _cooldown_timer.time_left <= 0.0:
+		_pending_refund += seconds
+		return
+	# Nothing left to take off: a refund must never lengthen the cooldown.
+	if _cooldown_timer.time_left <= MIN_REMAINING:
+		return
+	# start() also sets wait_time to this value; the next _start_cooldown_phase restores the full stat value.
+	_cooldown_timer.start(maxf(_cooldown_timer.time_left - seconds, MIN_REMAINING))
 
 
 func _on_delivery_finished() -> void:

@@ -64,6 +64,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_magma,
 		_section_storm_strike,
 		_section_shock,
+		_section_superconduct,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -3452,6 +3453,9 @@ func _section_geometry_contract() -> void:
 			check(data.stats_profile.base_stats.has(stat), "geometry contract: %s profile has %s" % [ability_name, Stat.Type.keys()[stat]])
 		# Task AR: every ability profile carries STATUS_MAGNITUDE_BONUS at 0.0, or magnitude-scaling statuses ignore the ability.
 		check(data.stats_profile.base_stats.has(Stat.Type.STATUS_MAGNITUDE_BONUS) and is_zero_approx(data.stats_profile.base_stats[Stat.Type.STATUS_MAGNITUDE_BONUS]), "geometry contract: %s profile has STATUS_MAGNITUDE_BONUS at 0.0" % ability_name)
+		# Task AZ: every ability profile carries CRIT_COOLDOWN_REFUND and CRIT_REFUND_CAP at 0.0, or Superconduct does nothing for the ability.
+		for refund_stat in [Stat.Type.CRIT_COOLDOWN_REFUND, Stat.Type.CRIT_REFUND_CAP]:
+			check(data.stats_profile.base_stats.has(refund_stat) and is_zero_approx(data.stats_profile.base_stats[refund_stat]), "geometry contract: %s profile has %s at 0.0" % [ability_name, Stat.Type.keys()[refund_stat]])
 		# Task X: a declared reach or speed stat needs its bonus key, or Earth and Wind do nothing for the ability.
 		if not geometry.get_reach_stats().is_empty():
 			check(data.stats_profile.base_stats.has(Stat.Type.REACH_BONUS), "geometry contract: %s profile has REACH_BONUS" % ability_name)
@@ -4838,3 +4842,261 @@ func _section_all_match_tags() -> void:
 	check(_ar_pool_has(manager, player, "test_ar_two_tags"), "all-match: slot 4 with both tags makes the card eligible (pool)")
 
 	manager.master_upgrade_pool = saved_pool
+
+
+const SUPERCONDUCT_EVOLVE_CARD := "res://resources/compounds/superconduct_evolution_upgrade_def.tres"
+const SUPERCONDUCT_OVERCLOCK_CARD := "res://resources/compounds/superconduct_overclock_upgrade_def.tres"
+const COMPOUND_BLUEPRINT := "res://resources/compounds/compound_blueprint.tres"
+
+
+## A geometry that only keeps the payload it was handed, to read what Ability._trigger_ability_delivery wired.
+class _CaptureGeometry extends GeometryDriver:
+	var captured: CombatPayload = null
+
+	func execute_geometry(_query_results: Dictionary, final_payload: CombatPayload) -> void:
+		captured = final_payload
+
+	func get_family() -> StringName:
+		return &"timed"
+
+
+## A payload whose hits crit with `crit_chance`, refunding `refund` seconds per crit up to `cap` per cast, with its own CastEvents.
+func _refund_payload(stats: StatsContainer, refund: float, cap: float, crit_chance: float = 1.0) -> CombatPayload:
+	var payload := _storm_crit_payload(stats, 10.0, [])
+	payload.crit_chance_snapshot = crit_chance
+	payload.crit_refund_snapshot = refund
+	payload.crit_refund_cap_snapshot = cap
+	payload.cast_events = CastEvents.new()
+	return payload
+
+
+## Wires a payload's refunds to `ability` the way Ability._trigger_ability_delivery does.
+func _wire_refund(payload: CombatPayload, ability: Ability) -> CombatPayload:
+	payload.cast_events.cooldown_refunded.connect(ability._on_cooldown_refunded)
+	return payload
+
+
+func _section_superconduct() -> void:
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var fire := load(FIRE_CARD) as UpgradeDefinition
+	var evolve_card := load(SUPERCONDUCT_EVOLVE_CARD) as UpgradeDefinition
+	var overclock_card := load(SUPERCONDUCT_OVERCLOCK_CARD) as UpgradeDefinition
+	var blueprint := load(COMPOUND_BLUEPRINT) as UpgradeBlueprintProfile
+	var mgr := fx.get_upgrade_manager()
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 40.0})
+	var floor_time: float = Ability.MIN_REMAINING
+	seed(12345)
+
+	# a. Data, enum values, registration.
+	check(int(Stat.Type.CRIT_COOLDOWN_REFUND) == 26 and int(Stat.Type.CRIT_REFUND_CAP) == 27 and int(Tags.Type.FROST) == 10 and int(Tags.Type.LIGHTNING) == 11, "superconduct data: CRIT_COOLDOWN_REFUND is 26, CRIT_REFUND_CAP is 27 (appended), Frost 10, Lightning 11")
+	check(evolve_card.upgrade_id == "compound_superconduct_evolve" and overclock_card.upgrade_id == "compound_superconduct_overclock" and evolve_card.display_name == "Evolve + Superconduct" and overclock_card.display_name == "Overclock + Superconduct", "superconduct data: ids and names")
+	check(evolve_card.is_compound_card() and overclock_card.is_compound_card() and evolve_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and overclock_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK, "superconduct data: both are compound cards (ABILITY_UNLOCK and ABILITY_OVERCLOCK)")
+	check(evolve_card.compound_pair == [Tags.Type.FROST, Tags.Type.LIGHTNING] and overclock_card.compound_pair == evolve_card.compound_pair, "superconduct data: both cards name Frost + Lightning")
+	check(evolve_card.evolves_from == null and evolve_card.ability_data_payload == null and evolve_card.impact_burst_payload == null and overclock_card.impact_burst_payload == null and evolve_card.status_effect_payload == null and overclock_card.status_effect_payload == null, "superconduct data: no evolves_from, no ability data, no burst, no status")
+	var modifiers_ok := true
+	for card in [evolve_card, overclock_card]:
+		var mods := (card as UpgradeDefinition).stat_modifiers
+		modifiers_ok = modifiers_ok and mods.size() == 2 \
+				and mods[0].type == StatModifier.Type.FLAT and mods[0].target_stat_type == Stat.Type.CRIT_COOLDOWN_REFUND and is_equal_approx(mods[0].value, 0.25) \
+				and mods[1].type == StatModifier.Type.FLAT and mods[1].target_stat_type == Stat.Type.CRIT_REFUND_CAP and is_equal_approx(mods[1].value, 0.5)
+	check(modifiers_ok, "superconduct data: both cards carry FLAT +0.25 CRIT_COOLDOWN_REFUND and FLAT +0.5 CRIT_REFUND_CAP")
+	var shipped_compounds: Array[String] = []
+	for definition in blueprint.definition_bundle:
+		if definition.is_compound_card():
+			shipped_compounds.append(definition.upgrade_id)
+	shipped_compounds.sort()
+	check(blueprint.definition_bundle.has(evolve_card) and blueprint.definition_bundle.has(overclock_card), "superconduct data: both cards are registered in compound_blueprint.tres")
+	check(shipped_compounds == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "compound_storm_evolve", "compound_storm_overclock", "compound_superconduct_evolve", "compound_superconduct_overclock"], "superconduct guard: the blueprint holds exactly the eight shipped compound cards (found %s)" % str(shipped_compounds))
+	for data_path in ["res://resources/abilities/arcane_bolt/arcane_bolt_data.tres", "res://resources/abilities/arc_bolt/arc_bolt_data.tres"]:
+		var base_stats := (load(data_path) as AbilityData).stats_profile.base_stats
+		check(base_stats.get(Stat.Type.CRIT_COOLDOWN_REFUND, -1.0) == 0.0 and base_stats.get(Stat.Type.CRIT_REFUND_CAP, -1.0) == 0.0, "superconduct profiles: %s carries both refund stats at 0.0" % data_path.get_file().get_basename())
+
+	# b. claim_crit_refund on its own.
+	var claim := _refund_payload(stats, 0.25, 0.5)
+	check(is_zero_approx(CombatCalculations.claim_crit_refund(claim)), "superconduct claim: the shared (unresolved) cast payload never refunds")
+	var claim_crit := CombatCalculations.resolve_hit_crit(claim)
+	check(claim_crit.is_critical_hit and claim_crit.cast_events == claim.cast_events, "superconduct claim: a critting copy shares the cast's CastEvents")
+	var grants: Array[float] = []
+	for i in range(3):
+		grants.append(CombatCalculations.claim_crit_refund(claim_crit))
+	check(is_equal_approx(grants[0], 0.25) and is_equal_approx(grants[1], 0.25) and is_zero_approx(grants[2]) and is_equal_approx(claim.cast_events.refunded, 0.5), "superconduct claim: 0.25 per crit up to the 0.5 cap, then 0 (got %s, total %s)" % [str(grants), claim.cast_events.refunded])
+	var partial := CombatCalculations.resolve_hit_crit(_refund_payload(stats, 0.4, 0.5))
+	var partial_grants: Array[float] = [CombatCalculations.claim_crit_refund(partial), CombatCalculations.claim_crit_refund(partial), CombatCalculations.claim_crit_refund(partial)]
+	check(is_equal_approx(partial_grants[0], 0.4) and is_equal_approx(partial_grants[1], 0.1) and is_zero_approx(partial_grants[2]), "superconduct claim: the last grant is cut to the cap room left (got %s)" % str(partial_grants))
+	var burst_like := _refund_payload(stats, 0.25, 0.5)
+	burst_like.is_critical_hit = true
+	burst_like.is_burst = true
+	check(is_zero_approx(CombatCalculations.claim_crit_refund(burst_like)), "superconduct claim: a burst payload never refunds")
+	var no_events := _refund_payload(stats, 0.25, 0.5)
+	no_events.is_critical_hit = true
+	no_events.cast_events = null
+	check(is_zero_approx(CombatCalculations.claim_crit_refund(no_events)), "superconduct claim: a payload without CastEvents refunds nothing")
+	var no_snapshot := _refund_payload(stats, 0.0, 0.5)
+	no_snapshot.is_critical_hit = true
+	check(is_zero_approx(CombatCalculations.claim_crit_refund(no_snapshot)), "superconduct claim: a 0 snapshot refunds nothing")
+	var no_cap := _refund_payload(stats, 0.25, 0.0)
+	no_cap.is_critical_hit = true
+	check(is_zero_approx(CombatCalculations.claim_crit_refund(no_cap)), "superconduct claim: a 0 cap refunds nothing")
+
+	# c. Timer behavior through take_hit. Bats first (they await); the timer checks below run with no awaits.
+	var bats := await _spawn_burst_bats(Vector2(110000.0, 110000.0), [Vector2(0, 0)])
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var timer := ability._cooldown_timer
+	var hurtbox := bats[0].hurtbox_component
+	timer.start(10.0)
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 0.25, 0.5), ability))
+	check(absf(timer.time_left - 9.75) < 0.01, "superconduct timer: a crit shortens the running cooldown by the refund (left %s)" % timer.time_left)
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 0.25, 0.5, 0.0), ability))
+	check(absf(timer.time_left - 9.75) < 0.01, "superconduct timer: a non-crit does not")
+	var burst_hit := _wire_refund(_refund_payload(stats, 0.25, 0.5), ability)
+	burst_hit.is_burst = true
+	hurtbox.take_hit(burst_hit)
+	check(absf(timer.time_left - 9.75) < 0.01 and is_zero_approx(burst_hit.cast_events.refunded), "superconduct timer: a burst payload does not")
+	var fan := _wire_refund(_refund_payload(stats, 0.25, 0.5), ability)
+	timer.start(10.0)
+	for i in range(6):
+		hurtbox.take_hit(fan)
+	check(absf(timer.time_left - 9.5) < 0.01 and is_equal_approx(fan.cast_events.refunded, 0.5), "superconduct timer: six crits of one cast refund 0.5 in total, the cap (left %s)" % timer.time_left)
+	var second_cast := _wire_refund(_refund_payload(stats, 0.25, 0.5), ability)
+	for i in range(6):
+		hurtbox.take_hit(second_cast)
+	check(absf(timer.time_left - 9.0) < 0.01 and is_equal_approx(second_cast.cast_events.refunded, 0.5), "superconduct timer: a second cast has a fresh cap (left %s)" % timer.time_left)
+
+	# d. The floor, and what Timer.start(0) does.
+	timer.start(1.0)
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 5.0, 10.0), ability))
+	check(absf(timer.time_left - floor_time) < 0.01 and absf(timer.wait_time - floor_time) < 0.001 and not timer.is_stopped(), "superconduct floor: a refund bigger than the time left leaves MIN_REMAINING (left %s, wait_time %s)" % [timer.time_left, timer.wait_time])
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 5.0, 10.0), ability))
+	check(absf(timer.time_left - floor_time) < 0.01 and absf(timer.wait_time - floor_time) < 0.001, "superconduct floor: a refund with only MIN_REMAINING left changes nothing (never lengthens)")
+	var probe := Timer.new()
+	world.add_child(probe)
+	fx.track(probe)
+	probe.start(2.0)
+	probe.start(0.0)
+	check(is_equal_approx(probe.wait_time, 2.0) and is_equal_approx(probe.time_left, 2.0), "engine: Timer.start(0.0) keeps the previous wait_time (the reason the refund never passes 0)")
+	probe.start(0.7)
+	check(is_equal_approx(probe.wait_time, 0.7), "engine: Timer.start(t > 0) also sets wait_time to t")
+
+	# e. A stopped timer holds the refund; the next cooldown takes it off; the cycle after is the full stat value.
+	var full: float = ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	timer.stop()
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 0.25, 0.5), ability))
+	check(timer.is_stopped() and is_equal_approx(ability._pending_refund, 0.25), "superconduct pending: a crit while the timer is stopped is held, the timer stays stopped")
+	ability._start_cooldown_phase()
+	check(absf(timer.time_left - (full - 0.25)) < 0.01 and is_zero_approx(ability._pending_refund), "superconduct pending: the next cooldown is the stat value minus the held refund and the hold is cleared (left %s, full %s)" % [timer.time_left, full])
+	ability._start_cooldown_phase()
+	check(absf(timer.time_left - full) < 0.01 and is_equal_approx(timer.wait_time, full), "superconduct pending: the cooldown after that is the full stat value")
+	timer.stop()
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 50.0, 100.0), ability))
+	ability._start_cooldown_phase()
+	check(absf(timer.time_left - floor_time) < 0.01, "superconduct pending: a held refund bigger than the cooldown leaves MIN_REMAINING")
+	timer.start(10.0)
+	hurtbox.take_hit(_wire_refund(_refund_payload(stats, 0.25, 0.5), ability))
+	check(absf(timer.wait_time - 9.75) < 0.01, "superconduct restore: after a refund the timer's wait_time is the shortened value")
+	ability._on_stat_updated(Stat.Type.COOLDOWN, full)
+	check(is_equal_approx(timer.wait_time, full) and absf(timer.time_left - 9.75) < 0.01, "superconduct restore: a COOLDOWN stat update sets wait_time and leaves the time left alone")
+	ability._start_cooldown_phase()
+	check(absf(timer.time_left - full) < 0.01 and is_equal_approx(timer.wait_time, full), "superconduct restore: the next normal cooldown after a refunded cycle is the full stat value")
+
+	# f. A slot without the stats refunds nothing (missing stats read 0.0).
+	var plain := CombatCalculations.generate_hit_payload(player, ability.stats_container, ability.tag_component)
+	check(is_zero_approx(plain.crit_refund_snapshot) and is_zero_approx(plain.crit_refund_cap_snapshot) and plain.cast_events != null and is_zero_approx(plain.cast_events.refunded), "superconduct missing: a slot without the cards snapshots 0 / 0 and a fresh CastEvents")
+	var bare := CombatCalculations.generate_hit_payload(player, _make_stats({}), null)
+	check(is_zero_approx(bare.crit_refund_snapshot) and is_zero_approx(bare.crit_refund_cap_snapshot), "superconduct missing: a profile without the keys reads 0.0")
+	_wire_refund(bare, ability)
+	bare.crit_chance_snapshot = 1.0
+	bare.crit_multiplier_snapshot = 2.0
+	timer.start(10.0)
+	hurtbox.take_hit(bare)
+	check(absf(timer.time_left - 10.0) < 0.01 and is_zero_approx(bare.cast_events.refunded), "superconduct missing: a critting hit from such a cast leaves the timer alone")
+	var again := CombatCalculations.generate_hit_payload(player, ability.stats_container, ability.tag_component)
+	check(plain.cast_events != again.cast_events, "superconduct cast: every cast gets its own CastEvents")
+	timer.stop()
+	_free_bats(bats)
+
+	# g. A strike (burst) never refunds, while its triggering crit does exactly once.
+	var strike := load(STORM_BURST) as ImpactBurstDefinition
+	var strike_list: Array[ImpactBurstDefinition] = [strike]
+	var strike_bats := await _spawn_burst_bats(Vector2(112000.0, 112000.0), [Vector2(0, 0)])
+	var strike_payload := _storm_crit_payload(stats, 10.0, strike_list)
+	strike_payload.crit_refund_snapshot = 0.25
+	strike_payload.crit_refund_cap_snapshot = 5.0
+	strike_payload.cast_events = CastEvents.new()
+	strike_bats[0].hurtbox_component.take_hit(strike_payload)
+	await tree.process_frame
+	await tree.process_frame
+	check(_recorded[0].size() == 2 and is_equal_approx(strike_payload.cast_events.refunded, 0.25), "superconduct strike: the crit refunds once, the strike hit it triggers refunds nothing (hits %d, refunded %s)" % [_recorded[0].size(), strike_payload.cast_events.refunded])
+	_free_bats(strike_bats)
+
+	# h. Real cast: Frost 3 + Lightning 3 offers the two cards, the purchase is slot-specific, the cast wires the refund.
+	var frost_player := _socket_pair(frost, lightning, 3)
+	check(mgr._find_next_offer_slot(frost_player) == 1, "superconduct offer: Frost 3 + Lightning 3 makes slot 1 offer-eligible")
+	var offer := mgr._build_offer_choices(frost_player, 1)
+	check(_offer_ids(offer) == ["compound_superconduct_evolve", "compound_superconduct_overclock"], "superconduct offer: exactly Evolve + Superconduct and Overclock + Superconduct, no generic Overclock (got %s)" % str(_offer_ids(offer)))
+	var frost_ability := frost_player.ability_container.get_ability_by_slot(1)
+	var tags: Array[Tags.Type] = frost_ability.tag_component.get_permanent_tags()
+	var ledger := frost_player.run_ledger_component
+	var scale_before := frost_ability.stats_container.get_indirect_damage_scale()
+	var cooldown_before := frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	var payload_before := CombatCalculations.generate_hit_payload(frost_player, frost_ability.stats_container, frost_ability.tag_component)
+	check(is_zero_approx(payload_before.crit_refund_snapshot) and scale_before > 1.0, "superconduct frost: before the card there is no refund and Frost's indirect scale is above 1 (%s)" % scale_before)
+	frost_player.apply_contextual_upgrade(offer[0])
+	check(ledger.purchase_registry.has(PurchaseKey.make("compound_superconduct_evolve", 1)) and not ledger.purchase_registry.has("compound_superconduct_evolve"), "superconduct evolve: logged as a slot-specific purchase")
+	check(is_equal_approx(ledger.get_modifier_totals(1, tags, Stat.Type.CRIT_COOLDOWN_REFUND).x, 0.25) and is_equal_approx(ledger.get_modifier_totals(1, tags, Stat.Type.CRIT_REFUND_CAP).x, 0.5), "superconduct evolve: slot 1 gets +0.25 and +0.5 flat")
+	for other_slot in [0, 2, 3, 4]:
+		check(is_zero_approx(ledger.get_modifier_totals(other_slot, tags, Stat.Type.CRIT_COOLDOWN_REFUND).x) and is_zero_approx(ledger.get_modifier_totals(other_slot, tags, Stat.Type.CRIT_REFUND_CAP).x), "superconduct evolve: slot %d gets nothing" % other_slot)
+	var other_stats := _make_stats({Stat.Type.CRIT_COOLDOWN_REFUND: 0.0, Stat.Type.CRIT_REFUND_CAP: 0.0}, 2, ledger)
+	check(is_zero_approx(other_stats.get_final_stat_value(Stat.Type.CRIT_COOLDOWN_REFUND)) and is_zero_approx(other_stats.get_final_stat_value(Stat.Type.CRIT_REFUND_CAP)), "superconduct evolve: a slot-2 stats container with the keys still reads 0 / 0")
+	var payload_after := CombatCalculations.generate_hit_payload(frost_player, frost_ability.stats_container, frost_ability.tag_component)
+	check(is_equal_approx(payload_after.crit_refund_snapshot, 0.25) and is_equal_approx(payload_after.crit_refund_cap_snapshot, 0.5), "superconduct cast: the payload snapshots 0.25 / 0.5, not scaled by Frost's damage_scale (%s)" % payload_after.damage_scale)
+	check(is_equal_approx(payload_after.damage_scale, payload_before.damage_scale) and is_equal_approx(payload_after.final_damage, payload_before.final_damage) and is_equal_approx(payload_after.dot_damage_snapshot, payload_before.dot_damage_snapshot) and is_equal_approx(frost_ability.stats_container.get_indirect_damage_scale(), scale_before) and is_equal_approx(frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN), cooldown_before), "superconduct frost: damage_scale, hit and DoT snapshots, Frost's indirect scale and COOLDOWN are unchanged by the card")
+	var frost_bats := await _spawn_burst_bats(Vector2(114000.0, 114000.0), [Vector2(0, 0)])
+	var capture := _CaptureGeometry.new()
+	frost_ability.add_child(capture)
+	frost_ability.geometry_driver = capture
+	var frost_timer := frost_ability._cooldown_timer
+	frost_timer.stop()
+	frost_ability._pending_refund = 0.0
+	frost_ability._trigger_ability_delivery()
+	check(capture.captured != null and capture.captured.cast_events.cooldown_refunded.is_connected(frost_ability._on_cooldown_refunded), "superconduct cast: _trigger_ability_delivery connects the payload's refund signal to the Ability")
+	capture.captured.crit_chance_snapshot = 1.0
+	frost_bats[0].hurtbox_component.take_hit(capture.captured)
+	check(frost_timer.is_stopped() and is_equal_approx(frost_ability._pending_refund, 0.25), "superconduct cast: a crit during delivery (timer stopped) is held as a pending refund")
+	capture.delivery_finished.connect(frost_ability._on_delivery_finished)
+	capture.delivery_finished.emit()
+	var frost_full: float = frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	check(absf(frost_timer.time_left - maxf(frost_full - 0.25, floor_time)) < 0.01, "superconduct cast: delivery_finished starts the cooldown shortened by the held refund (left %s, full %s)" % [frost_timer.time_left, frost_full])
+	frost_timer.stop()
+	_free_bats(frost_bats)
+
+	# i. Overclock + Superconduct: same effect, slot-specific, overclocked.
+	var oc_player := _socket_pair(frost, lightning, 3)
+	var oc_ability := oc_player.ability_container.get_ability_by_slot(1)
+	var oc_tags: Array[Tags.Type] = oc_ability.tag_component.get_permanent_tags()
+	oc_player.apply_contextual_upgrade(offer[1])
+	var oc_ledger := oc_player.run_ledger_component
+	check(oc_ledger.purchase_registry.has(PurchaseKey.make("compound_superconduct_overclock", 1)) and oc_ledger.is_overclocked(1) and is_equal_approx(oc_ledger.get_modifier_totals(1, oc_tags, Stat.Type.CRIT_COOLDOWN_REFUND).x, 0.25) and is_zero_approx(oc_ledger.get_modifier_totals(2, oc_tags, Stat.Type.CRIT_COOLDOWN_REFUND).x), "superconduct overclock: slot-specific, overclocked, the refund reaches slot 1 only")
+
+	# j. Other pairs are unaffected; no leak into drafts or the debug list.
+	var fire_player := _socket_pair(fire, lightning, 3)
+	check(_offer_ids(mgr._build_offer_choices(fire_player, 1)) == ["evolve_arc_bolt", "overclock"], "superconduct offer: Fire 3 + Lightning 3 is unaffected")
+	var leaked := false
+	for choice in mgr.generate_selection_pool(frost_player, 99):
+		leaked = leaked or choice.definition.is_compound_card()
+	for entry in DebugActions.grantable_cards(mgr):
+		leaked = leaked or (entry["definition"] as UpgradeDefinition).is_compound_card()
+	check(not leaked, "superconduct pool: no compound card appears in level-up drafts or the debug grant list")
+
+	# k. A freed Ability leaves no connection behind and the emit is harmless.
+	var dangling := _refund_payload(stats, 0.25, 0.5)
+	var doomed_player := fx.fresh_player()
+	var doomed := fx.mount_arcane_bolt(doomed_player)
+	doomed._cooldown_timer.stop()
+	dangling.cast_events.cooldown_refunded.connect(doomed._on_cooldown_refunded)
+	check(dangling.cast_events.cooldown_refunded.get_connections().size() == 1, "superconduct dangling: one connection while the Ability lives")
+	doomed.free()
+	check(dangling.cast_events.cooldown_refunded.get_connections().is_empty(), "superconduct dangling: freeing the Ability removes the connection")
+	dangling.cast_events.cooldown_refunded.emit(0.25)
+	check(true, "superconduct dangling: emitting after the Ability is gone raises no error (the error guard watches this section)")

@@ -13,6 +13,9 @@ extends Resource
 @export var crit_chance_snapshot: float = 0.0
 @export var crit_multiplier_snapshot: float = 0.0
 @export var crit_dot_share_snapshot: float = 0.0
+## Cast-time snapshots of CRIT_COOLDOWN_REFUND (seconds per critting hit) and CRIT_REFUND_CAP (seconds per cast). Not scaled by damage_scale.
+@export var crit_refund_snapshot: float = 0.0
+@export var crit_refund_cap_snapshot: float = 0.0
 ## Indirect damage scale applied once to this cast's hit damage and DoT snapshot (1.0 = none). Copies keep it
 ## and never apply it again.
 @export var damage_scale: float = 1.0
@@ -38,6 +41,8 @@ extends Resource
 @export var cast_id: int = 0
 ## Per-cast spend counters, shared (never copied) by every duplicate of this payload. Null means unlimited.
 @export var cast_budget: CastBudget = null
+## Per-cast events and counters (cooldown refunded so far), shared by every duplicate of this payload. Null means no refunds.
+@export var cast_events: CastEvents = null
 
 @export_group("Dynamic Strategy Core Targets")
 ## Injected by the spawning Ability: Points to the live Enemy Node2D locked by the hotbar strategy

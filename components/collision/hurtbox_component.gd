@@ -18,6 +18,9 @@ func take_hit(payload: CombatPayload) -> void:
 	# The receiving entity's INCOMING_CRIT_BONUS (for example from Shock) raises the chance; a null owner passes null.
 	var target_stats: StatsContainer = owner_entity.stats_container if is_instance_valid(owner_entity) else null
 	payload = CombatCalculations.resolve_hit_crit(payload, target_stats)
+	var refund := CombatCalculations.claim_crit_refund(payload)
+	if refund > 0.0:
+		payload.cast_events.cooldown_refunded.emit(refund)
 
 	# A burst's own payload (is_burst) never starts another burst. Which bursts qualify is decided
 	# before hit_received, so this hit's own statuses cannot satisfy a required target tag.
