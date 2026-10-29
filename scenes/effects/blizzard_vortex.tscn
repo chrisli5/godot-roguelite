@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://bpfvbvv1fjyf1" path="res://components/ability/bursts/lingering_zone.gd" id="1_zone"]
+
+[node name="BlizzardVortex" type="Node2D"]
+script = ExtResource("1_zone")
+zone_id = &"blizzard_vortex"
+lifetime = 3.0
+apply_interval = 0.2
+scale_interval_with_speed = true
+damage_fraction = 0.1
+radius_multiplier = 5.0
+merge_distance = 40.0
+max_live_zones = 6
+zone_color = Color(0.55, 0.8, 1, 0.35)

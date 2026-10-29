@@ -65,6 +65,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_storm_strike,
 		_section_shock,
 		_section_superconduct,
+		_section_blizzard,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -2450,12 +2451,12 @@ func _section_burst_extensions() -> void:
 		if resource is ImpactBurstDefinition:
 			var shipped := resource as ImpactBurstDefinition
 			burst_ids.append(String(shipped.burst_id))
-			if shipped.burst_id != &"shatter" and shipped.burst_id != &"magma_lava" and (not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0):
+			if shipped.burst_id != &"shatter" and shipped.burst_id != &"magma_lava" and shipped.burst_id != &"blizzard_vortex" and (not shipped.carried_status_tags.is_empty() or shipped.required_target_tag != Tags.Type.NONE or shipped.per_enemy_bonus != 0.0):
 				uses_extension += 1
 	users.sort()
 	burst_ids.sort()
-	check(users == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "compound_storm_evolve", "compound_storm_overclock"], "burst ext guards: only the six compound cards (Shatter, Magma, Storm) carry an impact_burst_payload (found %s)" % str(users))
-	check(burst_ids == ["magma_lava", "shatter", "storm_strike"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are magma_lava, shatter and storm_strike, and only the first two use the extension fields (found %s)" % str(burst_ids))
+	check(users == ["compound_blizzard_evolve", "compound_blizzard_overclock", "compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "compound_storm_evolve", "compound_storm_overclock"], "burst ext guards: only the eight compound cards (Shatter, Magma, Storm, Blizzard) carry an impact_burst_payload (found %s)" % str(users))
+	check(burst_ids == ["blizzard_vortex", "magma_lava", "shatter", "storm_strike"] and uses_extension == 0, "burst ext guards: the only shipped ImpactBurstDefinitions are blizzard_vortex, magma_lava, shatter and storm_strike, and only the first three use the extension fields (found %s)" % str(burst_ids))
 
 
 func _section_burst_status_filter() -> void:
@@ -3344,7 +3345,7 @@ func _section_lingering_zone() -> void:
 		for path in _list_scene_files(dir_path):
 			if FileAccess.get_file_as_string(path).contains("lingering_zone.gd"):
 				referencing += 1
-	check(referencing == 1 and FileAccess.get_file_as_string("res://scenes/effects/lava_zone.tscn").contains("lingering_zone.gd"), "zone guards: the only shipped scene or resource that references lingering_zone.gd is scenes/effects/lava_zone.tscn (found %d)" % referencing)
+	check(referencing == 2 and FileAccess.get_file_as_string("res://scenes/effects/lava_zone.tscn").contains("lingering_zone.gd") and FileAccess.get_file_as_string("res://scenes/effects/blizzard_vortex.tscn").contains("lingering_zone.gd"), "zone guards: the only shipped scenes or resources that reference lingering_zone.gd are scenes/effects/lava_zone.tscn and blizzard_vortex.tscn (found %d)" % referencing)
 	LingeringZone.reset_registry()
 
 
@@ -4907,7 +4908,7 @@ func _section_superconduct() -> void:
 			shipped_compounds.append(definition.upgrade_id)
 	shipped_compounds.sort()
 	check(blueprint.definition_bundle.has(evolve_card) and blueprint.definition_bundle.has(overclock_card), "superconduct data: both cards are registered in compound_blueprint.tres")
-	check(shipped_compounds == ["compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "compound_storm_evolve", "compound_storm_overclock", "compound_superconduct_evolve", "compound_superconduct_overclock"], "superconduct guard: the blueprint holds exactly the eight shipped compound cards (found %s)" % str(shipped_compounds))
+	check(shipped_compounds == ["compound_blizzard_evolve", "compound_blizzard_overclock", "compound_magma_evolve", "compound_magma_overclock", "compound_shatter_evolve", "compound_shatter_overclock", "compound_storm_evolve", "compound_storm_overclock", "compound_superconduct_evolve", "compound_superconduct_overclock"], "superconduct guard: the blueprint holds exactly the ten shipped compound cards (found %s)" % str(shipped_compounds))
 	for data_path in ["res://resources/abilities/arcane_bolt/arcane_bolt_data.tres", "res://resources/abilities/arc_bolt/arc_bolt_data.tres"]:
 		var base_stats := (load(data_path) as AbilityData).stats_profile.base_stats
 		check(base_stats.get(Stat.Type.CRIT_COOLDOWN_REFUND, -1.0) == 0.0 and base_stats.get(Stat.Type.CRIT_REFUND_CAP, -1.0) == 0.0, "superconduct profiles: %s carries both refund stats at 0.0" % data_path.get_file().get_basename())
@@ -5100,3 +5101,237 @@ func _section_superconduct() -> void:
 	check(dangling.cast_events.cooldown_refunded.get_connections().is_empty(), "superconduct dangling: freeing the Ability removes the connection")
 	dangling.cast_events.cooldown_refunded.emit(0.25)
 	check(true, "superconduct dangling: emitting after the Ability is gone raises no error (the error guard watches this section)")
+
+
+const BLIZZARD_EVOLVE_CARD := "res://resources/compounds/blizzard_evolution_upgrade_def.tres"
+const BLIZZARD_OVERCLOCK_CARD := "res://resources/compounds/blizzard_overclock_upgrade_def.tres"
+const BLIZZARD_BURST := "res://resources/bursts/blizzard_vortex.tres"
+const BLIZZARD_VORTEX_SCENE := "res://scenes/effects/blizzard_vortex.tscn"
+const CHILL_EFFECT := "res://resources/status_effects/chill.tres"
+
+
+## A cast payload for the vortex: Chill, hit damage `damage`, a Chill duration of `chill_seconds`, no crit.
+func _vortex_payload(stats: StatsContainer, damage: float, chill_seconds: float = 3.0) -> CombatPayload:
+	var definition := load(BLIZZARD_BURST) as ImpactBurstDefinition
+	var chill_list: Array[StatusEffect] = [load(CHILL_EFFECT) as StatusEffect]
+	var payload := _ext_payload(stats, damage, definition, chill_list)
+	payload.status_duration_snapshot = chill_seconds
+	payload.cast_budget = CastBudget.new()
+	return payload
+
+
+func _free_zone(zone) -> void:
+	if is_instance_valid(zone):
+		zone.queue_free()
+
+
+func _section_blizzard() -> void:
+	LingeringZone.reset_registry()
+	var vortex := load(BLIZZARD_BURST) as ImpactBurstDefinition
+	var vortex_scene := load(BLIZZARD_VORTEX_SCENE) as PackedScene
+	var chill := load(CHILL_EFFECT) as StatusEffect
+	var evolve_card := load(BLIZZARD_EVOLVE_CARD) as UpgradeDefinition
+	var overclock_card := load(BLIZZARD_OVERCLOCK_CARD) as UpgradeDefinition
+	var blueprint := load(COMPOUND_BLUEPRINT) as UpgradeBlueprintProfile
+	var mgr := fx.get_upgrade_manager()
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0})
+	var host := _zone_host()
+	seed(12345)
+
+	# a. Data.
+	check(vortex.burst_id == &"blizzard_vortex" and vortex.trigger == ImpactBurstDefinition.Trigger.ON_HIT and vortex.shape == null and vortex.effect_scene == vortex_scene and vortex.carried_status_tags == [Tags.Type.CHILLED] and vortex.unlock_level == 1 and vortex.max_per_cast == 1 and not vortex.hits_primary, "blizzard data: the vortex burst is effect-only, ON_HIT, carries only CHILLED, level 1, cap 1")
+	var probe := vortex_scene.instantiate() as LingeringZone
+	check(probe != null and probe.zone_id == &"blizzard_vortex" and is_equal_approx(probe.lifetime, 3.0) and is_equal_approx(probe.apply_interval, 0.2) and probe.scale_interval_with_speed and is_equal_approx(probe.damage_fraction, 0.1) and is_equal_approx(probe.radius_multiplier, 5.0) and is_equal_approx(probe.merge_distance, 40.0) and probe.max_live_zones == 6, "blizzard data: the vortex scene's exports (3 s, 0.2 s scaled by speed, 0.1 damage, radius 5, merge 40, cap 6)")
+	if probe != null:
+		probe.free()
+	check(evolve_card.is_compound_card() and overclock_card.is_compound_card() and evolve_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_UNLOCK and overclock_card.payload_type == UpgradeDefinition.PayloadType.ABILITY_OVERCLOCK and evolve_card.compound_pair == [Tags.Type.FROST, Tags.Type.WIND] and overclock_card.compound_pair == evolve_card.compound_pair, "blizzard data: both cards are compound cards naming Frost + Wind")
+	check(evolve_card.impact_burst_payload == vortex and overclock_card.impact_burst_payload == vortex and evolve_card.status_effect_payload == chill and overclock_card.status_effect_payload == chill and evolve_card.evolves_from == null and evolve_card.ability_data_payload == null and evolve_card.stat_modifiers.is_empty() and overclock_card.stat_modifiers.is_empty(), "blizzard data: both cards carry the vortex and Chill, no ability data, no stat modifiers")
+	check(blueprint.definition_bundle.has(evolve_card) and blueprint.definition_bundle.has(overclock_card), "blizzard data: both cards are registered in compound_blueprint.tres")
+	var chill_before := [chill.effect_id, chill.base_duration, chill.tick_interval, chill.magnitude_scales, chill.max_magnitude_bonus, chill.granted_tags.duplicate(), chill.stat_modifiers.size(), chill.stat_modifiers[0].value, chill.stat_modifiers[0].type, chill.stat_modifiers[0].target_stat_type]
+
+	# b. Pulses damage and Chill everything inside, nothing outside; pulses never crit or start a burst.
+	var origin := Vector2(116000.0, 116000.0)
+	var bats := await _spawn_burst_bats(origin, [Vector2(0, 0), Vector2(20, 0), Vector2(100, 0)])
+	var chill_refreshes := [0]
+	bats[1].status_effect_component.refreshed.connect(func(_instance: StatusEffectInstance) -> void: chill_refreshes[0] += 1)
+	var payload := _vortex_payload(stats, 10.0, -2.7) # Chill base 3.0 s - 2.7 = 0.3 s
+	payload.crit_chance_snapshot = 1.0
+	payload.crit_multiplier_snapshot = 2.0
+	var zone := await _spawn_zone(vortex, payload, origin)
+	check(zone != null and is_equal_approx(zone._interval, 0.2) and LingeringZone.get_live_count(&"blizzard_vortex") == 1, "blizzard pulse: a vortex spawned, registered, pulsing every 0.2 s with SPEED_BONUS 0")
+	await tree.create_timer(0.7).timeout
+	var inside_hits: Array = _recorded[1]
+	var pulses_ok: bool = inside_hits.size() >= 2
+	for seen in inside_hits:
+		pulses_ok = pulses_ok and seen.is_burst and not seen.is_critical_hit and seen.impact_bursts.is_empty() and is_equal_approx(seen.final_damage, 1.0) and seen.status_effects_to_apply.size() == 1
+	check(pulses_ok, "blizzard pulse: every pulse hit is_burst, not a crit even with crit chance 1.0, has no bursts, carries Chill and deals 10 * 0.1 = 1 (%d pulses)" % inside_hits.size())
+	check(is_equal_approx(_lost(bats[1]), float(inside_hits.size())) and is_equal_approx(_lost(bats[0]), float(_recorded[0].size())) and _recorded[0].size() == inside_hits.size(), "blizzard pulse: every enemy inside loses 1 per pulse")
+	check(_recorded[2].is_empty() and is_zero_approx(_lost(bats[2])), "blizzard pulse: an enemy outside the radius takes nothing")
+	check(bats[1].status_effect_component._active_effects.has("chill") and bats[1].status_effect_component.get_active_instances().size() == 1 and chill_refreshes[0] >= 2, "blizzard chill: Chill is applied on the first pulse and refreshed by later ones, one instance (refreshed %d times)" % chill_refreshes[0])
+	check(not bats[2].status_effect_component._active_effects.has("chill"), "blizzard chill: an enemy outside is not Chilled")
+
+	# c. Chill expires after the enemy leaves; the latest payload wins on refresh.
+	bats[1].global_position = origin + Vector2(300, 0)
+	await tree.physics_frame
+	await tree.physics_frame
+	var count_left: int = _recorded[1].size()
+	await tree.create_timer(0.6).timeout
+	check(_recorded[1].size() == count_left and not bats[1].status_effect_component._active_effects.has("chill"), "blizzard chill: after the enemy leaves, pulses stop hitting it and the 0.3 s Chill expires")
+	var stronger := _vortex_payload(stats, 40.0, 0.3)
+	var stronger_burst := stronger.duplicate() as CombatPayload
+	stronger_burst.is_burst = true
+	var no_bursts: Array[ImpactBurstDefinition] = []
+	stronger_burst.impact_bursts = no_bursts
+	var before_refresh: int = _recorded[0].size()
+	zone.refresh(stronger_burst)
+	await tree.create_timer(0.3).timeout
+	var latest: CombatPayload = _recorded[0][_recorded[0].size() - 1]
+	check(_recorded[0].size() > before_refresh and is_equal_approx(latest.final_damage, 4.0), "blizzard refresh: the latest payload wins, pulses now deal 40 * 0.1 = 4")
+	check([chill.effect_id, chill.base_duration, chill.tick_interval, chill.magnitude_scales, chill.max_magnitude_bonus, chill.granted_tags, chill.stat_modifiers.size(), chill.stat_modifiers[0].value, chill.stat_modifiers[0].type, chill.stat_modifiers[0].target_stat_type] == chill_before and is_equal_approx(chill.stat_modifiers[0].value, -0.3) and chill.granted_tags == [Tags.Type.CHILLED], "blizzard chill: the Chill template is unchanged by the pulses")
+
+	# d. Lifetime, merge refresh.
+	await tree.create_timer(0.5).timeout
+	var near := await _spawn_zone(vortex, _vortex_payload(stats, 10.0), origin + Vector2(10, 0))
+	await tree.process_frame
+	check(LingeringZone.get_live_count(&"blizzard_vortex") == 1 and is_instance_valid(zone) and not is_instance_valid(near), "blizzard merge: a new hit within merge_distance refreshes the live vortex instead of adding one")
+	await tree.create_timer(2.4).timeout
+	check(is_instance_valid(zone), "blizzard merge: the refresh reset the lifetime (the vortex outlives its original 3 s)")
+	await tree.create_timer(1.0).timeout
+	check(not is_instance_valid(zone) and LingeringZone.get_live_count(&"blizzard_vortex") == 0, "blizzard lifetime: the vortex frees itself 3 s after its last refresh and unregisters")
+	_free_bats(bats)
+
+	# e. Interval: 0.2 / (1 + SPEED_BONUS), never below 0.05; pulse rate follows.
+	var intervals: Array[float] = []
+	for bonus in [0.0, 1.0, 3.0, 9.0]:
+		var speed_stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0, Stat.Type.SPEED_BONUS: bonus})
+		var speed_zone := vortex_scene.instantiate() as LingeringZone
+		speed_zone.configure(_vortex_payload(speed_stats, 10.0))
+		intervals.append(speed_zone._interval)
+		speed_zone.free()
+	check(is_equal_approx(intervals[0], 0.2) and is_equal_approx(intervals[1], 0.1) and is_equal_approx(intervals[2], 0.05) and is_equal_approx(intervals[3], 0.05), "blizzard speed: interval 0.2 / (1 + SPEED_BONUS), floor 0.05 (got %s)" % str(intervals))
+	var rate_origin := Vector2(118000.0, 118000.0)
+	var rate_counts: Array[int] = []
+	for bonus in [0.0, 1.0]:
+		var rate_bats := await _spawn_burst_bats(rate_origin, [Vector2(0, 0)])
+		var rate_stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0, Stat.Type.SPEED_BONUS: bonus})
+		var rate_zone := await _spawn_zone(vortex, _vortex_payload(rate_stats, 10.0), rate_origin)
+		await tree.create_timer(0.6).timeout
+		rate_counts.append(_recorded[0].size())
+		_free_zone(rate_zone)
+		_free_bats(rate_bats)
+		await tree.process_frame
+	check(rate_counts[0] >= 2 and rate_counts[1] > rate_counts[0], "blizzard speed: SPEED_BONUS 1.0 pulses more often than 0 in the same time (%s)" % str(rate_counts))
+
+	# f. A real hit queues one vortex at the impact point; max_per_cast holds over a fan; a crit makes stronger pulses.
+	var hit_origin := Vector2(120000.0, 120000.0)
+	var hit_bats := await _spawn_burst_bats(hit_origin, [Vector2(0, 0), Vector2(20, 0)])
+	var children_before := host.get_child_count()
+	var fan := _vortex_payload(stats, 10.0)
+	fan.crit_chance_snapshot = 1.0
+	fan.crit_multiplier_snapshot = 2.0
+	for i in range(4):
+		hit_bats[0].hurtbox_component.take_hit(fan)
+	await tree.process_frame
+	await tree.process_frame
+	var spawned: LingeringZone = null
+	if host.get_child_count() > children_before:
+		spawned = host.get_child(host.get_child_count() - 1) as LingeringZone
+	check(spawned != null and host.get_child_count() == children_before + 1 and spawned.global_position.is_equal_approx(hit_origin) and LingeringZone.get_live_count(&"blizzard_vortex") == 1, "blizzard hit: four crits of one cast queue exactly one vortex, at the impact point (max_per_cast 1)")
+	await tree.create_timer(0.5).timeout
+	var neighbor_hits: Array = _recorded[1]
+	var crit_pulse := false
+	for seen in neighbor_hits:
+		crit_pulse = crit_pulse or is_equal_approx(seen.final_damage, 2.0)
+	check(crit_pulse and neighbor_hits.size() >= 2, "blizzard crit: pulses made from a crit hit deal 20 * 0.1 = 2 (the resolved damage)")
+	_free_zone(spawned)
+	_free_bats(hit_bats)
+
+	# g. An enemy freed or killed mid-zone causes no error.
+	var kill_origin := Vector2(122000.0, 122000.0)
+	var kill_bats := await _spawn_burst_bats(kill_origin, [Vector2(0, 0), Vector2(10, 0), Vector2(-10, 0)])
+	var kill_zone := await _spawn_zone(vortex, _vortex_payload(stats, 10.0), kill_origin)
+	await tree.create_timer(0.3).timeout
+	kill_bats[1].free()
+	var lethal := _vortex_payload(stats, 5000.0)
+	var no_vortex: Array[ImpactBurstDefinition] = []
+	lethal.impact_bursts = no_vortex # a lethal hit that starts no vortex (a refresh would adopt its damage)
+	kill_bats[2].hurtbox_component.take_hit(lethal)
+	await tree.create_timer(0.6).timeout
+	check(is_instance_valid(kill_zone) and is_instance_valid(kill_bats[0]), "blizzard death: the vortex keeps pulsing after an enemy inside is freed and another is killed (the error guard watches this section)")
+	_free_zone(kill_zone)
+	var kill_rest: Array[Enemy] = [kill_bats[0]]
+	_free_bats(kill_rest)
+
+	# h. The live cap (6) removes the oldest.
+	LingeringZone.reset_registry()
+	var cap_zones: Array[LingeringZone] = []
+	for i in range(8):
+		cap_zones.append(await _spawn_zone(vortex, _vortex_payload(stats, 10.0), Vector2(124000.0 + 200.0 * i, 124000.0)))
+	await tree.process_frame
+	var survivors := 0
+	for cap_zone in cap_zones:
+		if is_instance_valid(cap_zone) and not cap_zone.is_queued_for_deletion():
+			survivors += 1
+	check(LingeringZone.get_live_count(&"blizzard_vortex") == 6 and survivors == 6 and not is_instance_valid(cap_zones[0]) and not is_instance_valid(cap_zones[1]) and is_instance_valid(cap_zones[7]), "blizzard cap: eight vortices leave six, the two oldest removed (live %d)" % LingeringZone.get_live_count(&"blizzard_vortex"))
+	for cap_zone in cap_zones:
+		_free_zone(cap_zone)
+	await tree.process_frame
+
+	# i. Magma's zone is unchanged: statuses only, its own interval, speed ignored.
+	var lava_zone := (load(LAVA_ZONE_SCENE) as PackedScene).instantiate() as LingeringZone
+	var fast_stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0, Stat.Type.SPEED_BONUS: 3.0})
+	lava_zone.configure(_vortex_payload(fast_stats, 10.0))
+	check(is_zero_approx(lava_zone.damage_fraction) and not lava_zone.scale_interval_with_speed and is_equal_approx(lava_zone._interval, 0.5), "blizzard magma: the lava zone keeps damage_fraction 0, no speed scaling and its 0.5 s interval even with SPEED_BONUS 3")
+	lava_zone.free()
+
+	# j. Offers and purchases.
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var wind := load(WIND_CARD) as UpgradeDefinition
+	var earth := load(EARTH_CARD) as UpgradeDefinition
+	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
+	var player := _socket_pair(frost, wind, 3)
+	check(mgr._find_next_offer_slot(player) == 1, "blizzard offer: Frost 3 + Wind 3 makes slot 1 offer-eligible")
+	var offer := mgr._build_offer_choices(player, 1)
+	check(_offer_ids(offer) == ["compound_blizzard_evolve", "compound_blizzard_overclock"], "blizzard offer: exactly Evolve + Blizzard and Overclock + Blizzard, no generic Overclock (got %s)" % str(_offer_ids(offer)))
+	var ability := player.ability_container.get_ability_by_slot(1)
+	var tags: Array[Tags.Type] = ability.tag_component.get_permanent_tags()
+	var ledger := player.run_ledger_component
+	player.apply_contextual_upgrade(offer[0])
+	check(ledger.purchase_registry.has(PurchaseKey.make("compound_blizzard_evolve", 1)) and not ledger.purchase_registry.has("compound_blizzard_evolve"), "blizzard evolve: logged as a slot-specific purchase")
+	check(ledger.get_impact_bursts(1, tags).has(vortex) and not ledger.get_impact_bursts(2, tags).has(vortex) and ledger.get_status_effects(1, tags).has(chill) and not ledger.get_status_effects(2, tags).has(chill) and not ledger.is_overclocked(1), "blizzard evolve: the vortex and Chill resolve for slot 1 only")
+	player = _socket_pair(frost, wind, 3)
+	ability = player.ability_container.get_ability_by_slot(1)
+	tags = ability.tag_component.get_permanent_tags()
+	ledger = player.run_ledger_component
+	player.apply_contextual_upgrade(offer[1])
+	check(ledger.purchase_registry.has(PurchaseKey.make("compound_blizzard_overclock", 1)) and ledger.is_overclocked(1) and ledger.get_impact_bursts(1, tags).has(vortex) and not ledger.get_impact_bursts(2, tags).has(vortex), "blizzard overclock: slot-specific, overclocked, the vortex resolves for slot 1 only")
+	check(_offer_ids(mgr._build_offer_choices(_socket_pair(frost, earth, 3), 1)) == ["compound_shatter_evolve", "compound_shatter_overclock"], "blizzard offer: Frost 3 + Earth 3 still offers the Shatter pair")
+	check(_offer_ids(mgr._build_offer_choices(_socket_pair(frost, lightning, 3), 1)) == ["compound_superconduct_evolve", "compound_superconduct_overclock"], "blizzard offer: Frost 3 + Lightning 3 still offers the Superconduct pair")
+	var shatter_player := _socket_pair(frost, earth, 3)
+	shatter_player.apply_contextual_upgrade(mgr._build_offer_choices(shatter_player, 1)[0])
+	var shatter_tags: Array[Tags.Type] = shatter_player.ability_container.get_ability_by_slot(1).tag_component.get_permanent_tags()
+	check(not shatter_player.run_ledger_component.get_impact_bursts(1, shatter_tags).has(vortex), "blizzard offer: a Shatter slot gets no vortex")
+	var leaked := false
+	for choice in mgr.generate_selection_pool(player, 99):
+		leaked = leaked or choice.definition.is_compound_card()
+	for entry in DebugActions.grantable_cards(mgr):
+		leaked = leaked or (entry["definition"] as UpgradeDefinition).is_compound_card()
+	check(not leaked, "blizzard pool: no compound card appears in level-up drafts or the debug grant list")
+
+	# k. Guards.
+	var burst_cards: Array[String] = []
+	var vortex_ids: Array[String] = []
+	var compound_ids: Array[String] = []
+	for path in _list_tres("res://resources"):
+		var resource := load(path)
+		if resource is UpgradeDefinition and (resource as UpgradeDefinition).impact_burst_payload != null and (resource as UpgradeDefinition).impact_burst_payload.burst_id == &"blizzard_vortex":
+			burst_cards.append((resource as UpgradeDefinition).upgrade_id)
+		if resource is ImpactBurstDefinition and (resource as ImpactBurstDefinition).effect_scene != null:
+			vortex_ids.append(String((resource as ImpactBurstDefinition).burst_id))
+		if resource is UpgradeDefinition and (resource as UpgradeDefinition).is_compound_card():
+			compound_ids.append((resource as UpgradeDefinition).upgrade_id)
+	burst_cards.sort()
+	vortex_ids.sort()
+	compound_ids.sort()
+	check(burst_cards == ["compound_blizzard_evolve", "compound_blizzard_overclock"] and vortex_ids == ["blizzard_vortex", "magma_lava"], "blizzard guard: only the two Blizzard cards carry the vortex, and the only zone bursts are magma_lava and blizzard_vortex (found %s, %s)" % [str(burst_cards), str(vortex_ids)])
+	check(compound_ids.size() == 10 and compound_ids.has("compound_blizzard_evolve") and compound_ids.has("compound_blizzard_overclock"), "blizzard guard: ten compound cards ship in total (found %s)" % str(compound_ids))

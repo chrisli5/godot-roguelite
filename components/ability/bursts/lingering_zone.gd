@@ -1,15 +1,20 @@
 class_name LingeringZone
 extends BurstEffect
-## A timed area spawned by an effect-only impact burst. While it lives it re-applies the cast's statuses,
-## with the cast's snapshots and no direct damage, to every enemy inside it. A new zone near a live zone
+## A timed area spawned by an effect-only impact burst. While it lives, each pulse re-applies the cast's statuses,
+## with the cast's snapshots, to every enemy inside it, and deals damage_fraction of the cast payload's final damage
+## (0 = no direct damage, as for Magma). A new zone near a live zone
 ## with the same zone_id refreshes that zone instead of spawning another, and each zone_id has a live cap.
 
 ## Zones with the same id share the merge rule and the live cap. Set a unique id per zone type.
 @export var zone_id: StringName = &""
 ## Seconds the zone lives after it spawns or is refreshed.
 @export var lifetime: float = 4.0
-## Seconds between applications. The first application happens on the zone's first physics frame.
+## Seconds between pulses. The first pulse happens on the zone's first physics frame.
 @export var apply_interval: float = 0.5
+## When true, the pulse interval is apply_interval / (1 + SPEED_BONUS) of the cast's stats (minimum MIN_INTERVAL).
+@export var scale_interval_with_speed: bool = false
+## Hit damage each pulse deals to every enemy inside, as a fraction of the cast payload's final damage. 0 = statuses only.
+@export var damage_fraction: float = 0.0
 ## Zone radius = the cast's AOE_RADIUS times this.
 @export var radius_multiplier: float = 1.0
 ## A new zone this close to a live zone of the same zone_id refreshes it instead of spawning.
@@ -19,6 +24,9 @@ extends BurstEffect
 @export_group("Placeholder Visual")
 @export var zone_color: Color = Color(1.0, 0.45, 0.1, 0.35)
 
+## Shortest pulse interval a speed-scaled zone may have.
+const MIN_INTERVAL: float = 0.05
+
 ## Live zones per zone_id, oldest first.
 static var _registry: Dictionary[StringName, Array] = {}
 
@@ -27,6 +35,8 @@ var _radius: float = 0.0
 var _shape: CircleShape2D = null
 var _remaining: float = 0.0
 var _apply_timer: float = 0.0
+## Seconds between pulses; set by configure, or from apply_interval in _ready when never configured.
+var _interval: float = -1.0
 var _discarded: bool = false
 
 
@@ -46,6 +56,9 @@ func configure(source_payload: CombatPayload) -> void:
 	var stats := instance_from_id(source_payload.stats_container_id) as StatsContainer
 	if is_instance_valid(stats):
 		_radius = StatBonus.reach(stats, Stat.Type.AOE_RADIUS) * radius_multiplier
+	_interval = apply_interval
+	if scale_interval_with_speed:
+		_interval = maxf(StatBonus.interval(stats, apply_interval), MIN_INTERVAL)
 	if _radius > 0.0:
 		_shape = CircleShape2D.new()
 		_shape.radius = _radius
@@ -54,8 +67,10 @@ func configure(source_payload: CombatPayload) -> void:
 
 func _ready() -> void:
 	_remaining = lifetime
-	# Apply on the first physics frame, then every apply_interval.
-	_apply_timer = apply_interval
+	# Pulse on the first physics frame, then every interval.
+	if _interval < 0.0:
+		_interval = apply_interval
+	_apply_timer = _interval
 	# The spawner positions the node after add_child, so merge and register one step later.
 	_register_or_merge.call_deferred()
 
@@ -78,9 +93,9 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 	_apply_timer += delta
-	if _apply_timer >= apply_interval:
-		_apply_timer = fmod(_apply_timer, maxf(apply_interval, 0.001))
-		_apply_statuses()
+	if _apply_timer >= _interval:
+		_apply_timer = fmod(_apply_timer, maxf(_interval, 0.001))
+		_pulse()
 
 
 func _draw() -> void:
@@ -125,13 +140,16 @@ func _unregister() -> void:
 		_registry.erase(zone_id)
 
 
-func _apply_statuses() -> void:
-	if _shape == null or _payload == null or _payload.status_effects_to_apply.is_empty():
+## One pulse: every enemy inside takes the cast's statuses and damage_fraction of its final damage.
+func _pulse() -> void:
+	if _shape == null or _payload == null:
+		return
+	if _payload.status_effects_to_apply.is_empty() and damage_fraction <= 0.0:
 		return
 	var zone_hit: CombatPayload = null
 	for hurtbox in SpatialQuery.query_enemy_hurtboxes(get_world_2d().direct_space_state, _shape, global_position):
-		# One shared copy for every target: statuses and snapshots kept, no damage.
+		# One shared copy for every target: statuses and snapshots kept, damage_fraction of the hit's damage (0 for none).
 		if zone_hit == null:
 			zone_hit = _payload.duplicate() as CombatPayload
-			zone_hit.final_damage = 0.0
+			zone_hit.final_damage = _payload.final_damage * damage_fraction
 		hurtbox.take_hit(zone_hit)

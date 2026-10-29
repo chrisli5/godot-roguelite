@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ImpactBurstDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://dxeneh3s5hmbl" path="res://components/ability/bursts/impact_burst_definition.gd" id="1_burst"]
+[ext_resource type="PackedScene" path="res://scenes/effects/blizzard_vortex.tscn" id="2_zone"]
+
+[resource]
+script = ExtResource("1_burst")
+burst_id = &"blizzard_vortex"
+effect_scene = ExtResource("2_zone")
+carried_status_tags = Array[int]([19])
+max_per_cast = 1
