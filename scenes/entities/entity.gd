@@ -43,6 +43,7 @@ func _ready() -> void:
 	status_effect_component.refreshed.connect(_on_status_effect_refreshed)
 	status_effect_component.ticked.connect(_on_status_effect_ticked)
 	status_effect_component.expired.connect(_on_status_effect_expired)
+	status_effect_component.state_changed.connect(_on_status_effect_state_changed)
 
 	if is_instance_valid(entity_data):
 		_configure_base_entity_layers()
@@ -103,6 +104,16 @@ func _on_status_effect_refreshed(instance: StatusEffectInstance) -> void:
 	_apply_status_modifiers(instance)
 
 
+## Entering or leaving the Frozen phase: the modifier values changed, and the frozen tags follow the phase.
+func _on_status_effect_state_changed(instance: StatusEffectInstance) -> void:
+	_apply_status_modifiers(instance)
+	for tag in instance.template.frozen_granted_tags:
+		if instance.is_frozen:
+			tag_component.add_temporary_tag(tag)
+		else:
+			tag_component.remove_temporary_tag(tag)
+
+
 func _on_status_effect_ticked(_instance: StatusEffectInstance, damage: float) -> void:
 	health_component.take_dot_damage(damage)
 
@@ -112,6 +123,10 @@ func _on_status_effect_expired(instance: StatusEffectInstance) -> void:
 		stats_container.remove_modifier(modifier)
 	for tag in instance.template.granted_tags:
 		tag_component.remove_temporary_tag(tag)
+	# Expiring (or dying) mid-freeze: release the frozen tags too, so the counts balance.
+	if instance.is_frozen:
+		for tag in instance.template.frozen_granted_tags:
+			tag_component.remove_temporary_tag(tag)
 
 
 func _apply_status_modifiers(instance: StatusEffectInstance) -> void:

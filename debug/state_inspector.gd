@@ -189,6 +189,10 @@ static func _status_lines(component: StatusEffectComponent) -> Array:
 			"duration_bonus": instance.duration_bonus,
 			"ramp_cap_bonus": instance.ramp_cap_bonus,
 			"magnitude_bonus": instance.magnitude_bonus,
+			"has_buildup": instance.template.buildup_per_application > 0.0,
+			"buildup": instance.buildup,
+			"is_frozen": instance.is_frozen,
+			"immunity_time_left": instance.immunity_time_left,
 		})
 	return lines
 
@@ -236,6 +240,10 @@ static func _append_statuses(lines: Array[String], title: String, statuses: Arra
 			status["effect_id"], status["time_remaining"], status["ramp"], status["dot_damage"],
 			status["duration_bonus"], status["ramp_cap_bonus"], status["magnitude_bonus"],
 		])
+		if status.get("has_buildup", false):
+			lines[lines.size() - 1] += ", meter %.2f, frozen %s, immunity %.2f s" % [
+				status["buildup"], "yes" if status["is_frozen"] else "no", status["immunity_time_left"],
+			]
 
 
 static func _join_or_none(items: Array) -> String:

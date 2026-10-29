@@ -15,6 +15,13 @@ var ramp_cap_bonus: float = 0.0
 ## Applied magnitude bonus (clamped to the template cap). Only magnitude-scaling templates ever set it.
 var magnitude_bonus: float = 0.0
 
+## Build-up meter state (only used by templates with buildup_per_application > 0).
+var buildup: float = 0.0
+var is_frozen: bool = false
+var frozen_time_left: float = 0.0
+## While above 0 the meter cannot build (it stays 0).
+var immunity_time_left: float = 0.0
+
 ## Per-application copies of the template's modifiers (unique ids, safe to mutate).
 var runtime_modifiers: Array[StatModifier] = []
 
@@ -32,11 +39,64 @@ func _init(effect: StatusEffect, new_instance_id: int) -> void:
 
 ## Sets the magnitude bonus (clamped to 0..template.max_magnitude_bonus) and rewrites each runtime modifier's value
 ## from the matching TEMPLATE modifier's value * (1 + bonus). Does nothing unless the template scales its magnitude.
-## The template is never mutated.
+## The template is never mutated. While Frozen the bonus is stored but the modifier values stay at the frozen value;
+## leave_frozen restores them with it.
 func set_magnitude_bonus(bonus: float) -> void:
 	if not template.magnitude_scales:
 		return
 	magnitude_bonus = clampf(bonus, 0.0, template.max_magnitude_bonus)
+	if not is_frozen:
+		_restore_modifier_values()
+
+
+## Adds `amount` to the meter. Does nothing while Frozen, during the post-freeze immunity, or for a template with no
+## meter. Returns true when this addition enters the Frozen phase.
+func add_buildup(amount: float) -> bool:
+	if template.buildup_per_application <= 0.0 or is_frozen or immunity_time_left > 0.0:
+		return false
+	buildup += amount
+	if buildup >= template.buildup_threshold:
+		enter_frozen()
+		return true
+	return false
+
+
+## Drains the meter and counts down the Frozen and immunity timers. Returns true when the Frozen phase ended this step.
+func advance_buildup(delta: float) -> bool:
+	if template.buildup_per_application <= 0.0:
+		return false
+	if is_frozen:
+		frozen_time_left -= delta
+		if frozen_time_left <= 0.0:
+			leave_frozen()
+			return true
+		return false
+	immunity_time_left = maxf(immunity_time_left - delta, 0.0)
+	buildup = maxf(buildup - template.buildup_drain_per_second * delta, 0.0)
+	return false
+
+
+## Starts the Frozen phase: every runtime modifier takes template.frozen_modifier_value.
+func enter_frozen() -> void:
+	is_frozen = true
+	frozen_time_left = template.freeze_duration
+	for runtime_modifier in runtime_modifiers:
+		runtime_modifier.value = template.frozen_modifier_value
+
+
+## Ends the Frozen phase: modifiers return to their (magnitude scaled) template values, the meter resets, immunity starts,
+## and the status keeps running for at least its effective duration.
+func leave_frozen() -> void:
+	is_frozen = false
+	frozen_time_left = 0.0
+	buildup = 0.0
+	immunity_time_left = template.freeze_immunity
+	_restore_modifier_values()
+	time_remaining = maxf(time_remaining, get_effective_duration())
+
+
+## Writes each runtime modifier's value from the matching TEMPLATE modifier's value * (1 + magnitude_bonus).
+func _restore_modifier_values() -> void:
 	var runtime_index := 0
 	for template_modifier in template.stat_modifiers:
 		if not is_instance_valid(template_modifier):

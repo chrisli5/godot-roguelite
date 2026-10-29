@@ -66,6 +66,7 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_shock,
 		_section_superconduct,
 		_section_blizzard,
+		_section_chill_buildup,
 		_section_lingering_zone,
 		_section_geometry_contract,
 		_section_speed_reach_bonus,
@@ -5335,3 +5336,180 @@ func _section_blizzard() -> void:
 	compound_ids.sort()
 	check(burst_cards == ["compound_blizzard_evolve", "compound_blizzard_overclock"] and vortex_ids == ["blizzard_vortex", "magma_lava"], "blizzard guard: only the two Blizzard cards carry the vortex, and the only zone bursts are magma_lava and blizzard_vortex (found %s, %s)" % [str(burst_cards), str(vortex_ids)])
 	check(compound_ids.size() == 10 and compound_ids.has("compound_blizzard_evolve") and compound_ids.has("compound_blizzard_overclock"), "blizzard guard: ten compound cards ship in total (found %s)" % str(compound_ids))
+
+
+
+## A bat with Chill applied through the component (duration 3 s), `magnitude` as the snapshotted STATUS_MAGNITUDE_BONUS.
+func _chilled_bat(magnitude: float = 0.0) -> Enemy:
+	var bat := _spawn_bat()
+	bat.set_physics_process(false)
+	bat.status_effect_component.apply_effect(load(CHILL_EFFECT) as StatusEffect, 0.0, 0.0, 0.0, magnitude)
+	return bat
+
+
+func _bat_speed(bat: Enemy) -> float:
+	return bat.stats_container.get_final_stat_value(Stat.Type.MOVEMENT_SPEED)
+
+
+## Re-applies Chill `count` times, stepping the component `gap` seconds after each application.
+func _chill_applications(bat: Enemy, count: int, gap: float) -> void:
+	var chill := load(CHILL_EFFECT) as StatusEffect
+	for i in range(count):
+		bat.status_effect_component.apply_effect(chill, 0.0, 0.0, 0.0, 0.0)
+		bat.status_effect_component._process(gap)
+
+
+func _section_chill_buildup() -> void:
+	LingeringZone.reset_registry()
+	var chill := load(CHILL_EFFECT) as StatusEffect
+	var burn := load("res://resources/status_effects/burn.tres") as StatusEffect
+	var shock := load(SHOCK_EFFECT) as StatusEffect
+	var chill_before := [chill.effect_id, chill.base_duration, chill.tick_interval, chill.magnitude_scales, chill.max_magnitude_bonus, chill.granted_tags.duplicate(), chill.stat_modifiers.size(), chill.stat_modifiers[0].value, chill.stat_modifiers[0].type, chill.stat_modifiers[0].target_stat_type, chill.buildup_per_application, chill.buildup_threshold, chill.buildup_drain_per_second, chill.freeze_duration, chill.freeze_immunity, chill.frozen_modifier_value, chill.frozen_granted_tags.duplicate()]
+
+	# a. Data, and statuses without a meter are unchanged.
+	check(is_equal_approx(chill.buildup_per_application, 0.15) and is_equal_approx(chill.buildup_threshold, 1.0) and is_equal_approx(chill.buildup_drain_per_second, 0.2) and is_equal_approx(chill.freeze_duration, 1.0) and is_equal_approx(chill.freeze_immunity, 3.0) and is_equal_approx(chill.frozen_modifier_value, -1.0) and chill.frozen_granted_tags == [Tags.Type.FROZEN] and chill.granted_tags == [Tags.Type.CHILLED] and is_equal_approx(chill.stat_modifiers[0].value, -0.3) and chill.magnitude_scales, "chill buildup data: 0.15 per application, threshold 1, drain 0.2, freeze 1 s, immunity 3 s, frozen value -1, FROZEN tag; CHILLED, -0.3 and magnitude scaling kept")
+	check(is_zero_approx(burn.buildup_per_application) and is_zero_approx(shock.buildup_per_application) and burn.frozen_granted_tags.is_empty() and shock.frozen_granted_tags.is_empty(), "chill buildup: Burn and Shock have no meter")
+	var burn_bat := _spawn_bat()
+	burn_bat.set_physics_process(false)
+	burn_bat.status_effect_component.apply_effect(burn, 10.0, 2.0)
+	burn_bat.status_effect_component.apply_effect(burn, 10.0, 2.0)
+	var shock_bat := _spawn_bat()
+	shock_bat.set_physics_process(false)
+	for i in range(6):
+		shock_bat.status_effect_component.apply_effect(shock, 0.0, 0.0)
+	var burn_instance: StatusEffectInstance = burn_bat.status_effect_component._active_effects["burn"]
+	var shock_instance: StatusEffectInstance = shock_bat.status_effect_component._active_effects["shock"]
+	check(not burn_instance.is_frozen and is_zero_approx(burn_instance.buildup) and not shock_instance.is_frozen and is_zero_approx(shock_instance.buildup) and not burn_instance.add_buildup(100.0) and not shock_instance.add_buildup(100.0) and not shock_bat.tag_component.has_tag(Tags.Type.FROZEN), "chill buildup: Burn and Shock never build a meter or freeze, however often they are applied")
+
+	# b. The meter adds 0.15 per application, drains 0.2 per second and never goes below 0.
+	var bat := _chilled_bat()
+	var instance: StatusEffectInstance = bat.status_effect_component._active_effects["chill"]
+	var base_speed := _bat_speed(bat) / 0.7
+	check(is_equal_approx(instance.buildup, 0.15) and not instance.is_frozen, "chill buildup: the first application adds 0.15")
+	bat.status_effect_component.apply_effect(chill, 0.0, 0.0)
+	check(is_equal_approx(instance.buildup, 0.30) and bat.status_effect_component._active_effects.size() == 1, "chill buildup: a re-apply adds 0.15 (0.30), one instance")
+	bat.status_effect_component._process(1.0)
+	check(is_equal_approx(instance.buildup, 0.10), "chill buildup: 1 s of draining takes 0.2 off (0.10)")
+	bat.status_effect_component._process(1.0)
+	check(is_zero_approx(instance.buildup), "chill buildup: the meter never goes below 0")
+
+	# c. A fast source freezes, a slow one (Shatter-like) never does.
+	var fast := _chilled_bat()
+	var fast_froze := [false]
+	fast.status_effect_component.state_changed.connect(func(i: StatusEffectInstance) -> void: fast_froze[0] = fast_froze[0] or i.is_frozen)
+	_chill_applications(fast, 20, 0.2) # 5 applications per second, net +0.55 per second
+	check(fast_froze[0], "chill buildup: applications at 5 per second reach the threshold and freeze")
+	var slow := _chilled_bat()
+	var slow_froze := [false]
+	slow.status_effect_component.state_changed.connect(func(_i: StatusEffectInstance) -> void: slow_froze[0] = true)
+	_chill_applications(slow, 120, 1.0) # 1 application per second: +0.15 - 0.2 each second
+	var slow_instance: StatusEffectInstance = slow.status_effect_component._active_effects["chill"]
+	check(not slow_froze[0] and not slow_instance.is_frozen and slow_instance.buildup < 0.2 and not slow.tag_component.has_tag(Tags.Type.FROZEN), "chill buildup: applications at 1 per second never freeze (meter under 0.2 over 120 s)")
+
+	# d. While Frozen.
+	var frozen_bat := _chilled_bat()
+	var frozen_instance: StatusEffectInstance = frozen_bat.status_effect_component._active_effects["chill"]
+	var state_events := [0]
+	frozen_bat.status_effect_component.state_changed.connect(func(_i: StatusEffectInstance) -> void: state_events[0] += 1)
+	var applications := 1
+	while not frozen_instance.is_frozen and applications < 20:
+		frozen_bat.status_effect_component.apply_effect(chill, 0.0, 0.0)
+		applications += 1
+	check(frozen_instance.is_frozen and applications == 7 and state_events[0] == 1, "chill frozen: the 7th application (7 x 0.15 >= 1) enters the Frozen phase and emits state_changed once (took %d)" % applications)
+	check(is_zero_approx(_bat_speed(frozen_bat)), "chill frozen: MOVEMENT_SPEED reads 0 (never negative)")
+	check(frozen_bat.tag_component.has_tag(Tags.Type.FROZEN) and frozen_bat.tag_component.has_tag(Tags.Type.CHILLED), "chill frozen: FROZEN and CHILLED are both present")
+	var buildup_frozen := frozen_instance.buildup
+	frozen_bat.status_effect_component.apply_effect(chill, 0.0, 0.0, 0.0, 0.2)
+	check(is_equal_approx(frozen_instance.buildup, buildup_frozen) and state_events[0] == 1 and is_zero_approx(_bat_speed(frozen_bat)), "chill frozen: a further application adds nothing, emits nothing, and a re-apply with a magnitude bonus does not lift the freeze")
+	var time_before := frozen_instance.time_remaining
+	frozen_bat.status_effect_component._process(0.5)
+	check(frozen_instance.is_frozen and is_equal_approx(frozen_instance.frozen_time_left, 0.5) and is_equal_approx(frozen_instance.time_remaining, time_before) and frozen_bat.status_effect_component._active_effects.has("chill"), "chill frozen: the Chill cannot expire while Frozen (its timer is held)")
+
+	# e. After 1.0 s: back to the slow, FROZEN gone, immunity runs.
+	frozen_bat.status_effect_component._process(0.5)
+	check(not frozen_instance.is_frozen and is_equal_approx(_bat_speed(frozen_bat), base_speed * (1.0 - 0.3 * 1.2)), "chill thaw: after 1.0 s the speed returns to the slow, scaled by the 0.2 magnitude bonus of the last application (x0.64)")
+	check(frozen_bat.tag_component.has_tag(Tags.Type.CHILLED) and not frozen_bat.tag_component.has_tag(Tags.Type.FROZEN), "chill thaw: CHILLED stays, FROZEN is gone")
+	check(is_zero_approx(frozen_instance.buildup) and is_equal_approx(frozen_instance.immunity_time_left, 3.0) and state_events[0] == 2, "chill thaw: the meter is 0, immunity runs for 3 s, state_changed fired for the thaw")
+	frozen_bat.status_effect_component.apply_effect(chill, 0.0, 0.0)
+	check(is_zero_approx(frozen_instance.buildup) and not frozen_instance.is_frozen and frozen_bat.status_effect_component._active_effects.has("chill"), "chill immunity: an application during immunity still refreshes the Chill but adds nothing")
+	frozen_bat.status_effect_component._process(1.5)
+	frozen_bat.status_effect_component.apply_effect(chill, 0.0, 0.0)
+	check(is_zero_approx(frozen_instance.buildup) and is_equal_approx(frozen_instance.immunity_time_left, 1.5), "chill immunity: still no build-up 1.5 s in")
+	frozen_bat.status_effect_component._process(1.5)
+	check(is_zero_approx(frozen_instance.immunity_time_left), "chill immunity: over after 3 s")
+	frozen_bat.status_effect_component.apply_effect(chill, 0.0, 0.0)
+	check(is_equal_approx(frozen_instance.buildup, 0.15), "chill immunity: after 3 s applications add 0.15 again")
+
+	# f. Magnitude: bonus 0.2 gives -0.36 while Chilled and still -1.0 while Frozen.
+	var scaled := _chilled_bat(0.2)
+	var scaled_instance: StatusEffectInstance = scaled.status_effect_component._active_effects["chill"]
+	check(is_equal_approx(scaled_instance.runtime_modifiers[0].value, -0.36) and is_equal_approx(_bat_speed(scaled), base_speed * 0.64), "chill magnitude: bonus 0.2 gives -0.36 in the Chilled state (speed x0.64)")
+	scaled_instance.enter_frozen()
+	scaled.status_effect_component.state_changed.emit(scaled_instance)
+	check(is_equal_approx(scaled_instance.runtime_modifiers[0].value, -1.0) and is_zero_approx(_bat_speed(scaled)), "chill magnitude: -1.0 and speed 0 while Frozen, whatever the bonus")
+	scaled_instance.leave_frozen()
+	scaled.status_effect_component.state_changed.emit(scaled_instance)
+	check(is_equal_approx(scaled_instance.runtime_modifiers[0].value, -0.36) and is_equal_approx(chill.stat_modifiers[0].value, -0.3), "chill magnitude: leaving Frozen restores -0.36 from the template value, the template stays -0.3")
+
+	# g. Tag and modifier balance on every path.
+	var expire_bat := _chilled_bat()
+	_chill_applications(expire_bat, 7, 0.0)
+	var expire_instance: StatusEffectInstance = expire_bat.status_effect_component._active_effects["chill"]
+	var expire_was_frozen := expire_instance.is_frozen
+	expire_bat.status_effect_component._expire_instance(expire_instance) # expiry while Frozen
+	check(expire_was_frozen and not expire_bat.tag_component.has_tag(Tags.Type.FROZEN) and not expire_bat.tag_component.has_tag(Tags.Type.CHILLED) and is_equal_approx(_bat_speed(expire_bat), base_speed), "chill balance: expiring while Frozen releases FROZEN and CHILLED and restores the speed")
+	var death_bat := _chilled_bat()
+	_chill_applications(death_bat, 7, 0.0)
+	var death_was_frozen := death_bat.tag_component.has_tag(Tags.Type.FROZEN)
+	death_bat.status_effect_component.clear_all_effects() # death mid-freeze
+	check(death_was_frozen and not death_bat.tag_component.has_tag(Tags.Type.FROZEN) and not death_bat.tag_component.has_tag(Tags.Type.CHILLED) and is_equal_approx(_bat_speed(death_bat), base_speed), "chill balance: clear_all_effects mid-freeze leaves no stuck tags or modifiers")
+	var cycle_bat := _chilled_bat()
+	_chill_applications(cycle_bat, 7, 0.0)
+	cycle_bat.status_effect_component._process(1.0) # thaw
+	cycle_bat.status_effect_component._process(3.0) # the 3 s slow runs out
+	check(cycle_bat.status_effect_component._active_effects.is_empty() and not cycle_bat.tag_component.has_tag(Tags.Type.FROZEN) and not cycle_bat.tag_component.has_tag(Tags.Type.CHILLED) and is_equal_approx(_bat_speed(cycle_bat), base_speed), "chill balance: a full freeze, thaw and expiry leaves no tags and the original speed")
+
+	# h. A refresh does not reset the meter, and whole cycles leave the template alone.
+	var refresh_bat := _chilled_bat()
+	_chill_applications(refresh_bat, 3, 0.0)
+	var refresh_instance: StatusEffectInstance = refresh_bat.status_effect_component._active_effects["chill"]
+	check(is_equal_approx(refresh_instance.buildup, 0.60) and refresh_bat.status_effect_component._active_effects.size() == 1, "chill refresh: re-applying keeps adding to the same meter (4 x 0.15 = 0.60), it never resets")
+	check([chill.effect_id, chill.base_duration, chill.tick_interval, chill.magnitude_scales, chill.max_magnitude_bonus, chill.granted_tags, chill.stat_modifiers.size(), chill.stat_modifiers[0].value, chill.stat_modifiers[0].type, chill.stat_modifiers[0].target_stat_type, chill.buildup_per_application, chill.buildup_threshold, chill.buildup_drain_per_second, chill.freeze_duration, chill.freeze_immunity, chill.frozen_modifier_value, chill.frozen_granted_tags] == chill_before, "chill buildup: the Chill template resource is unchanged after whole freeze cycles")
+
+	# i. Movement at speed 0: the homing strategy lerps the velocity toward zero.
+	var mover := _chilled_bat()
+	mover.velocity = Vector2(100.0, 0.0)
+	_chill_applications(mover, 7, 0.0)
+	for i in range(60):
+		mover._handle_movement_physics()
+	check(is_zero_approx(_bat_speed(mover)) and mover.velocity.length() < 0.05, "chill movement: at speed 0 the enemy's velocity decays to almost zero within 60 physics steps (%.5f)" % mover.velocity.length())
+
+	# j. Shatter still shatters a Frozen primary (CHILLED present).
+	var shatter := load(SHATTER_BURST) as ImpactBurstDefinition
+	var stats := _make_stats({Stat.Type.AOE_RADIUS: 5.0})
+	var chill_list: Array[StatusEffect] = [chill]
+	var shatter_bats := await _spawn_burst_bats(Vector2(150000.0, 150000.0), [Vector2(0, 0), Vector2(30, 0)])
+	_chill_applications(shatter_bats[0], 7, 0.0)
+	var shatter_primary: StatusEffectInstance = shatter_bats[0].status_effect_component._active_effects["chill"]
+	shatter_bats[0].hurtbox_component.take_hit(_ext_payload(stats, 10.0, shatter, chill_list))
+	await tree.process_frame
+	await tree.process_frame
+	check(shatter_primary.is_frozen and shatter_bats[0].tag_component.has_tag(Tags.Type.CHILLED) and is_equal_approx(_lost(shatter_bats[1]), 5.0) and shatter_bats[1].status_effect_component._active_effects.has("chill"), "chill shatter: a Frozen primary (CHILLED present) still shatters, the neighbor loses 0.5 of the hit and is Chilled")
+	_free_bats(shatter_bats)
+
+	# k. The Blizzard vortex freezes an enemy that stays in it, and not one that stays 1 s.
+	var vortex := load(BLIZZARD_BURST) as ImpactBurstDefinition
+	var vortex_origin := Vector2(160000.0, 160000.0)
+	var vortex_bats := await _spawn_burst_bats(vortex_origin, [Vector2(0, 0), Vector2(20, 0)])
+	var froze_flags := [false, false]
+	vortex_bats[0].status_effect_component.state_changed.connect(func(i: StatusEffectInstance) -> void: froze_flags[0] = froze_flags[0] or i.is_frozen)
+	vortex_bats[1].status_effect_component.state_changed.connect(func(i: StatusEffectInstance) -> void: froze_flags[1] = froze_flags[1] or i.is_frozen)
+	var vortex_zone := await _spawn_zone(vortex, _vortex_payload(stats, 10.0), vortex_origin)
+	await tree.create_timer(1.0).timeout
+	vortex_bats[1].global_position = vortex_origin + Vector2(400, 0)
+	await tree.create_timer(1.6).timeout
+	check(froze_flags[0] and not froze_flags[1], "chill vortex: an enemy that stays in the vortex freezes (about 1.8 s of pulses), one that left after 1 s does not")
+	var leaver: StatusEffectInstance = vortex_bats[1].status_effect_component._active_effects.get("chill")
+	check(leaver == null or (not leaver.is_frozen and leaver.buildup < 1.0), "chill vortex: the enemy that left was never frozen and its meter stayed under the threshold")
+	_free_zone(vortex_zone)
+	_free_bats(vortex_bats)

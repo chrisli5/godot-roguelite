@@ -13,6 +13,9 @@ metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 [resource]
 script = ExtResource("1_effect")
 effect_id = "chill"
+buildup_per_application = 0.15
+buildup_drain_per_second = 0.2
+frozen_granted_tags = Array[int]([20])
 magnitude_scales = true
 stat_modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_chill")])
 granted_tags = Array[int]([19])

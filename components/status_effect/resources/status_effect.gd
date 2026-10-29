@@ -25,6 +25,22 @@ extends Resource
 ## Cap on the magnitude bonus applied to this status (0.5 = at most +50%). Placeholder.
 @export var max_magnitude_bonus: float = 0.5
 
+@export_group("Buildup")
+## Meter added by each application. 0 = this status has no meter (and no Frozen phase).
+@export var buildup_per_application: float = 0.0
+## Meter value that starts the Frozen phase.
+@export var buildup_threshold: float = 1.0
+## Meter lost per second while not Frozen.
+@export var buildup_drain_per_second: float = 0.0
+## Seconds the Frozen phase lasts.
+@export var freeze_duration: float = 1.0
+## Seconds after the Frozen phase during which the meter cannot build.
+@export var freeze_immunity: float = 3.0
+## The value every runtime modifier takes while Frozen (-1.0 on a percent speed modifier = full stop).
+@export var frozen_modifier_value: float = -1.0
+## Temporary tags granted to the afflicted entity while Frozen (in addition to granted_tags).
+@export var frozen_granted_tags: Array[Tags.Type] = []
+
 @export_group("While Active")
 ## Applied to the afflicted entity's own stats while the effect lasts.
 @export var stat_modifiers: Array[StatModifier] = []

@@ -8,6 +8,9 @@ signal applied(instance: StatusEffectInstance)
 signal refreshed(instance: StatusEffectInstance)
 signal ticked(instance: StatusEffectInstance, damage: float)
 signal expired(instance: StatusEffectInstance)
+## Emitted when an effect with a build-up meter enters or leaves its Frozen phase (read `instance.is_frozen`).
+## Listeners re-add the instance's modifiers (their values changed) and add or remove the frozen tags.
+signal state_changed(instance: StatusEffectInstance)
 
 ## effect_id -> live instance
 var _active_effects: Dictionary[String, StatusEffectInstance] = {}
@@ -40,6 +43,9 @@ func _exit_tree() -> void:
 ## Re-applying a non-ticking effect adopts the latest values and resets the timer.
 ## `magnitude_bonus` is the snapshotted STATUS_MAGNITUDE_BONUS; it only matters to a magnitude-scaling effect and
 ## is used by a new instance and by the non-ticking re-apply (latest wins). A ticking re-apply ignores it.
+## An effect with `buildup_per_application` > 0 also adds that to its meter on every application (a new instance
+## and a non-ticking re-apply; a refresh never resets the meter). The application that fills the meter enters the
+## Frozen phase and emits `state_changed` after `applied` / `refreshed`.
 func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus: float = 0.0, ramp_cap_bonus: float = 0.0, magnitude_bonus: float = 0.0) -> void:
 	if not is_instance_valid(effect) or effect.effect_id.is_empty():
 		push_warning("StatusEffectComponent: Invalid status effect passed.")
@@ -62,7 +68,10 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 			existing.ramp_cap_bonus = ramp_cap_bonus
 			existing.set_magnitude_bonus(magnitude_bonus)
 			existing.time_remaining = existing.get_effective_duration()
+		var froze := effect.tick_interval <= 0.0 and existing.add_buildup(effect.buildup_per_application)
 		refreshed.emit(existing)
+		if froze:
+			state_changed.emit(existing)
 		return
 
 	var instance := StatusEffectInstance.new(effect, _next_instance_id)
@@ -75,6 +84,8 @@ func apply_effect(effect: StatusEffect, dot_damage: float = 0.0, duration_bonus:
 	_active_effects[effect.effect_id] = instance
 	set_process(true)
 	applied.emit(instance)
+	if instance.add_buildup(effect.buildup_per_application):
+		state_changed.emit(instance)
 
 
 ## Live instances, for the debug inspector and tests. Returns a new array; changing it does not affect the component.
@@ -92,7 +103,11 @@ func clear_all_effects() -> void:
 
 func _advance_instance(instance: StatusEffectInstance, delta: float) -> void:
 	instance.elapsed += delta
-	instance.time_remaining -= delta
+	# The Frozen phase holds the timer: a frozen status cannot expire.
+	if not instance.is_frozen:
+		instance.time_remaining -= delta
+	if instance.advance_buildup(delta):
+		state_changed.emit(instance)
 
 	var interval := instance.template.tick_interval
 	if interval > 0.0:
