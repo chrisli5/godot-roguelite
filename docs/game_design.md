@@ -2,7 +2,7 @@
 
 Oct 18, 2026 · @Christopher
 
-Last synced with code commit: `a419d8c`. Update this line whenever this file changes.
+Last synced with code commit: `db332a1`. Update this line whenever this file changes.
 
 ## Revision summary
 
@@ -17,6 +17,8 @@ Oct 27 (Task AR, docs only entry). Status strength: `STATUS\_MAGNITUDE\_BONUS` s
 Oct 27 (Task AU, docs in Task AV). The Earth explosion and Lightning overload bursts were removed; at level 3 Lightning (`CRIT\_CHANCE`) and Earth (`REACH\_BONUS`) add to the shared indirect damage scale, and bursts now belong to compounds (§4, §5, items 29, 33, 39, 40, 42, 48, 51, 57; item 62 added).
 
 Oct 28 (Tasks AW and AX, docs in Task AY). Storm (Lightning + Wind) is built: a critting hit calls down one extra strike on the enemy it hit, and its cards carry Shock, which raises the crit chance of every hit the enemy receives (§4, §6, items 55, 59, 63).
+
+Oct 29 (design pass, docs only). Decided: (1) a three-layer model: an infusion is one stat theme, a compound is a stat bridge between two themes plus at most one status, and anything that spawns in the world belongs to an ability or its form (§4); (2) infusion stats are FLAT and generic stat cards are PERCENT, with element-gated cards for stacking a theme (§4, §5); (3) Frost becomes `COOLDOWN_BONUS` (Task BC); (4) the indirect damage scalings are removed (Task BC). The ten stat bridges are proposed, not decided (item 65). Whether a form arrives at tier 2 is open (item 66). Tasks AZ and BA (Superconduct, Blizzard) are recorded. Items 24, 25, 32, 33, 47, 49, 54, 57, 61, 62 and 63 were updated and items 64 to 68 were added.
 
 Every section carries one status tag:
 
@@ -34,7 +36,7 @@ This document holds design intent only. What was run, by whom and at which commi
 * **Ability tier**: TIER\_1\_BASE, TIER\_2\_EVOLVED, TIER\_3\_APEX (§7).
 * **Infusion tier / level**: how many times an element has been socketed into an ability (§7). Derived from the ledger.
 * **Card tier**: in the multiplicative formula (§5), the number of times a card has been drafted (its duplicate count). This is a third meaning, unrelated to the two above.
-* **Compound**: a fixed pair of elements that forms the same named effect on every ability (§4).
+* **Compound**: a fixed pair of elements that forms the same stat bridge, and at most one status, on every ability (§4).
 * **Offer draft**: a forced draft for one eligible ability, holding its form evolution cards plus either the generic Overclock or, for a pair with a compound, that pair's two compound cards (§7).
 
 ## 1\. System architecture
@@ -105,37 +107,44 @@ Tags describe what an ability or effect is, and they decide which upgrades apply
 
 ## 4\. Elemental infusions, compounds and evolutions
 
-**Status:** Implemented for the stat contributions, the statuses, the indirect scalings, impact bursts and four compounds (Plasma, Shatter, Magma, Storm). Decided, not built, for how infusions are drafted in a normal run. All numbers are placeholders. Six compounds are sketches.
+**Status:** Implemented for one stat theme per base infusion (Task BC), the statuses, impact bursts and six compounds (Plasma as an evolution form; Shatter, Magma, Storm, Superconduct and Blizzard as cards). Decided, not built: compounds as stat bridges with spawned effects moving to abilities and forms (items 64, 65), and how infusions are drafted in a normal run. All numbers are placeholders. Four compounds are sketches.
 
 Infusions are socketed into ability slots. They contribute through stat modifiers (`UpgradeDefinition.stat\_modifiers`), plus an optional status carried by the card (`status\_effect\_payload`, §6). Effect templates define shape, never absolute damage. The ledger stores slot-specific purchases under `<upgrade\_id>::slot\_<n>`, and that key wins over the plain key.
 
 **Drafting (Decided).** Infusions are drafted through their own draft, separate from level-up drafts. Only elements that at least one ability can accept are offered. In the code today, this draft is reachable only from the debug panel (F1, Run tab), and level-up drafts never show infusion cards. When infusion drafts happen in a normal run is not decided (open item 23).
 
-### Base infusions (Decided; Fire Implemented)
+### Layer model (Decided Oct 29)
 
-Each infusion has a direct stat that works from level 1 and an indirect scaling that unlocks at a higher infusion level. Unlock levels and all numbers are placeholders. Where an element's soft cap is 3, level 3 is its capstone.
+Each layer carries one idea:
 
-|Element|Role|Direct stat (level 1)|Indirect scaling (unlock level)|Status applied|
-|-|-|-|-|-|
-|Fire|Duration and DoT|`STATUS\_DURATION` and `STATUS\_RAMP\_CAP`, both flat per level (Implemented). No damage of its own|Burn's ramp: the cap grows per level (Implemented), and a longer duration keeps the ramp running. DoT only|Burn (Implemented)|
-|Frost|Cooldown|`COOLDOWN` (Implemented)|Level 2 (Implemented, Task AC, placeholders): bonus damage of 0.04 per 0.1 s shaved off the ability's default cooldown, counting the effective cooldown as at least 0.25 s in this calculation only (the real cooldown has no floor). Summed with the other indirect bonuses, capped at +50%, and applied as a cast-time damage scale to hit damage and DoT|None (Chill moved to the Shatter cards, Task AO)|
-|Lightning|Crit|`CRIT\_CHANCE` +0.03 per level and `CRIT\_MULTIPLIER` +0.15 per level (Implemented, placeholders; open item 49)|Level 3 (Task AU, placeholders): bonus damage of 1.0 * `CRIT\_CHANCE` (about +14% at Lightning 3 with the 5% base), read at cast time. Summed with the other indirect bonuses, capped at +50%, and applied as a cast-time damage scale to hit damage and DoT (deliberately both: only Fire + Lightning can have a DoT)|None|
-|Wind|Action velocity|`SPEED\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own speed (`PROJECTILE\_MOVEMENT\_SPEED`, `ORBIT\_ROTATION\_SPEED`) by one plus the bonus; geometries with no speed concept ignore it until they get a base delay (item 47)|Level 2 (Implemented, Task AC, placeholders): bonus damage of 0.5 * `SPEED\_BONUS` (+0.10 gives +5%), read at cast time. Summed with the other indirect bonuses, capped at +50%, and applied as a cast-time damage scale to hit damage and DoT|None|
-|Earth|Area|`REACH\_BONUS` +0.1 per level (Implemented, Task X): each driver multiplies its own reach (`AOE\_RADIUS`, `CHAIN\_RADIUS`, `ORBIT\_RADIUS`) by one plus the bonus|Level 3 (Task AU, placeholders): bonus damage of 0.5 * `REACH\_BONUS` (+0.3 gives +15%), same summing, cap and scale|None|
+1. **Infusion:** one stat theme, raised per level.
+2. **Compound:** two themes interact through a stat bridge, with at most one status.
+3. **Form evolution:** this ability transforms. Anything that spawns in the world (a burst, a zone, a strike) belongs to the ability or its form, not to a compound (item 64).
+
+### Base infusions (Implemented, Task BC)
+
+Each infusion is one stat theme, applied as FLAT modifiers. Generic stat cards are PERCENT and amplify what the infusions provide. All numbers are placeholders.
+
+|Element|Theme|Stat per level (FLAT)|
+|-|-|-|
+|Fire|Burn lasts longer and burns hotter|`STATUS_DURATION` +3.0 s and `STATUS_RAMP_CAP` +0.1; applies Burn (the one infusion with a status)|
+|Frost|Faster cooldown|`COOLDOWN_BONUS` +0.1; the ability waits `COOLDOWN / (1 + COOLDOWN_BONUS)` (1.0 s base: 0.77 s at level 3, 0.40 s at 15)|
+|Lightning|Critical hits|`CRIT_CHANCE` +0.03 and `CRIT_MULTIPLIER` +0.15 (item 49)|
+|Wind|Faster delivery|`SPEED_BONUS` +0.1|
+|Earth|Wider reach|`REACH_BONUS` +0.1|
 
 Rules:
 
-* **Both channels.** Indirect bonuses apply to hit damage and to DoT. Frost and Wind compute one cast-time `damage\_scale` and apply it to the final hit damage and to `dot\_damage\_snapshot`, so ticks never read anything later. Indirect bonuses are summed into one scale and capped (open item 32). Fire's indirect is DoT only by nature.
-* **Cast time, not impact time.** Wind's description says "at the point of impact". The scale is read at cast time instead, so every hit of a cast carries the same scale. Crit, by contrast, is rolled per hit (Task AL).
-* **One shared impact burst.** Bursts are the compounds' mechanism: secondary area damage centered on a hit enemy. Shipped are Shatter (secondary damage on a Chilled enemy) and Magma's lava zone (an effect-only burst that spawns a lingering zone), and later compounds can add more. Earth and Lightning have no burst (Task AU). They are all described below.
-* **Burst effects scale off hit damage.** A DoT specialist gets less from a burst. Accepted for now.
+* **Foundation and amplifier.** The infusion supplies the base amount; PERCENT cards multiply it. A PERCENT card on a stat whose base is 0 (`COOLDOWN_BONUS`, `SPEED_BONUS`, `REACH_BONUS`, Fire's stats) does nothing without the infusion, so a generic card meant to work alone must be FLAT.
+* **Stacking a theme.** Element-gated cards are ordinary cards with `GLOBAL_TAG_MATCH` and the element's tag (Task AR); they need no special code.
+* **No indirect damage.** The indirect scalings (Frost cooldown, Wind speed, Lightning crit, Earth reach converted to a damage scale, capped at +50%) were removed in Task BC. Frost, Wind and Earth change delivery and favor neither channel; damage comes from the damage stats and compounds. Frost leans toward hit builds, because extra casts do not raise Burn's damage (item 38).
+* **Cast time, not impact time** (kept): speed and reach are read at cast time; crit is rolled per hit (Task AL).
 * **Fire.** Fire deals no damage itself. Burn's damage comes from the ability's own `DOT\_DAMAGE`, and Fire turns it on by supplying duration. Implemented: flat +3.0 s duration and +0.1 ramp cap per level. Flat modifiers scale as value times tier, so level 3 is 9.0 s and +0.3. Burn's `base\_duration` is 0. All numbers are placeholders. Fire stays build agnostic: it enables DoT and lengthens it, and it never favors one build over another.
-* **Staged unlocks.** Indirect effects unlock by infusion level (open item 33). Placeholder levels: Frost 2, Wind 2, Lightning 3, Earth 3.
 * **Status sources (Decided Oct 26).** Fire is the only base infusion with a status (Burn). Frost, Lightning, Wind and Earth apply none. Every other status comes from a compound card, so the designer assigns each compound's status explicitly. A compound that includes Fire carries no status of its own: the ability's status is Burn, and the compound may use, spread or amplify it. A compound without Fire carries at most one. An ability therefore applies at most one status at tier 1. Players also have no non-Fire status before their first compound.
 
 ### Impact bursts
 
-**Status:** Implemented for the mechanism, the level gate, the status filter (Task AH) and two compound bursts: Shatter and Magma's lava zone (Tasks AI, AJ); Earth's explosion and Lightning's overload were removed in Task AU. All numbers are placeholders.
+**Status:** Implemented for the mechanism, the level gate, the status filter and the compound bursts built so far (Shatter, Magma's lava zone, Storm's strike, Blizzard's vortex; Tasks AI, AJ, AW, BA). Direction (Decided Oct 29, not built): bursts, zones and strikes become part of abilities and forms instead of compound cards (item 64); the runner, shapes and `LingeringZone` stay and are reused. All numbers are placeholders.
 
 A burst is not an ability. It has no slot, cooldown, anchor, stats profile or tags: it is a one-shot effect that fires when a hit lands, borrows the casting ability's numbers, and leaves nothing behind.
 
@@ -152,30 +161,32 @@ A card carries all its stat modifiers in one ordered list, `UpgradeDefinition.st
 
 ### Compound infusions
 
-**Status:** Decided. Built for Shatter, Magma and Storm (Tasks AI, AJ, AW, AX, placeholders); Plasma is built as an evolution form (§4, "Compounds and evolutions"). Six compounds are sketches.
+**Status:** Decided. Built: Plasma (as an evolution form), and Shatter, Magma, Storm, Superconduct and Blizzard as cards (Tasks AI, AJ, AW, AX, AZ, BA), placeholders. Four compounds are sketches.
 
-Rules (Decided Oct 25):
+Rules (Decided Oct 25, revised Oct 29):
 
-* Ten compounds, one per unordered pair of the five base elements. A compound has no level and no tag of its own. Each needs a distinct on-hit or on-cast mechanic built from bursts, zones, statuses or tag conditions, not a stat bridge. Names and numbers are placeholders.
-* **Delivered at the tier 1 milestone, as cards.** When an ability reaches two elements at level 3 (its forced offer, §7) and the pool has compound cards for that pair, the offer shows exactly two compound cards: "Evolve + compound" (evolve to tier 2: cap 5, three elements) and "Overclock + compound" (cap 15, no evolution). The compound effect is identical on both, so the player keeps the broad-or-deep choice and the compound follows from the pair already chosen. The generic Overclock is not offered for that pair. Form evolutions, when authored for the pair, are listed first.
-* **Shared, not per ability.** One pair of cards per compound serves every ability, so no per-ability authoring is needed. A card is a slot-specific purchase, so its effect reaches only the slot that took it.
-* **One compound per ability at tier 1**, because a tier 1 ability has exactly two elements. Compounds at tier 2 (three elements, up to three pairs) are not designed or built (item 54).
-* **Status per compound (Decided Oct 26).** A compound with Fire (Plasma, Magma, Steam cloud, Wildfire) carries no status; its ability's status is Burn from the Fire card, and its mechanic must be something other than a new status (a burst, a zone, a tag condition on BURNING, a stat). A compound without Fire (Shatter, Storm, Blizzard, Superconduct, Lightning + Earth, Sandstorm) may carry one status on its two cards. Shatter carries Chill.
-* **Tier 2 status rule not decided** (item 54): with three elements an ability can have up to three pairs, so a status cap per ability needs a decision before tier 2 compounds.
+* Ten compounds, one per unordered pair of the five base elements. A compound has no level and no tag.
+* **A compound is a stat bridge (Decided Oct 29).** It reads a stat from one element's domain and writes a stat in another's, at cast time, and may carry one status. It spawns nothing: bursts, zones and strikes belong to abilities and forms (item 64). Plasma (a critting hit scales its Burn) and Superconduct (a critting hit refunds cooldown) already fit.
+* **Bridge rules (proposed, item 65):** a bridge reads direct stats only, never another bridge's output (no loops); it is computed at cast time like the other cast snapshots; it has its own cap (the old +50% cap is gone); amounts are ratios of the ability's own stats where possible, not flat seconds (Superconduct's flat 0.25 s refund is about 3.5% faster casting on a single-projectile 1 s ability).
+* **Delivered at the tier 1 milestone, as cards** (unchanged): two cards, "Evolve + compound" (cap 5, three elements) and "Overclock + compound" (cap 15), identical effect, generic across abilities. Form evolutions, when authored for the pair, are listed first. Whether a form arrives at tier 2 instead is open (item 66).
+* **Status per compound** (Decided Oct 26, unchanged): a compound with Fire carries no status (its status is Burn); a compound without Fire carries at most one.
+* **One compound per ability at tier 1;** tier 2 (up to three pairs) is not designed (item 54).
 * Compounds arrive at level 3 in both elements. The first draft said soft cap 5; that was replaced.
 
-|Pair|Name|Mechanic|Status|
-|-|-|-|-|
-|Fire + Lightning|Plasma|Evolution form (Arc Bolt), not a card: the evolved profile has `CRIT\_DOT\_SHARE` 1.0, so a critting hit's own Burn snapshot is scaled by the crit bonus (per hit since Task AL)|Built (evolution), untuned|
-|Fire + Earth|Magma|ON\_HIT effect-only burst that spawns a lingering lava zone (radius `AOE\_RADIUS` times 6, 4 s, applies every 0.5 s, 1 per cast, at most 8 live zones). It re-applies only Burn (`carried\_status\_tags` BURNING) and deals no direct damage|Built (Task AJ), placeholders|
-|Frost + Earth|Shatter|ON\_HIT burst on a CHILLED primary: radius `AOE\_RADIUS` times 8, 0.5 of the hit's final damage, 2 per cast, its two cards carry Chill (`status\_effect\_payload`), and the burst carries only Chill (`carried\_status\_tags` CHILLED). No Chill consumption in v1. The hit's own Chill does not count on its first hit|Built (Task AI), placeholders|
-|Lightning + Wind|Storm|On every critting hit, one extra strike hits the triggering enemy (ON\_CRIT burst with `hits\_primary`, no area, no zone): 0.5 of the crit hit's final damage, up to 4 per cast, carries no status. The ability's own hits apply Shock (§6), which raises the crit chance of every source against that enemy. Wind has no role beyond the pair; a Wind-scaled flurry would need timed bursts (item 63)|Built (Tasks AW, AX), placeholders|
-|Frost + Wind|Blizzard|Mechanic not yet designed|Sketched|
-|Fire + Frost|Steam cloud|Idea (unapproved): a lingering zone; carries no status of its own (Fire pair), so it needs a verb other than a new status and must differ from Magma|Sketched|
-|Frost + Lightning|Superconduct|Mechanic not yet designed|Sketched|
-|Fire + Wind|Wildfire|Idea (unapproved): a burst on a Burning target that spreads Burn (the status filter and the BURNING tag now exist). Carries no status of its own (Fire pair).|Sketched|
-|Lightning + Earth|(unnamed)|Mechanic not yet designed|Sketched|
-|Wind + Earth|Sandstorm|Idea (unapproved): carries Blind (blocked until enemies attack)|Sketched|
+Table (bridges marked Proposed are under review and not decided):
+
+|Pair|Name|Mechanic|Status|State|
+|-|-|-|-|-|
+|Fire + Lightning|Plasma|Evolution form (Arc Bolt) today: `CRIT_DOT_SHARE` 1.0 on the evolved profile. Decided direction: a card modifier (item 57)|none (Burn)|Built (form), untuned|
+|Frost + Lightning|Superconduct|Bridge: a critting hit refunds cooldown (0.25 s, cap 0.5 s per cast today; to become a fraction of the cooldown)|none|Built (Task AZ), placeholders|
+|Fire + Earth|Magma|Built as an ON_HIT lava zone that re-applies Burn (to move to abilities, item 64). Proposed bridge: `REACH_BONUS` to `DOT_DAMAGE`|none (Burn)|Built as a zone (Task AJ)|
+|Frost + Earth|Shatter|Built as a burst on a Chilled primary (to move). Proposed bridge: `REACH_BONUS` to a crit multiplier bonus against Chilled targets|Chill|Built as a burst (Task AI)|
+|Lightning + Wind|Storm|Built as an ON_CRIT strike on the hit enemy (to move). Proposed bridge: `SPEED_BONUS` to `CRIT_CHANCE`|Shock|Built as a strike (Tasks AW, AX)|
+|Frost + Wind|Blizzard|Built as a vortex zone with damaging Chill pulses (to move). Proposed bridge: `SPEED_BONUS` to `STATUS_MAGNITUDE_BONUS`|Chill|Built as a zone (Task BA)|
+|Fire + Frost|Steam|Proposed: `COOLDOWN_BONUS` to `STATUS_RAMP_CAP` (helps Fire on fast abilities, item 38)|none|Sketched|
+|Fire + Wind|Wildfire|Proposed: `SPEED_BONUS` to `STATUS_DURATION` (weakest fit; spreading belongs to forms)|none|Sketched|
+|Lightning + Earth|(unnamed)|Proposed: `REACH_BONUS` to `CRIT_MULTIPLIER`|none|Sketched|
+|Wind + Earth|Sandstorm|Proposed: `SPEED_BONUS` to `REACH_BONUS` (weakest identity; Blind is blocked)|none|Sketched|
 
 ### Compounds and evolutions
 
@@ -220,14 +231,14 @@ The DoT magnitude is snapshotted at cast time from the source ability into the p
 
 * Every ability profile holds a nonzero `BASE\_DAMAGE` and a nonzero `DOT\_DAMAGE`. A hit specialist has a high `BASE\_DAMAGE` and a low `DOT\_DAMAGE`, and a DoT specialist is the reverse. Every infusion therefore applies to every ability, and a poor fit is a weak synergy, not a dead pick.
 * `DOT\_DAMAGE` is inert potency. Nothing ticks until a status with a duration is applied, and today only the Fire card supplies Burn. There is no explicit duration gate: duration alone decides. Burn's template `base\_duration` becomes 0 and Fire supplies `STATUS\_DURATION`. A DoT specialist is therefore weak until Fire is socketed.
-* Fire is the on-switch for DoT, and the ability's `DOT\_DAMAGE` says how hard it hits once on. Lightning's crit touches hit damage only. (Lightning's level 3 indirect bonus is the exception: it joins the shared damage scale, which reaches DoT too; only Fire + Lightning can have both.) The infusions form a gradient across specializations: Fire favors DoT specialists, Lightning favors hit specialists, and Frost, Wind and Earth change delivery and favor neither.
+* Fire is the on-switch for DoT, and the ability's `DOT_DAMAGE` says how hard it hits once on. Lightning's crit touches hit damage only. The infusions form a gradient across specializations: Fire favors DoT specialists, Lightning favors hit specialists, and Frost, Wind and Earth change delivery and favor neither. (The Oct 15 indirect damage that reached DoT was removed in Task BC.)
 * Hit and DoT need one exchange rate and a split per specialization (for example 85/15, 60/40 and 25/75, placeholders). By arithmetic from the current Burn numbers, one Burn application delivers about 3.5 times its `DOT\_DAMAGE` value. None of this is in `balance\_notes.md` yet (open item 34).
 * Arcane Bolt hits for `BASE\_DAMAGE` 1.0 every 1.0 s, so its base `DOT\_DAMAGE` is 0.15 (placeholder). With Burn always on, that is about 15 to 20% of its damage, a hit specialist split. A value of 1.0 would have made one Burn application worth about 3.5 hits.
 * A modifier on a stat that is missing from an ability's profile has no effect, because the stat reads 0.0. Every profile therefore needs `DOT\_DAMAGE`, `STATUS\_DURATION` and `STATUS\_RAMP\_CAP`. Arcane Bolt's profile gained `STATUS\_RAMP\_CAP: 0.0` for this reason.
 
 ### Stacking of modifiers
 
-Card scaling is multiplicative, per card. The ledger multiplies one term per upgrade into a single product, and the stat container applies it:
+The ledger aggregates each modifier by its type, and the stat container applies the result (formulas below). FLAT adds `value * tier`, PERCENT adds `value * tier` to one shared percent term, and MULTIPLICATIVE multiplies `(1 + value)^tier` into the product. In code, `get_modifier_totals` returns `Vector3(flat, percent, multiplicative)`.
 
 ```latex
 \\text{final} = (\\text{base} + \\text{flat}) \\times (1 + \\text{percent}) \\times \\text{multiplicative}
@@ -237,11 +248,12 @@ Card scaling is multiplicative, per card. The ledger multiplies one term per upg
 \\text{multiplicative} = \\prod\_{\\text{cards}} (1 + \\text{value})^{\\text{tier}}
 ```
 
-Here `value` is the card's value and `tier` is the card's duplicate count (see the glossary): drafting a duplicate card raises its tier. In code, `get\_modifier\_totals` returns `Vector3(flat, percent, multiplicative)`.
+Here `value` is the card's value and `tier` is the card's duplicate count (see the glossary). The product term applies only to MULTIPLICATIVE modifiers.
 
-In the balance workbook, additive pools made hit cards the best choice for DoT builds too. Multiplicative pools passed all 6 specialization tests. All numbers are placeholders. The model still fails the specialization test at 4 and 8 drafts, and the DoT to hit ratio drifts from 1.02 to 0.80 between 4 and 20 drafts at a fixed Fire value.
-
-Compound effects should be conditional or capped. A pair bonus or an evolution multiplier stacked on the multiplicative rule would put evolved builds ahead of every other build.
+* **Layers (Decided Oct 29).** Infusions are FLAT, generic stat cards are PERCENT: infusions are the foundation and generic cards amplify. A PERCENT card on a zero-base stat does nothing without the infusion.
+* **MULTIPLICATIVE is unused.** No shipped card uses it (checked in the `.tres` files, Oct 29). Earlier text said card scaling is multiplicative per card; the code applies the product only to MULTIPLICATIVE modifiers.
+* In the balance workbook, additive pools made hit cards the best choice for DoT builds too, and multiplicative pools passed all 6 specialization tests. That finding is therefore not reflected in the game, and it has to be re-run for the FLAT/PERCENT split (item 67). All numbers are placeholders. The model still fails the specialization test at 4 and 8 drafts, and the DoT to hit ratio drifts from 1.02 to 0.80 between 4 and 20 drafts at a fixed Fire value.
+* Compound effects should be conditional or capped. A pair bonus or an evolution multiplier stacked on top of the layers would put evolved builds ahead of every other build.
 
 ### Optional later layers
 
@@ -368,15 +380,15 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |21|Closed (Task AK): statuses never stack, so there is no stack cap to tune (items 44 to 46 are closed with it)|Closed|
 |22|Every `AbilityData` needs `structural\_tags`. Arcane Bolt now has `METAMAGIC` and `PROJECTILE`. Future abilities and evolutions still need them|Gap|
 |23|When infusion drafts occur in a normal run (separate draft decided; debug panel only today)|Design decision|
-|24|Only Fire + Lightning on Arcane Bolt has a form evolution, and only Frost + Earth and Fire + Earth have compound cards (Tasks AI, AJ). Every other pair at its soft cap is forced into a lone generic Overclock (no decline). Author more compounds or forms, or add an `@export` switch on `UpgradeManager`|Design decision|
-|25|Compound designs: delivery is decided (Oct 25) and three are built (Plasma, Shatter, Magma). Names, effects and tags of the other seven are open|Design decision|
+|24|Pairs with neither a form nor compound cards (Steam, Wildfire, Lightning + Earth, Wind + Earth) are forced into the generic Overclock (no decline). Author more compounds or forms, or add an `@export` switch on `UpgradeManager`|Design decision|
+|25|Compound designs: delivery is decided (Oct 25) and six are built (Plasma as a form, Shatter, Magma, Storm, Superconduct, Blizzard as cards). Oct 29: compounds become stat bridges (items 64, 65). Four are sketches|Design decision|
 |26|Room transitions are not implemented. Missing: room completion (nothing emits `room\_completion\_confirmed`, nothing counts remaining enemies, and `EnemySpawnerComponent`'s `wave\_completed` and `campaign\_cleared` have no listeners) and a death or game-over flow (nothing handles `Entity.died`). See items 7 to 9|Gap|
 |27|Projectile hitboxes and area abilities both read `AOE\_RADIUS` for their size and reach. Chain link and the projectile geometries keep `QUERY\_RADIUS` / `CHAIN\_RADIUS`. Still open: the sprite is not scaled with the hitbox, and every future area, projectile or orbit profile needs `AOE\_RADIUS`|Gap|
 |28|No pierce: `CombatVolume` frees itself on every hit, and orbit shards (same class) vanish after one hit|Gap|
 |29|The impact-burst mechanism is built and used by Shatter and Magma's lava zone (Tasks AI, AJ); Earth's explosion and Lightning's overload were removed (Task AU)|Built|
 |31|Built (Task AL, decided Oct 26): crit is rolled per hit. Reason: a volley or chain should show a mix of crits and plain hits (future damage numbers). See CLAUDE.md "Crit"|Built|
-|32|Built (Task AC, placeholders): Frost and Wind compute one cast-time `damage\_scale`, 1 plus the summed indirect bonuses clamped to +50%. It multiplies the cast's pre-crit hit damage and its DoT snapshot; each hit's crit and the `CRIT\_DOT\_SHARE` bonus apply afterwards, per hit. It does not change status duration, ramp cap, tick interval, burst damage or burst shape, and a burst copy or lingering-zone hit is never scaled again. The cap is a constant in `IndirectScaling`|Built|
-|33|Built for Frost and Wind (Task AC, placeholders): each card carries an optional `indirect\_effect` with its own `unlock\_level` (2 for both). The effect is active in a slot only when the card's level in that slot (`get\_card\_tier`) reaches it; direct effects are never gated. Burst cards are gated too (Task AE): `ImpactBurstDefinition.unlock_level` (the Earth explosion and Lightning overload that used 3 were removed in Task AU; Lightning and Earth now carry indirect effects with `unlock\_level` 3), checked in the ledger with the same gate and the same tier lookup, so a slot gets the burst only when the card's level in that slot reaches it|Built|
+|32|Closed (Decided Oct 29, Task BC): the indirect damage scale and its +50% cap were removed|Closed|
+|33|Closed except for bursts (Decided Oct 29, Task BC): infusion effects are no longer level-gated; only `ImpactBurstDefinition.unlock_level` remains, through `LevelGate`, until bursts move to abilities (item 64)|Design decision|
 |34|The damage budget, the hit/DoT split per specialization and the hit-to-DoT exchange rate are not in `balance\_notes.md`. The workbook solved Fire as an additive amount and needs re-solving for the potency model|Balance|
 |35|Built (Task AK, decided Oct 26): the strongest application wins. A weaker Burn applied later no longer downgrades a stronger one (the stronger `dot\_damage`, duration bonus and ramp cap stay as a unit, and the timer is the longer). A crit-boosted Burn therefore lasts until it expires (item 48)|Built|
 |37|Every ability profile needs nonzero `BASE\_DAMAGE` and `DOT\_DAMAGE`, plus `STATUS\_DURATION` and `STATUS\_RAMP\_CAP` entries (a missing stat ignores modifiers). Only Arcane Bolt's profile has them (`DOT\_DAMAGE` 0.15, placeholder). A headless warning for zeros was offered, not requested|Gap|
@@ -389,23 +401,28 @@ Numbers are stable. A gap in the numbering is an item resolved since v1.8 (1, 6,
 |44|Closed (Task AK): there are no stack cards|Closed|
 |45|Closed (Task AK): there are no stack caps to tune|Closed|
 |46|Closed (Task AK): statuses never stack. Several sources share one instance and the strongest application wins|Closed|
-|47|Earth scales chain reach (`REACH\_BONUS` scales `CHAIN\_RADIUS`, Task X) and Wind's `SPEED\_BONUS` shortens the step delay of chain and fissure (Task Z). Wind still does nothing on the instant geometries (pulse, sweep, vortex), which have no speed concept|Design decision|
+|47|With indirect damage gone, Wind's value is delivery speed only, and the instant geometries (pulse, sweep, vortex) have no speed concept. Open: add a base delay to them. Wind also scales chain and fissure step delays (Task Z)|Design decision|
 |48|Plasma numbers are placeholders. Crit is rolled per hit (Task AL): at Lightning 3 the chance is 14% and the multiplier 1.95. Because the strongest application wins (Task AK), one critting hit puts a crit-strength Burn on its target that later plain hits cannot lower, so the average Burn bonus is higher than the per-hit +13% (Lightning 3) or +25% (Lightning 5). Needs retuning. Lightning's level 3 crit-chance bonus now also raises Burn through the shared damage scale, on top of `CRIT\_DOT\_SHARE`; include that in the retune.|Balance|
-|49|Lightning's crit chance and multiplier ship on the infusion card (+0.03 and +0.15 per level, placeholders; the balance workbook used +0.05 and +0.15). Whether crit stats stay on the infusion card is undecided, because the library of non-infusion cards is not designed yet. The workbook's hit-build numbers need re-running with the multiplier|Design decision|
+|49|Lightning's crit chance and multiplier ship on the infusion card as FLAT (+0.03 and +0.15 per level, placeholders; the workbook used +0.05 and +0.15). Open: whether the multiplier stays on the infusion, and how generic crit cards look (PERCENT). The workbook's hit-build numbers need re-running|Design decision|
 |50|Every shape query returns at most 32 enemies (`MAX\_QUERY\_RESULTS`), so an area or chain hits only the 32 nearest in a crowd larger than that. Decide whether the limit should be higher before swarms are designed|Balance|
 |51|Closed (Task AU): the Earth explosion and Lightning overload were removed|Design decision|
 |52|Decided (Oct 25, Tasks AI and AJ): compounds are cards, offered at the tier 1 milestone as "Evolve + compound" and "Overclock + compound" with an identical effect, generic across abilities. Plasma stays an evolution form (item 57)|Built|
 |53|Closed (Task AH): `ImpactBurstDefinition.carried\_status\_tags` replaces the `applies\_statuses` switch. A burst carries a cast status only if one of its granted tags is listed; an empty list carries none|Built|
-|54|Compound stacking. A tier 1 ability has exactly two elements, so it gets exactly one compound. Tier 2 allows three elements (up to three pairs); how compounds work at tier 2 is not designed or built. The status cap per ability at tier 2 is part of this decision.|Open|
+|54|Compound stacking. A tier 1 ability has exactly two elements, so one compound. Tier 2 allows three elements (up to three pairs); how bridges and statuses combine there is not designed (status cap per ability, whether bridges stack)|Open|
 |55|Closed: the enemy that triggers a burst does not take the burst's damage. It is excluded by its hurtbox id (`SpatialQuery.filter\_enemy\_hurtboxes`), and a logic check covers it. Exception (Task AW): a burst definition with `hits\_primary` hits only the triggering enemy (Storm's strike)|Closed|
 |56|Closed (Task AI): a CHILLED tag exists. Compound cards are offered through `compound\_pair` and `UpgradeManager.get\_compound\_pair` (tier 1, exactly two elements, both at level 3), not through `evolves\_from` and recipes, so a recipe never has to express a level|Built|
-|57|Plasma is an evolution form, not a compound card: its effect (`CRIT\_DOT\_SHARE` 1.0) lives on Arc Bolt's evolved profile. A Fire + Lightning slot that takes the generic Overclock, or an ability with no Plasma form, gets no Plasma effect. Decide whether Plasma moves onto cards like Shatter and Magma (the stat would then need to be a card modifier or sit in every ability profile). Plasma's status is Burn from the Fire card (decided Oct 26), so only where `CRIT\_DOT\_SHARE` lives remains open. A Fire + Lightning slot on the generic Overclock now still gets Lightning's scale (not `CRIT\_DOT\_SHARE`).|Design decision|
+|57|Plasma is an evolution form today. Decided direction (Oct 29): it becomes a normal compound card whose `CRIT_DOT_SHARE` is a card modifier, so an Overclock + Plasma pick keeps the effect and Arc Bolt stays the Arcane Bolt form. Not built|Design decision|
 |58|Closed (Decided Oct 27, Task AR): status strength comes from two ability-wide stats, `STATUS\_DURATION` and `STATUS\_MAGNITUDE\_BONUS` (non-ticking statuses only; Burn keeps `DOT\_DAMAGE`), raised by ordinary global stat cards and optionally by compound cards|Closed|
 |59|Closed (Decided Oct 27, Task AX): Shock carries a flat modifier on the enemy-side stat `INCOMING\_CRIT\_BONUS`, which `resolve\_hit\_crit` adds to the crit chance of every hit the enemy receives; it scales with `STATUS\_MAGNITUDE\_BONUS` and applies to every source|Closed|
 |60|Per-status re-apply and anti-lock rules (for example a Stun immunity window), and whether statuses may consume or amplify each other (today they only grant tags that conditions read)|Design decision|
-|61|No tag says an ability applies a status. Magnitude and duration cards target by element tags (all must match), so a pick can be dead on an ability whose only status is Burn. Revisit if it hurts in play; a permanent tag granted by compound cards would fix it but reopens "a compound has no tag"|Design decision|
-|62|The +50% cap on summed indirect bonuses is now shared by four elements. It does not bind at tier 1 (two elements, about +30%) but will at three elements or with Overclock; retune when tier 2 is designed|Design decision|
-|63|Storm placeholders and open edges: strike 0.5 of the crit hit, 4 per cast; Shock +0.15 for 3 s. The strike is a burst payload and never crits, so a future damage-number UI would show it as a plain hit. Wind has no role in Storm beyond the pair (a flurry scaled by `SPEED\_BONUS` would need timed bursts). Shock raising every source's crit chance makes it a party-wide debuff; revisit if it overshadows other builds|Design decision|
+|61|No tag says an ability applies a status. Element-gated stat cards (`GLOBAL_TAG_MATCH` with the element tag) handle theme stats; a duration or magnitude card can still be dead on an ability whose only status is Burn|Design decision|
+|62|Closed (Task BC): the +50% cap on summed indirect bonuses was removed with the indirect scalings|Closed|
+|63|Storm placeholders and open edges: strike 0.5 of the crit hit, 4 per cast; Shock +0.15 for 3 s. The strike is to move to abilities (item 64); Shock stays on the card. Shock raising every source's crit chance makes it a party-wide debuff; revisit if it overshadows other builds|Design decision|
+|64|Spawn ownership (Decided Oct 29, not built): bursts, zones and strikes belong to abilities and their forms, not to compound cards, so two abilities never carry two versions of one compound effect. Rework scope: Shatter, Magma, Storm, Blizzard, their cards, the ledger's burst resolution, tests|Design decision|
+|65|The ten stat bridges are proposed (see §4) and under review before any build. Open: ratios and caps, double-dipping with direct stats, Wildfire and Sandstorm identities, a CHILLED condition for Shatter's bridge|Design decision|
+|66|Timing of forms: compound at the tier 1 milestone and form at tier 2 (proposed), or the form at tier 1. Open. Depends on the Overclock path (it blocks evolution, so the deep path never gets a form), run length, and item 54|Design decision|
+|67|Layers: infusions FLAT, generic cards PERCENT, MULTIPLICATIVE unused. The workbook (multiplicative pools) must be re-run for this split before the hit/DoT balance is trusted|Balance|
+|68|Retune after Task BC: removing indirect damage lowers tier 1 damage by roughly a quarter to a third (placeholder estimate), and Frost's formula changed. Level-up stat cards for theme and damage stats do not exist yet, so the pool is nearly empty|Balance|
 
 
 
