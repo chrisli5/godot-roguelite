@@ -4562,9 +4562,12 @@ func _section_health_bar() -> void:
 	await _wait_physics_frames(1)
 	check(bat2.health_bar_component.get_parent() == bat2 and bat2.health_bar_component.get_parent() != bat2.sprite_node, "health bar: the bar is a child of the enemy root, not of the sprite")
 	check(bat2.health_bar_component.top_level, "health bar: the bar is top level, so root rotation or flip never turns it")
+	# The bar follows in _process and the bat moves in _physics_process, so a moving bat can be one step ahead of the bar.
+	# Freeze the bat and wait for a process frame to make the comparison independent of frame order.
+	bat2.set_physics_process(false)
 	bat2.rotation = 1.0
 	bat2.health_component.take_damage(1.0)
-	await _wait_physics_frames(1)
+	await tree.process_frame
 	check(is_zero_approx(bat2.health_bar_component.global_rotation) and bat2.health_bar_component.global_position.is_equal_approx(bat2.global_position + bat2.health_bar_component.offset), "health bar: a rotated enemy leaves the bar upright and above it")
 	var player_has_bar := false
 	var player := fx.get_player()
