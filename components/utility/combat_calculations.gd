@@ -33,13 +33,10 @@ static func generate_hit_payload(caster: Node2D, stats: StatsContainer, source_t
 		payload.crit_dot_share_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_DOT_SHARE)
 		payload.crit_refund_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_COOLDOWN_REFUND)
 		payload.crit_refund_cap_snapshot = stats.get_final_stat_value(Stat.Type.CRIT_REFUND_CAP)
-		# Indirect scale (Frost, Wind): applied once per cast, to the pre-crit hit and to the DoT snapshot.
-		var damage_scale: float = stats.get_indirect_damage_scale()
-		payload.damage_scale = damage_scale
-		payload.final_damage = base_damage * damage_scale
+		payload.final_damage = base_damage
 
 		# DoT magnitudes are snapshotted here, independent of BASE_DAMAGE and crit.
-		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE) * damage_scale
+		payload.dot_damage_snapshot = stats.get_final_stat_value(Stat.Type.DOT_DAMAGE)
 		payload.status_duration_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_DURATION)
 		payload.status_ramp_cap_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_RAMP_CAP)
 		payload.status_magnitude_snapshot = stats.get_final_stat_value(Stat.Type.STATUS_MAGNITUDE_BONUS)

@@ -72,8 +72,9 @@ func run(scene_tree: SceneTree, world_node: Node) -> int:
 		_section_speed_reach_bonus,
 		_section_geometry_standardization,
 		_section_stepped_delivery,
-		_section_indirect_scaling,
-		_section_lightning_earth_indirect,
+		_section_burst_cast_carry,
+		_section_lightning_earth_no_bursts,
+		_section_cooldown_bonus,
 		_section_status_sources,
 		_section_status_magnitude,
 		_section_all_match_tags,
@@ -1731,12 +1732,12 @@ func _section_per_hit_crit() -> void:
 		Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.STATUS_DURATION: 6.0, Stat.Type.STATUS_RAMP_CAP: 0.3,
 		Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: -0.1, Stat.Type.CRIT_DOT_SHARE: 1.0, Stat.Type.AOE_RADIUS: 40.0,
 	}
-	var lane := _indirect_lane(player, values, 2, 2)
+	var lane := _frost_wind_lane(player, values, 2, 2)
 	var never_rolls := true
 	for i in range(20):
 		var cast := CombatCalculations.generate_hit_payload(null, lane, null)
-		never_rolls = never_rolls and not cast.is_critical_hit and is_equal_approx(cast.final_damage, 11.7) and is_equal_approx(cast.dot_damage_snapshot, 4.68)
-	check(never_rolls, "per-hit crit: generate_hit_payload never rolls (20 casts at chance 1.0: not critical, damage base * scale 11.7, DoT 4.68 unscaled by the share)")
+		never_rolls = never_rolls and not cast.is_critical_hit and is_equal_approx(cast.final_damage, 10.0) and is_equal_approx(cast.dot_damage_snapshot, 4.0)
+	check(never_rolls, "per-hit crit: generate_hit_payload never rolls (20 casts at chance 1.0: not critical, damage base 10, DoT 4 unscaled by the share)")
 	var snap := CombatCalculations.generate_hit_payload(null, lane, null)
 	check(is_equal_approx(snap.crit_chance_snapshot, 1.0) and is_equal_approx(snap.crit_multiplier_snapshot, 2.0) and is_equal_approx(snap.crit_dot_share_snapshot, 1.0), "per-hit crit: the cast stores the chance, multiplier and share snapshots")
 	fx.reset_player_state()
@@ -2225,10 +2226,8 @@ func _section_lightning_crit_multiplier() -> void:
 	}, 1, cast_ledger)
 	var payload := CombatCalculations.resolve_hit_crit(CombatCalculations.generate_hit_payload(null, cast_stats, null))
 	var multiplier := 1.5 + mult_step * 3.0
-	# Task AU: Lightning 3 also adds its indirect damage scale (CRIT_CHANCE 1.09 * 1.0, clamped to +50%), applied before the crit multiplier.
-	check(is_equal_approx(payload.damage_scale, 1.5), "lightning crit mult: Lightning 3 with CRIT_CHANCE 1.09 gives damage_scale 1.5 (clamped)")
-	check(payload.is_critical_hit and is_equal_approx(payload.final_damage, 2.0 * payload.damage_scale * multiplier), "lightning crit mult: a forced crit with Lightning 3 deals BASE_DAMAGE * damage_scale * 1.95")
-	check(is_equal_approx(payload.dot_damage_snapshot, 4.0 * payload.damage_scale * (1.0 + (multiplier - 1.0) * 1.0)), "lightning crit mult: the Burn snapshot (scaled) follows the ledger-driven multiplier (share 1.0)")
+	check(payload.is_critical_hit and is_equal_approx(payload.final_damage, 2.0 * multiplier), "lightning crit mult: a forced crit with Lightning 3 deals BASE_DAMAGE * 1.95")
+	check(is_equal_approx(payload.dot_damage_snapshot, 4.0 * (1.0 + (multiplier - 1.0) * 1.0)), "lightning crit mult: the Burn snapshot follows the ledger-driven multiplier (share 1.0)")
 
 	# e. The evolved Arc Bolt at Lightning 5.
 	var evolved := _plasma_evolved_player()
@@ -3458,6 +3457,8 @@ func _section_geometry_contract() -> void:
 		# Task AZ: every ability profile carries CRIT_COOLDOWN_REFUND and CRIT_REFUND_CAP at 0.0, or Superconduct does nothing for the ability.
 		for refund_stat in [Stat.Type.CRIT_COOLDOWN_REFUND, Stat.Type.CRIT_REFUND_CAP]:
 			check(data.stats_profile.base_stats.has(refund_stat) and is_zero_approx(data.stats_profile.base_stats[refund_stat]), "geometry contract: %s profile has %s at 0.0" % [ability_name, Stat.Type.keys()[refund_stat]])
+		# Task BC: every ability profile carries COOLDOWN_BONUS at 0.0, or Frost does nothing for the ability.
+		check(data.stats_profile.base_stats.has(Stat.Type.COOLDOWN_BONUS) and is_zero_approx(data.stats_profile.base_stats[Stat.Type.COOLDOWN_BONUS]), "geometry contract: %s profile has COOLDOWN_BONUS at 0.0" % ability_name)
 		# Task X: a declared reach or speed stat needs its bonus key, or Earth and Wind do nothing for the ability.
 		if not geometry.get_reach_stats().is_empty():
 			check(data.stats_profile.base_stats.has(Stat.Type.REACH_BONUS), "geometry contract: %s profile has REACH_BONUS" % ability_name)
@@ -4094,7 +4095,7 @@ func _section_stepped_delivery() -> void:
 
 
 ## A slot-1 lane on the player's ledger with `values` as its profile, plus `frost` Frost and `wind` Wind levels bought for slot 1.
-func _indirect_lane(player: Player, values: Dictionary, frost: int, wind: int) -> StatsContainer:
+func _frost_wind_lane(player: Player, values: Dictionary, frost: int, wind: int) -> StatsContainer:
 	var lane := _make_stats(values, 1, player.run_ledger_component)
 	for i in range(frost):
 		player.run_ledger_component.log_slot_specific_purchase(load(FROST_CARD) as UpgradeDefinition, 1)
@@ -4103,90 +4104,32 @@ func _indirect_lane(player: Player, values: Dictionary, frost: int, wind: int) -
 	return lane
 
 
-func _section_indirect_scaling() -> void:
+## Burst copies and zone hits carry the cast's unscaled damage and DoT (Task BC removed the cast-time damage scale).
+func _section_burst_cast_carry() -> void:
 	var player := fx.fresh_player()
-	var frost := load(FROST_CARD) as UpgradeDefinition
-	var wind := load(WIND_CARD) as UpgradeDefinition
-	check(frost.indirect_effect != null and frost.indirect_effect.kind == IndirectEffectDefinition.Kind.COOLDOWN_DAMAGE and frost.indirect_effect.unlock_level == 2, "indirect: Frost carries a COOLDOWN_DAMAGE effect unlocking at level 2")
-	check(wind.indirect_effect != null and wind.indirect_effect.kind == IndirectEffectDefinition.Kind.SPEED_DAMAGE and wind.indirect_effect.unlock_level == 2, "indirect: Wind carries a SPEED_DAMAGE effect unlocking at level 2")
-
-	# Frost: -8% cooldown per level. Base 1.875 at level 2 gives exactly 0.3 s shaved.
-	var frost1 := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.875}, 1, 0)
-	check(is_equal_approx(frost1.get_final_stat_value(Stat.Type.COOLDOWN), 1.725) and is_equal_approx(frost1.get_indirect_damage_scale(), 1.0), "frost L1: the cooldown is shaved but there is no indirect bonus")
-	player.run_ledger_component.log_slot_specific_purchase(frost, 1)
-	check(is_equal_approx(frost1.get_final_stat_value(Stat.Type.COOLDOWN), 1.575) and is_equal_approx(frost1.get_indirect_damage_scale(), 1.12), "frost L2, 0.3 s shaved: +12%")
-	fx.reset_player_state()
-
-	# Frost floor: counts as 0.25 s when the effective cooldown is lower; never negative.
-	var floored := _indirect_lane(player, {Stat.Type.COOLDOWN: 0.3}, 5, 0)
-	check(is_equal_approx(floored.get_final_stat_value(Stat.Type.COOLDOWN), 0.18) and is_equal_approx(floored.get_indirect_damage_scale(), 1.0 + 0.05 / 0.1 * 0.04), "frost floor: a cooldown of 0.18 counts as 0.25, so 0.05 s shaved from 0.3 gives +2%")
-	fx.reset_player_state()
-	var below := _indirect_lane(player, {Stat.Type.COOLDOWN: 0.2}, 3, 0)
-	check(is_equal_approx(below.get_indirect_damage_scale(), 1.0), "frost floor: a base cooldown under the floor gives no bonus, never a negative one")
-	fx.reset_player_state()
-
-	# Wind: 0.5 * SPEED_BONUS, level 2 and up. Wind adds +0.1 SPEED_BONUS per level.
-	var wind1 := _indirect_lane(player, {Stat.Type.SPEED_BONUS: 0.1}, 0, 1)
-	check(is_equal_approx(wind1.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.2) and is_equal_approx(wind1.get_indirect_damage_scale(), 1.0), "wind L1: the speed bonus applies, the indirect does not")
-	player.run_ledger_component.log_slot_specific_purchase(wind, 1)
-	check(is_equal_approx(wind1.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.3) and is_equal_approx(wind1.get_indirect_damage_scale(), 1.15), "wind L2 with SPEED_BONUS 0.3: +15%")
-	fx.reset_player_state()
-	var wind_tenth := _indirect_lane(player, {Stat.Type.SPEED_BONUS: -0.1}, 0, 2)
-	check(is_equal_approx(wind_tenth.get_final_stat_value(Stat.Type.SPEED_BONUS), 0.1) and is_equal_approx(wind_tenth.get_indirect_damage_scale(), 1.05), "wind L2 with SPEED_BONUS 0.1: +5%")
-	fx.reset_player_state()
-
-	# Combined: summed, then clamped at +50%.
-	var both := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: 0.0}, 2, 2)
-	check(is_equal_approx(both.get_indirect_damage_scale(), 1.0 + 0.12 + 0.1), "frost + wind: bonuses are summed (0.12 + 0.1)")
-	fx.reset_player_state()
-	var capped := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: 1.0}, 2, 2)
-	check(is_equal_approx(capped.get_indirect_damage_scale(), 1.5), "frost + wind: the total clamps at +50%% (raw 0.12 + 0.6)")
-	fx.reset_player_state()
-
-	# generate_hit_payload: hit scaled before the crit roll, DoT scaled before the crit share, nothing else scaled.
 	var values: Dictionary = {
 		Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0,
 		Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.STATUS_DURATION: 6.0, Stat.Type.STATUS_RAMP_CAP: 0.3,
 		Stat.Type.COOLDOWN: 1.875, Stat.Type.SPEED_BONUS: -0.1, Stat.Type.CRIT_DOT_SHARE: 1.0, Stat.Type.AOE_RADIUS: 40.0,
 	}
-	var lane := _indirect_lane(player, values, 2, 2) # scale 1 + 0.12 + 0.05
-	var scale := lane.get_indirect_damage_scale()
-	var plain_lane := _make_stats(values)
-	check(is_equal_approx(scale, 1.17) and is_equal_approx(plain_lane.get_indirect_damage_scale(), 1.0), "payload: lane scale 1.17; a lane with no ledger 1.0")
-	var plain := CombatCalculations.generate_hit_payload(null, plain_lane, null)
-	var scaled := CombatCalculations.generate_hit_payload(null, lane, null)
-	check(is_equal_approx(plain.damage_scale, 1.0) and is_equal_approx(plain.final_damage, 10.0) and is_equal_approx(plain.dot_damage_snapshot, 4.0), "payload: no indirect cards leave scale 1.0, damage 10 and DoT 4")
-	check(is_equal_approx(scaled.damage_scale, 1.17) and is_equal_approx(scaled.final_damage, 11.7) and is_equal_approx(scaled.dot_damage_snapshot, 4.68), "payload: damage 10 * 1.17 and DoT 4 * 1.17, no crit")
-	check(is_equal_approx(scaled.status_duration_snapshot, plain.status_duration_snapshot) and is_equal_approx(scaled.status_ramp_cap_snapshot, plain.status_ramp_cap_snapshot), "payload: duration and ramp cap snapshots are not scaled")
-	values[Stat.Type.CRIT_CHANCE] = 1.0
-	values[Stat.Type.CRIT_MULTIPLIER] = 1.5
-	var crit_lane := _indirect_lane(player, values, 0, 0)
-	var crit := CombatCalculations.resolve_hit_crit(CombatCalculations.generate_hit_payload(null, crit_lane, null))
-	check(crit.is_critical_hit and is_equal_approx(crit.final_damage, 10.0 * 1.17 * 1.5), "payload crit: hit = base * scale * crit multiplier (17.55)")
-	check(is_equal_approx(crit.dot_damage_snapshot, 4.0 * 1.17 * (1.0 + 0.5 * 1.0)), "payload crit: DoT = base * scale, then the crit share (7.02)")
-	fx.reset_player_state()
-
-	# Burst copies and zone hits carry the cast's scale and are not scaled again.
-	player = fx.fresh_player()
 	var fire := load(FIRE_CARD) as UpgradeDefinition
-	values[Stat.Type.CRIT_CHANCE] = 0.0
-	var cast_lane := _indirect_lane(player, values, 2, 2)
+	var cast_lane := _frost_wind_lane(player, values, 2, 2)
 	player.run_ledger_component.log_slot_specific_purchase(fire, 1)
 	player.run_ledger_component.log_slot_specific_purchase(load(SHATTER_EVOLVE_CARD) as UpgradeDefinition, 1) # Chill now comes from the Shatter card (Task AO)
 	var cast := CombatCalculations.generate_hit_payload(null, cast_lane, null)
-	check(cast.status_effects_to_apply.size() == 2 and is_equal_approx(cast.damage_scale, 1.17), "burst/zone setup: the cast carries Chill, Burn and scale 1.17")
-	var burst_def := _make_burst(&"test_indirect_burst", ImpactBurstDefinition.Trigger.ON_HIT, 0.5)
+	check(cast.status_effects_to_apply.size() == 2 and is_equal_approx(cast.final_damage, 10.0) and is_equal_approx(cast.dot_damage_snapshot, 4.0), "burst/zone setup: the cast carries Chill and Burn, hit 10 and DoT 4 (no scale)")
+	var burst_def := _make_burst(&"test_carry_burst", ImpactBurstDefinition.Trigger.ON_HIT, 0.5)
 	var origin := Vector2(87000.0, 87000.0)
 	var bats := await _spawn_burst_bats(origin, [Vector2.ZERO, Vector2(20, 0)])
 	var bat_id: int = bats[0].get_instance_id()
 	ImpactBurst.run(burst_def, cast, origin, bat_id, tree.root.get_world_2d())
 	var burst_seen: CombatPayload = _recorded[1][0] if not _recorded[1].is_empty() else null
-	check(burst_seen != null and is_equal_approx(burst_seen.final_damage, cast.final_damage * 0.5) and is_equal_approx(burst_seen.damage_scale, 1.17), "burst copy: damage is the cast's scaled hit * fraction, not scaled again")
-	check(burst_seen != null and is_equal_approx(cast.final_damage, 11.7) and is_equal_approx(cast.dot_damage_snapshot, 4.68), "burst copy: the cast's own payload is untouched")
+	check(burst_seen != null and is_equal_approx(burst_seen.final_damage, cast.final_damage * 0.5), "burst copy: damage is the cast's hit * fraction")
+	check(burst_seen != null and is_equal_approx(cast.final_damage, 10.0) and is_equal_approx(cast.dot_damage_snapshot, 4.0), "burst copy: the cast's own payload is untouched")
 	_free_bats(bats)
 
 	LingeringZone.reset_registry()
-	var zone_def := _zone_burst(&"test_indirect_zone", load(TEST_LINGERING_ZONE) as PackedScene)
+	var zone_def := _zone_burst(&"test_carry_zone", load(TEST_LINGERING_ZONE) as PackedScene)
 	cast.impact_bursts = [zone_def]
 	var zone_bats := await _spawn_burst_bats(origin + Vector2(500, 0), [Vector2.ZERO])
 	var zone := await _spawn_zone(zone_def, cast, origin + Vector2(500, 0))
@@ -4199,114 +4142,28 @@ func _section_indirect_scaling() -> void:
 	check(zone != null and not zone_hits.is_empty(), "zone: the zone hit the bat inside it")
 	if not zone_hits.is_empty():
 		var zone_hit: CombatPayload = zone_hits[0]
-		check(is_equal_approx(zone_hit.final_damage, 0.0) and is_equal_approx(zone_hit.dot_damage_snapshot, 4.68) and is_equal_approx(zone_hit.damage_scale, 1.17), "zone: 0 hit damage, the cast's scaled DoT snapshot (4.68), scale unchanged")
+		check(is_equal_approx(zone_hit.final_damage, 0.0) and is_equal_approx(zone_hit.dot_damage_snapshot, 4.0), "zone: 0 hit damage, the cast's DoT snapshot (4.0)")
 	_free_bats(zone_bats)
 	LingeringZone.reset_registry()
 
-	# Direct effects are never gated: Chill at level 1 and Frost's cooldown cut.
+	# Direct effects are never gated: Chill applies at Frost level 1 once the Shatter card is bought.
 	player = fx.fresh_player()
-	var direct := _indirect_lane(player, {Stat.Type.COOLDOWN: 1.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 1.0}, 1, 0)
+	var direct := _frost_wind_lane(player, {Stat.Type.COOLDOWN: 1.0, Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 1.0}, 1, 0)
 	var level1 := CombatCalculations.generate_hit_payload(null, direct, null)
-	check(is_equal_approx(direct.get_final_stat_value(Stat.Type.COOLDOWN), 0.92) and level1.status_effects_to_apply.is_empty() and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 still cuts the cooldown, with scale 1.0, and carries no status (Task AO)")
+	check(level1.status_effects_to_apply.is_empty() and is_equal_approx(level1.final_damage, 10.0), "direct effects: Frost L1 carries no status (Task AO) and no damage change")
 	player.run_ledger_component.log_slot_specific_purchase(load(SHATTER_EVOLVE_CARD) as UpgradeDefinition, 1)
 	var level1_shatter := CombatCalculations.generate_hit_payload(null, direct, null)
-	check(level1_shatter.status_effects_to_apply.size() == 1 and level1_shatter.status_effects_to_apply[0].effect_id == &"chill" and is_equal_approx(level1_shatter.damage_scale, 1.0), "direct effects: with the Shatter card, Chill applies at Frost L1, scale 1.0")
+	check(level1_shatter.status_effects_to_apply.size() == 1 and level1_shatter.status_effects_to_apply[0].effect_id == &"chill", "direct effects: with the Shatter card, Chill applies at Frost L1")
 	fx.reset_player_state()
 
 
-## Task AU: Lightning (CRIT_CHANCE) and Earth (REACH_BONUS) are stat-conversion indirect effects at level 3.
-func _section_lightning_earth_indirect() -> void:
+## Task AU: the Lightning and Earth cards produce no impact bursts on any slot at any level.
+func _section_lightning_earth_no_bursts() -> void:
 	var lightning := load(LIGHTNING_CARD) as UpgradeDefinition
 	var earth := load(EARTH_CARD) as UpgradeDefinition
-	var fire := load(FIRE_CARD) as UpgradeDefinition
-	var lightning_effect := lightning.indirect_effect
-	var earth_effect := earth.indirect_effect
-
-	# a. The shipped definitions.
-	check(lightning_effect != null and lightning_effect.kind == IndirectEffectDefinition.Kind.CRIT_DAMAGE and lightning_effect.unlock_level == 3 and is_equal_approx(lightning_effect.crit_ratio, 1.0), "lightning/earth indirect: Lightning carries CRIT_DAMAGE, unlock 3, crit_ratio 1.0")
-	check(earth_effect != null and earth_effect.kind == IndirectEffectDefinition.Kind.REACH_DAMAGE and earth_effect.unlock_level == 3 and is_equal_approx(earth_effect.reach_ratio, 0.5), "lightning/earth indirect: Earth carries REACH_DAMAGE, unlock 3, reach_ratio 0.5")
-	check(int(IndirectEffectDefinition.Kind.CRIT_DAMAGE) == 3 and int(IndirectEffectDefinition.Kind.REACH_DAMAGE) == 4 and int(IndirectEffectDefinition.Kind.SPEED_DAMAGE) == 2, "lightning/earth indirect: Kind is append-only (SPEED_DAMAGE 2, CRIT_DAMAGE 3, REACH_DAMAGE 4)")
-
-	# b. Lightning: nothing at level 2, crit_ratio * CRIT_CHANCE at level 3 (CRIT_CHANCE 0.2 + 0.03 per level).
 	var player := fx.fresh_player()
-	var values := {Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.CRIT_CHANCE: 0.2, Stat.Type.CRIT_MULTIPLIER: 2.0, Stat.Type.REACH_BONUS: 0.0}
+	var values := {Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.DOT_DAMAGE: 4.0, Stat.Type.CRIT_CHANCE: 0.05, Stat.Type.CRIT_MULTIPLIER: 2.0, Stat.Type.REACH_BONUS: 0.0}
 	var lane := _make_stats(values, 1, player.run_ledger_component)
-	_grant(player, LIGHTNING_CARD, 1, 2)
-	check(is_equal_approx(lane.get_final_stat_value(Stat.Type.CRIT_CHANCE), 0.26) and is_equal_approx(lane.get_indirect_damage_scale(), 1.0), "lightning/earth indirect: Lightning 2 raises CRIT_CHANCE but adds no scale")
-	_grant(player, LIGHTNING_CARD, 1, 1)
-	check(is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.29), "lightning/earth indirect: Lightning 3 adds crit_ratio * CRIT_CHANCE (0.29)")
-	fx.reset_player_state()
-
-	# c. Earth: nothing at level 2, reach_ratio * REACH_BONUS at level 3 (REACH_BONUS 0.1 per level).
-	player = fx.fresh_player()
-	lane = _make_stats(values, 1, player.run_ledger_component)
-	_grant(player, EARTH_CARD, 1, 2)
-	check(is_equal_approx(lane.get_final_stat_value(Stat.Type.REACH_BONUS), 0.2) and is_equal_approx(lane.get_indirect_damage_scale(), 1.0), "lightning/earth indirect: Earth 2 raises REACH_BONUS but adds no scale")
-	_grant(player, EARTH_CARD, 1, 1)
-	check(is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.5 * 0.3), "lightning/earth indirect: Earth 3 adds reach_ratio * REACH_BONUS (0.15)")
-	fx.reset_player_state()
-
-	# d. Both on one slot sum: CRIT_CHANCE 0.05 + 0.09 = 0.14, REACH_BONUS 0.3 * 0.5 = 0.15.
-	player = fx.fresh_player()
-	values[Stat.Type.CRIT_CHANCE] = 0.05
-	lane = _make_stats(values, 1, player.run_ledger_component)
-	_grant(player, LIGHTNING_CARD, 1, 3)
-	_grant(player, EARTH_CARD, 1, 3)
-	check(is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.14 + 0.15), "lightning/earth indirect: Lightning 3 + Earth 3 on one slot sum (0.14 + 0.15)")
-
-	# e. The scale multiplies the pre-crit hit and the DoT snapshot, and nothing else.
-	var cast := CombatCalculations.generate_hit_payload(null, lane, null)
-	check(is_equal_approx(cast.damage_scale, 1.29) and is_equal_approx(cast.final_damage, 12.9) and is_equal_approx(cast.dot_damage_snapshot, 4.0 * 1.29), "lightning/earth indirect: the cast scales BOTH final_damage (pre-crit, 12.9) and dot_damage_snapshot (5.16)")
-	fx.reset_player_state()
-
-	# f. The sum clamps at +50%: a synthetic effect with a huge ratio proves it.
-	player = fx.fresh_player()
-	var huge := IndirectEffectDefinition.new()
-	huge.kind = IndirectEffectDefinition.Kind.CRIT_DAMAGE
-	huge.unlock_level = 1
-	huge.crit_ratio = 100.0
-	var huge_card := UpgradeDefinition.new()
-	huge_card.upgrade_id = "test_huge_crit_ratio"
-	huge_card.indirect_effect = huge
-	lane = _make_stats(values, 1, player.run_ledger_component)
-	_grant_card(player, huge_card, 1, 1)
-	check(IndirectScaling.bonus_of(huge, lane) > IndirectScaling.TOTAL_BONUS_CAP and is_equal_approx(lane.get_indirect_damage_scale(), 1.5), "lightning/earth indirect: a raw bonus of 5.0 clamps to scale 1.5")
-	fx.reset_player_state()
-
-	# g. A Lightning-only slot gets no status (so no DoT); the DoT snapshot is inert until a ticking status is carried.
-	player = fx.fresh_player()
-	lane = _make_stats(values, 1, player.run_ledger_component)
-	_grant(player, LIGHTNING_CARD, 1, 3)
-	var lightning_cast := CombatCalculations.generate_hit_payload(null, lane, null)
-	check(lightning_cast.status_effects_to_apply.is_empty() and lightning_cast.dot_damage_snapshot > 0.0, "lightning/earth indirect: a Lightning-only slot carries no status, its scaled DoT snapshot is inert")
-	_grant(player, FIRE_CARD, 1, 1)
-	var fire_cast := CombatCalculations.generate_hit_payload(null, lane, null)
-	check(fire_cast.status_effects_to_apply.size() == 1 and fire_cast.status_effects_to_apply[0].effect_id == &"burn" and is_equal_approx(fire_cast.dot_damage_snapshot, 4.0 * fire_cast.damage_scale), "lightning/earth indirect: with Fire the scaled DoT snapshot feeds Burn")
-	fx.reset_player_state()
-
-	# h. A crit multiplies after the scale, per hit: CRIT_CHANCE 1.0, Earth 3 (scale 1.15), multiplier 2.
-	player = fx.fresh_player()
-	values[Stat.Type.CRIT_CHANCE] = 1.0
-	lane = _make_stats(values, 1, player.run_ledger_component)
-	_grant(player, EARTH_CARD, 1, 3)
-	var crit_cast := CombatCalculations.generate_hit_payload(null, lane, null)
-	var crit_hit := CombatCalculations.resolve_hit_crit(crit_cast)
-	check(not crit_cast.is_critical_hit and is_equal_approx(crit_cast.final_damage, 11.5) and crit_hit.is_critical_hit and is_equal_approx(crit_hit.final_damage, 11.5 * 2.0), "lightning/earth indirect: the crit multiplies the scaled hit (10 * 1.15 * 2 = 23), the shared cast payload stays pre-crit")
-	fx.reset_player_state()
-
-	# i. Higher levels and Overclock keep the effect.
-	player = fx.fresh_player()
-	values[Stat.Type.CRIT_CHANCE] = 0.05
-	lane = _make_stats(values, 1, player.run_ledger_component)
-	_grant(player, LIGHTNING_CARD, 1, 4)
-	_grant(player, EARTH_CARD, 1, 4)
-	player.run_ledger_component.log_slot_specific_purchase(load(DBG_OVERCLOCK_CARD) as UpgradeDefinition, 1)
-	check(player.run_ledger_component.is_overclocked(1) and is_equal_approx(lane.get_indirect_damage_scale(), 1.0 + 0.17 + 0.5 * 0.4), "lightning/earth indirect: Overclocked at level 4 the effect stays active (0.17 + 0.20)")
-	fx.reset_player_state()
-
-	# j. Neither card produces impact bursts on any slot at any level.
-	player = fx.fresh_player()
-	lane = _make_stats(values, 1, player.run_ledger_component)
 	var other := _make_stats(values, 2, player.run_ledger_component)
 	var no_bursts := true
 	for level in range(5):
@@ -4314,7 +4171,78 @@ func _section_lightning_earth_indirect() -> void:
 		_grant(player, EARTH_CARD, 1, 1)
 		_grant(player, LIGHTNING_CARD, 2, 1)
 		no_bursts = no_bursts and lane.get_impact_bursts().is_empty() and other.get_impact_bursts().is_empty() and CombatCalculations.generate_hit_payload(null, lane, null).impact_bursts.is_empty()
-	check(no_bursts and lightning.impact_burst_payload == null and earth.impact_burst_payload == null, "lightning/earth indirect: the Lightning and Earth cards produce no impact bursts at levels 1 to 5")
+	check(no_bursts and lightning.impact_burst_payload == null and earth.impact_burst_payload == null, "lightning/earth: the Lightning and Earth cards produce no impact bursts at levels 1 to 5")
+	fx.reset_player_state()
+
+
+## Task BC: Frost adds a flat COOLDOWN_BONUS; an ability waits COOLDOWN / (1 + COOLDOWN_BONUS). No cast-time damage scale exists.
+func _section_cooldown_bonus() -> void:
+	var frost := load(FROST_CARD) as UpgradeDefinition
+	var modifier := frost.stat_modifiers[0]
+	check(frost.stat_modifiers.size() == 1 and modifier.type == StatModifier.Type.FLAT and is_equal_approx(modifier.value, 0.1) and modifier.target_stat_type == Stat.Type.COOLDOWN_BONUS, "cooldown bonus: the Frost card is one FLAT 0.1 modifier on COOLDOWN_BONUS")
+	check(int(Stat.Type.COOLDOWN_BONUS) == 28 and int(Stat.Type.CRIT_REFUND_CAP) == 27, "cooldown bonus: Stat.Type is append-only (CRIT_REFUND_CAP 27, COOLDOWN_BONUS 28)")
+	var no_indirect := true
+	for path in [FROST_CARD, WIND_CARD, EARTH_CARD, LIGHTNING_CARD]:
+		no_indirect = no_indirect and not ("indirect_effect" in (load(path) as UpgradeDefinition))
+	check(no_indirect, "cooldown bonus: no infusion card carries an indirect effect any more")
+
+	# a. The formula at Frost 0, 1, 3, 5, 15 on a 1.0 s base.
+	var expected := {0: 1.0, 1: 0.909, 3: 0.769, 5: 0.667, 15: 0.4}
+	for level in expected:
+		var level_player := fx.fresh_player()
+		var lane := _make_stats({Stat.Type.COOLDOWN: 1.0, Stat.Type.COOLDOWN_BONUS: 0.0}, 1, level_player.run_ledger_component)
+		_grant(level_player, FROST_CARD, 1, level)
+		check(absf(StatBonus.cooldown(lane) - expected[level]) < 0.001, "cooldown bonus: Frost %d gives a cooldown of %.3f (got %s)" % [level, expected[level], StatBonus.cooldown(lane)])
+		check(is_equal_approx(lane.get_final_stat_value(Stat.Type.COOLDOWN), 1.0), "cooldown bonus: Frost %d leaves the COOLDOWN stat itself alone" % level)
+	check(is_zero_approx(StatBonus.cooldown(null)), "cooldown bonus: an invalid container gives 0.0")
+	fx.reset_player_state()
+
+	# b. The divisor clamp: the cooldown never reaches 0 or less.
+	var huge := _make_stats({Stat.Type.COOLDOWN: 1.0, Stat.Type.COOLDOWN_BONUS: 1000000.0})
+	check(StatBonus.cooldown(huge) > 0.0, "cooldown bonus: a huge bonus still leaves a cooldown above 0")
+	var negative := _make_stats({Stat.Type.COOLDOWN: 1.0, Stat.Type.COOLDOWN_BONUS: -5.0})
+	check(StatBonus.cooldown(negative) > 0.0 and StatBonus.cooldown(negative) <= 1.0 / StatBonus.MIN_COOLDOWN_DIVISOR, "cooldown bonus: a negative bonus never gives a cooldown of 0 or less")
+
+	# c. The ability's timer follows Frost bought at runtime.
+	var player := fx.fresh_player()
+	var ability := fx.mount_arcane_bolt(player)
+	var timer := ability._cooldown_timer
+	var base_cooldown: float = ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	check(is_equal_approx(timer.wait_time, base_cooldown), "cooldown timer: before Frost the wait_time is the COOLDOWN stat (%s)" % timer.wait_time)
+	_grant(player, FROST_CARD, 1, 3)
+	ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN_BONUS)
+	check(absf(timer.wait_time - base_cooldown / 1.3) < 0.001, "cooldown timer: Frost 3 bought at runtime sets wait_time to COOLDOWN / 1.3 (got %s)" % timer.wait_time)
+	ability._start_cooldown_phase()
+	check(absf(timer.time_left - base_cooldown / 1.3) < 0.01, "cooldown timer: the next cooldown phase waits COOLDOWN / 1.3 (left %s)" % timer.time_left)
+
+	# d. Superconduct's refund still works with the new cooldown and never lengthens it.
+	var full: float = StatBonus.cooldown(ability.stats_container)
+	timer.start(full)
+	ability._on_cooldown_refunded(0.25)
+	check(absf(timer.time_left - (full - 0.25)) < 0.01, "cooldown refund: a refund shortens the Frost cooldown (left %s, full %s)" % [timer.time_left, full])
+	ability._on_cooldown_refunded(100.0)
+	var floored: float = timer.time_left
+	ability._on_cooldown_refunded(100.0)
+	check(floored <= Ability.MIN_REMAINING + 0.01 and timer.time_left <= floored + 0.001, "cooldown refund: a huge refund floors at MIN_REMAINING and a second one never lengthens it")
+	timer.stop()
+	ability._pending_refund = 0.25
+	ability._start_cooldown_phase()
+	check(absf(timer.time_left - (full - 0.25)) < 0.01 and is_zero_approx(ability._pending_refund), "cooldown refund: a held refund comes off the Frost cooldown")
+	timer.stop()
+	fx.reset_player_state()
+
+	# e. No cast-time damage scale: Frost, Wind, Earth and Lightning at 3 leave the hit and DoT snapshots alone.
+	player = fx.fresh_player()
+	var values: Dictionary = {
+		Stat.Type.BASE_DAMAGE: 10.0, Stat.Type.CRIT_CHANCE: 0.0, Stat.Type.CRIT_MULTIPLIER: 2.0, Stat.Type.DOT_DAMAGE: 4.0,
+		Stat.Type.COOLDOWN: 1.0, Stat.Type.COOLDOWN_BONUS: 0.0, Stat.Type.SPEED_BONUS: 0.0, Stat.Type.REACH_BONUS: 0.0,
+	}
+	var scale_lane := _make_stats(values, 1, player.run_ledger_component)
+	for card in [FROST_CARD, WIND_CARD, EARTH_CARD, LIGHTNING_CARD]:
+		_grant(player, card, 1, 3)
+	var cast := CombatCalculations.generate_hit_payload(null, scale_lane, null)
+	check(is_equal_approx(cast.final_damage, 10.0) and is_equal_approx(cast.dot_damage_snapshot, 4.0), "no damage scale: Frost, Wind, Earth and Lightning at 3 leave final_damage at BASE_DAMAGE and the DoT snapshot at DOT_DAMAGE")
+	check(not ("damage_scale" in cast) and not scale_lane.has_method("get_indirect_damage_scale"), "no damage scale: CombatPayload.damage_scale and StatsContainer.get_indirect_damage_scale are gone")
 	fx.reset_player_state()
 
 
@@ -4417,7 +4345,7 @@ func _section_burst_gating_synthetic() -> void:
 	overload.unlock_level = 3
 	var explosion_card := _burst_test_card("test_explosion_card", explosion)
 	var overload_card := _burst_test_card("test_overload_card", overload)
-	check(ImpactBurstDefinition.new().unlock_level == 1 and IndirectScaling.is_unlocked(3, 3) and not IndirectScaling.is_unlocked(2, 3), "bursts AE: unlock_level defaults to 1; the shared gate is level >= unlock")
+	check(ImpactBurstDefinition.new().unlock_level == 1 and LevelGate.is_unlocked(3, 3) and not LevelGate.is_unlocked(2, 3), "bursts AE: unlock_level defaults to 1; the shared gate is level >= unlock")
 
 	# Real cards: direct stats stay, no burst on any level.
 	var real_earth := load(EARTH_CARD) as UpgradeDefinition
@@ -5040,10 +4968,10 @@ func _section_superconduct() -> void:
 	var frost_ability := frost_player.ability_container.get_ability_by_slot(1)
 	var tags: Array[Tags.Type] = frost_ability.tag_component.get_permanent_tags()
 	var ledger := frost_player.run_ledger_component
-	var scale_before := frost_ability.stats_container.get_indirect_damage_scale()
-	var cooldown_before := frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	var bonus_before := frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN_BONUS)
+	var cooldown_before := StatBonus.cooldown(frost_ability.stats_container)
 	var payload_before := CombatCalculations.generate_hit_payload(frost_player, frost_ability.stats_container, frost_ability.tag_component)
-	check(is_zero_approx(payload_before.crit_refund_snapshot) and scale_before > 1.0, "superconduct frost: before the card there is no refund and Frost's indirect scale is above 1 (%s)" % scale_before)
+	check(is_zero_approx(payload_before.crit_refund_snapshot) and bonus_before > 0.0, "superconduct frost: before the card there is no refund and Frost's COOLDOWN_BONUS is above 0 (%s)" % bonus_before)
 	frost_player.apply_contextual_upgrade(offer[0])
 	check(ledger.purchase_registry.has(PurchaseKey.make("compound_superconduct_evolve", 1)) and not ledger.purchase_registry.has("compound_superconduct_evolve"), "superconduct evolve: logged as a slot-specific purchase")
 	check(is_equal_approx(ledger.get_modifier_totals(1, tags, Stat.Type.CRIT_COOLDOWN_REFUND).x, 0.25) and is_equal_approx(ledger.get_modifier_totals(1, tags, Stat.Type.CRIT_REFUND_CAP).x, 0.5), "superconduct evolve: slot 1 gets +0.25 and +0.5 flat")
@@ -5052,8 +4980,8 @@ func _section_superconduct() -> void:
 	var other_stats := _make_stats({Stat.Type.CRIT_COOLDOWN_REFUND: 0.0, Stat.Type.CRIT_REFUND_CAP: 0.0}, 2, ledger)
 	check(is_zero_approx(other_stats.get_final_stat_value(Stat.Type.CRIT_COOLDOWN_REFUND)) and is_zero_approx(other_stats.get_final_stat_value(Stat.Type.CRIT_REFUND_CAP)), "superconduct evolve: a slot-2 stats container with the keys still reads 0 / 0")
 	var payload_after := CombatCalculations.generate_hit_payload(frost_player, frost_ability.stats_container, frost_ability.tag_component)
-	check(is_equal_approx(payload_after.crit_refund_snapshot, 0.25) and is_equal_approx(payload_after.crit_refund_cap_snapshot, 0.5), "superconduct cast: the payload snapshots 0.25 / 0.5, not scaled by Frost's damage_scale (%s)" % payload_after.damage_scale)
-	check(is_equal_approx(payload_after.damage_scale, payload_before.damage_scale) and is_equal_approx(payload_after.final_damage, payload_before.final_damage) and is_equal_approx(payload_after.dot_damage_snapshot, payload_before.dot_damage_snapshot) and is_equal_approx(frost_ability.stats_container.get_indirect_damage_scale(), scale_before) and is_equal_approx(frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN), cooldown_before), "superconduct frost: damage_scale, hit and DoT snapshots, Frost's indirect scale and COOLDOWN are unchanged by the card")
+	check(is_equal_approx(payload_after.crit_refund_snapshot, 0.25) and is_equal_approx(payload_after.crit_refund_cap_snapshot, 0.5), "superconduct cast: the payload snapshots 0.25 / 0.5, unaffected by Frost")
+	check(is_equal_approx(payload_after.final_damage, payload_before.final_damage) and is_equal_approx(payload_after.dot_damage_snapshot, payload_before.dot_damage_snapshot) and is_equal_approx(frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN_BONUS), bonus_before) and is_equal_approx(StatBonus.cooldown(frost_ability.stats_container), cooldown_before), "superconduct frost: the hit and DoT snapshots, Frost's COOLDOWN_BONUS and the cooldown are unchanged by the card")
 	var frost_bats := await _spawn_burst_bats(Vector2(114000.0, 114000.0), [Vector2(0, 0)])
 	var capture := _CaptureGeometry.new()
 	frost_ability.add_child(capture)
@@ -5068,7 +4996,7 @@ func _section_superconduct() -> void:
 	check(frost_timer.is_stopped() and is_equal_approx(frost_ability._pending_refund, 0.25), "superconduct cast: a crit during delivery (timer stopped) is held as a pending refund")
 	capture.delivery_finished.connect(frost_ability._on_delivery_finished)
 	capture.delivery_finished.emit()
-	var frost_full: float = frost_ability.stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+	var frost_full: float = StatBonus.cooldown(frost_ability.stats_container)
 	check(absf(frost_timer.time_left - maxf(frost_full - 0.25, floor_time)) < 0.01, "superconduct cast: delivery_finished starts the cooldown shortened by the held refund (left %s, full %s)" % [frost_timer.time_left, frost_full])
 	frost_timer.stop()
 	_free_bats(frost_bats)

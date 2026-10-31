@@ -13,12 +13,9 @@ extends Resource
 @export var crit_chance_snapshot: float = 0.0
 @export var crit_multiplier_snapshot: float = 0.0
 @export var crit_dot_share_snapshot: float = 0.0
-## Cast-time snapshots of CRIT_COOLDOWN_REFUND (seconds per critting hit) and CRIT_REFUND_CAP (seconds per cast). Not scaled by damage_scale.
+## Cast-time snapshots of CRIT_COOLDOWN_REFUND (seconds per critting hit) and CRIT_REFUND_CAP (seconds per cast).
 @export var crit_refund_snapshot: float = 0.0
 @export var crit_refund_cap_snapshot: float = 0.0
-## Indirect damage scale applied once to this cast's hit damage and DoT snapshot (1.0 = none). Copies keep it
-## and never apply it again.
-@export var damage_scale: float = 1.0
 
 @export_group("Static Status Integration")
 ## Status effects that this hit applies to the target on impact

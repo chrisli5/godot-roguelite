@@ -38,6 +38,7 @@ enum Type {
 	INCOMING_CRIT_BONUS, ## Added to the crit chance of every hit this entity receives. Raised by a status such as Shock. 0 = none.
 	CRIT_COOLDOWN_REFUND, ## Seconds a critting hit shaves off its ability's running cooldown (Superconduct). 0 = off.
 	CRIT_REFUND_CAP, ## Most seconds one cast can refund in total through CRIT_COOLDOWN_REFUND. 0 = none.
+	COOLDOWN_BONUS, ## Flat bonus an ability's cooldown is divided by (1 + bonus). Raised by Frost. 0 = none.
 }
 
 @export var type: Type = Type.MAX_HEALTH

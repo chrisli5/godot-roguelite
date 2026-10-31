@@ -1,18 +1,13 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=6 format=3 uid="uid://cfa2o0pm6bmib"]
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://cfa2o0pm6bmib"]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_6g077"]
 [ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_windmod"]
-[ext_resource type="Script" path="res://components/upgrade/resources/indirect_effect_definition.gd" id="3_indirect"]
 
 [sub_resource type="Resource" id="Resource_windmod"]
 script = ExtResource("2_windmod")
 value = 0.1
 target_stat_type = 22
 metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
-
-[sub_resource type="Resource" id="Resource_windind"]
-script = ExtResource("3_indirect")
-kind = 2
 
 [resource]
 script = ExtResource("1_6g077")
@@ -23,5 +18,4 @@ category = 1
 scope = 1
 target_tags = Array[int]([12])
 stat_modifiers = Array[ExtResource("2_windmod")]([SubResource("Resource_windmod")])
-indirect_effect = SubResource("Resource_windind")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

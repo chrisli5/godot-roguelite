@@ -169,7 +169,7 @@ func _setup_cooldown_clock() -> void:
 func _start_cooldown_phase() -> void:
 	var downtime: float = 4.0
 	if is_instance_valid(stats_container):
-		downtime = stats_container.get_final_stat_value(Stat.Type.COOLDOWN)
+		downtime = StatBonus.cooldown(stats_container)
 	if _pending_refund > 0.0:
 		downtime = minf(downtime, maxf(downtime - _pending_refund, MIN_REMAINING))
 		_pending_refund = 0.0
@@ -196,8 +196,10 @@ func _on_delivery_finished() -> void:
 
 
 func _on_stat_updated(stat_type: Stat.Type, new_value: float) -> void:
-	if stat_type == Stat.Type.COOLDOWN and is_instance_valid(_cooldown_timer):
-		_cooldown_timer.wait_time = new_value
+	if (stat_type == Stat.Type.COOLDOWN or stat_type == Stat.Type.COOLDOWN_BONUS) and is_instance_valid(_cooldown_timer):
+		var cooldown: float = StatBonus.cooldown(stats_container)
+		if cooldown > 0.0:
+			_cooldown_timer.wait_time = cooldown
 
 
 ## Runtime state that cannot be rebuilt from AbilityData or the run ledger.

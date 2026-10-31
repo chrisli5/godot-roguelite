@@ -1,8 +1,7 @@
-[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=6 format=3 uid="uid://5vbvwd2j3uhu"]
+[gd_resource type="Resource" script_class="UpgradeDefinition" load_steps=4 format=3 uid="uid://5vbvwd2j3uhu"]
 
 [ext_resource type="Script" uid="uid://dw807gwf2omsp" path="res://components/upgrade/resources/upgrade_definition.gd" id="1_l6x1w"]
 [ext_resource type="Script" uid="uid://dl8u8mdolsyc7" path="res://components/stat/resources/stat_modifier.gd" id="2_lightmod"]
-[ext_resource type="Script" path="res://components/upgrade/resources/indirect_effect_definition.gd" id="3_indirect"]
 
 [sub_resource type="Resource" id="Resource_lightmod"]
 script = ExtResource("2_lightmod")
@@ -16,11 +15,6 @@ value = 0.15
 target_stat_type = 7
 metadata/_custom_type_script = "uid://dl8u8mdolsyc7"
 
-[sub_resource type="Resource" id="Resource_ind"]
-script = ExtResource("3_indirect")
-kind = 3
-unlock_level = 3
-
 [resource]
 script = ExtResource("1_l6x1w")
 upgrade_id = "inf_lightning"
@@ -30,5 +24,4 @@ category = 1
 scope = 1
 target_tags = Array[int]([11])
 stat_modifiers = Array[ExtResource("2_lightmod")]([SubResource("Resource_lightmod"), SubResource("Resource_lightmult")])
-indirect_effect = SubResource("Resource_ind")
 metadata/_custom_type_script = "uid://dw807gwf2omsp"

@@ -125,13 +125,6 @@ func get_impact_bursts() -> Array[ImpactBurstDefinition]:
 	return _ledger.get_impact_bursts(_slot_owner_index, _get_permanent_tags())
 
 
-## Cast-time damage scale from this slot's active indirect effects (1.0 + capped bonus). 1.0 for ledger-less owners.
-func get_indirect_damage_scale() -> float:
-	if not is_instance_valid(_ledger):
-		return 1.0
-	return IndirectScaling.damage_scale(_ledger.get_active_indirect_effects(_slot_owner_index, _get_permanent_tags()), self)
-
-
 # --- REAL-TIME COMBAT INTERFACES (Autonomous, single-argument API signatures) ---
 
 func add_modifier(modifier: StatModifier) -> void:
